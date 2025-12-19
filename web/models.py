@@ -1,3 +1,128 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
-# Create your models here.
+
+class Player(models.Model):
+    class Position(models.TextChoices):
+        OFFENCE = "O", "Offence"
+        DEFENCE = "D", "Defence"
+        BOTH = "B", "Both"
+        GOALIE = "G", "Goalie"
+
+    # NOTE: jersey number is NOT globally unique.
+    number = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(99)],
+        help_text="Jersey number (0-99). Not required to be unique.",
+    )
+
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+
+    position = models.CharField(max_length=1, choices=Position.choices)
+
+    # Optional but strongly recommended for importing stats from files
+    external_id = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Unique ID from your source data (recommended for imports).",
+    )
+
+    active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["last_name", "first_name"]),
+            models.Index(fields=["position"]),
+            models.Index(fields=["external_id"]),
+        ]
+        ordering = ["last_name", "first_name", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.last_name}, {self.first_name} #{self.number}"
+
+
+class Week(models.Model):
+    season = models.PositiveSmallIntegerField(help_text="e.g., 2026")
+    week_number = models.PositiveSmallIntegerField(help_text="1..N within a season")
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["season", "week_number"], name="uniq_week_per_season"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["season", "week_number"]),
+            models.Index(fields=["start_date", "end_date"]),
+        ]
+        ordering = ["-season", "week_number"]
+
+    def __str__(self) -> str:
+        return f"{self.season} - Week {self.week_number} ({self.start_date} to {self.end_date})"
+
+
+class PlayerWeekStat(models.Model):
+    player = models.ForeignKey(
+        Player, on_delete=models.CASCADE, related_name="weekly_stats"
+    )
+    week = models.ForeignKey(Week, on_delete=models.CASCADE, related_name="player_stats")
+
+    # Stats (all defaults to 0 for easy imports/creates)
+    goals = models.PositiveSmallIntegerField(default=0)
+    assists = models.PositiveSmallIntegerField(default=0)
+    points = models.PositiveSmallIntegerField(default=0)
+
+    penalty_minutes = models.PositiveSmallIntegerField(default=0)
+
+    powerplay_goals = models.PositiveSmallIntegerField(default=0)
+    powerplay_assists = models.PositiveSmallIntegerField(default=0)
+
+    shorthanded_goals = models.PositiveSmallIntegerField(default=0)
+
+    loose_balls = models.PositiveSmallIntegerField(default=0)
+    turnovers = models.PositiveSmallIntegerField(default=0)
+    caused_turnovers = models.PositiveSmallIntegerField(default=0)
+
+    blocked_shots = models.PositiveSmallIntegerField(default=0)
+    shots_on_goal = models.PositiveSmallIntegerField(default=0)
+
+    # Store as 0..100 (%) for simplicity. Use decimal for precision.
+    faceoff_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="0.00 to 100.00",
+    )
+
+    # Import/audit helpers (optional)
+    source_file = models.CharField(max_length=255, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["player", "week"], name="uniq_player_week_stat"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["week", "player"]),
+            models.Index(fields=["player", "week"]),
+        ]
+        ordering = ["week__season", "week__week_number", "player__last_name"]
+
+    def __str__(self) -> str:
+        return f"{self.player} - {self.week}"
