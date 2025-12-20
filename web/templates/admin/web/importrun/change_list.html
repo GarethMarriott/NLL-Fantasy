@@ -1,0 +1,16 @@
+{% extends "admin/change_list.html" %}
+
+{% block sidebar %}
+  {{ block.super }}
+
+  <div class="module" style="margin-top: 1rem;">
+    <h2>Import Tools</h2>
+    <ul>
+      <li>
+        <a href="{% url 'admin:import-weekly-stats' %}">
+          Import Weekly Stats (CSV)
+        </a>
+      </li>
+    </ul>
+  </div>
+{% endblock %}

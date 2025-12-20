@@ -1,0 +1,143 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <h1>{{ title }}</h1>
+  <p>Upload a CSV to import Players, Weeks, and Player Weekly Stats (upsert).</p>
+
+  <form method="post" enctype="multipart/form-data" style="margin-top: 1rem;">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="default">Upload & Import</button>
+  </form>
+
+  <hr style="margin: 2rem 0;" />
+
+<section class="csv-template">
+  <h1>Weekly Stats CSV Template</h1>
+
+  <p>
+    Use this template to upload player + week + stat rows. The importer will create/update Players and Weeks,
+    then upsert Player Weekly Stats (safe to re-upload).
+  </p>
+
+  <h2>Filename example</h2>
+  <pre><code>weekly_stats_2026_week_1.csv</code></pre>
+
+  <h2>Required header row (must match exactly)</h2>
+  <pre><code>external_id,first_name,last_name,number,position,season,week_number,start_date,end_date,goals,assists,points,penalty_minutes,powerplay_goals,powerplay_assists,shorthanded_goals,loose_balls,turnovers,caused_turnovers,blocked_shots,shots_on_goal,faceoff_percentage</code></pre>
+
+  <h2>Example rows</h2>
+  <pre><code>P001,John,Smith,12,O,2026,1,2026-01-05,2026-01-11,3,2,5,4,1,0,0,7,2,1,0,9,55.50
+P002,Mike,Jones,31,G,2026,1,2026-01-05,2026-01-11,0,0,0,0,0,0,0,3,1,0,0,0,0.00
+P003,Alex,Brown,44,D,2026,1,2026-01-05,2026-01-11,1,1,2,2,0,0,0,5,4,2,3,4,0.00</code></pre>
+
+  <h2>Column rules</h2>
+
+  <h3>Player identity</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Column</th>
+        <th>Rules</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>external_id</code></td>
+        <td><strong>Required.</strong> Must be unique per player across all weeks. Used to upsert players.</td>
+      </tr>
+      <tr>
+        <td><code>first_name</code>, <code>last_name</code></td>
+        <td>Required.</td>
+      </tr>
+      <tr>
+        <td><code>number</code></td>
+        <td>Integer (0–99).</td>
+      </tr>
+      <tr>
+        <td><code>position</code></td>
+        <td>One of: <code>O</code>, <code>D</code>, <code>T</code>, <code>G</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Week definition</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Column</th>
+        <th>Rules</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>season</code></td>
+        <td>Integer (e.g. <code>2026</code>).</td>
+      </tr>
+      <tr>
+        <td><code>week_number</code></td>
+        <td>Integer (1, 2, 3…).</td>
+      </tr>
+      <tr>
+        <td><code>start_date</code></td>
+        <td>Date in <code>YYYY-MM-DD</code> format.</td>
+      </tr>
+      <tr>
+        <td><code>end_date</code></td>
+        <td>Date in <code>YYYY-MM-DD</code> format.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    <strong>Note:</strong> <code>season</code> + <code>week_number</code> uniquely defines a week.
+    Dates will be updated if re-imported.
+  </p>
+
+  <h3>Stat fields</h3>
+  <ul>
+    <li>All stat fields are optional numeric.</li>
+    <li>Blank cells are treated as <strong>0</strong>.</li>
+    <li>All are integers except <code>faceoff_percentage</code>.</li>
+  </ul>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Column</th>
+        <th>Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>goals</code></td><td>int</td></tr>
+      <tr><td><code>assists</code></td><td>int</td></tr>
+      <tr><td><code>points</code></td><td>int</td></tr>
+      <tr><td><code>penalty_minutes</code></td><td>int</td></tr>
+      <tr><td><code>powerplay_goals</code></td><td>int</td></tr>
+      <tr><td><code>powerplay_assists</code></td><td>int</td></tr>
+      <tr><td><code>shorthanded_goals</code></td><td>int</td></tr>
+      <tr><td><code>loose_balls</code></td><td>int</td></tr>
+      <tr><td><code>turnovers</code></td><td>int</td></tr>
+      <tr><td><code>caused_turnovers</code></td><td>int</td></tr>
+      <tr><td><code>blocked_shots</code></td><td>int</td></tr>
+      <tr><td><code>shots_on_goal</code></td><td>int</td></tr>
+      <tr><td><code>faceoff_percentage</code></td><td>decimal (0–100)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Excel / Google Sheets tips</h2>
+  <ul>
+    <li>Export as <strong>CSV UTF-8</strong>.</li>
+    <li>Do <strong>not</strong> rename headers.</li>
+    <li>Dates must stay <code>YYYY-MM-DD</code>.</li>
+    <li>Faceoff percentage should be numeric (e.g. <code>55.5</code>, not <code>55.5%</code>).</li>
+  </ul>
+
+  <h2>What happens on upload</h2>
+  <ul>
+    <li>Players are created or updated by <code>external_id</code>.</li>
+    <li>Weeks are created or updated by <code>(season, week_number)</code>.</li>
+    <li>Stats are upserted by <code>(player, week)</code>.</li>
+    <li>Re-uploading the same file is safe.</li>
+  </ul>
+</section>
+{% endblock %}

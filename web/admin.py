@@ -1,6 +1,17 @@
-from django.contrib import admin
-from .models import Player, Week, PlayerWeekStat
+from django.contrib import admin, messages
+from django.shortcuts import render, redirect
+from django.urls import path
+from django.utils import timezone
+from django.core.exceptions import ValidationError
 
+from .models import Player, Week, PlayerWeekStat
+from .models import ImportRun
+from .forms import ImportWeeklyStatsForm
+from .importers import import_weekly_stats_csv
+from django.contrib import admin
+from .admin_site import FantasyAdminSite
+
+admin_site = FantasyAdminSite(name="fantasy_admin")
 
 class PlayerWeekStatInline(admin.TabularInline):
     model = PlayerWeekStat
@@ -28,7 +39,8 @@ class PlayerWeekStatInline(admin.TabularInline):
     ordering = ("week__season", "week__week_number")
 
 
-@admin.register(Player)
+
+@admin.register(Player, site=admin_site)
 class PlayerAdmin(admin.ModelAdmin):
     list_display = ("last_name", "first_name", "number", "position", "active", "external_id")
     list_filter = ("position", "active")
@@ -63,7 +75,7 @@ class PlayerWeekStatWeekInline(admin.TabularInline):
     ordering = ("player__last_name", "player__first_name")
 
 
-@admin.register(Week)
+@admin.register(Week, site=admin_site)
 class WeekAdmin(admin.ModelAdmin):
     list_display = ("season", "week_number", "start_date", "end_date")
     list_filter = ("season",)
@@ -72,7 +84,8 @@ class WeekAdmin(admin.ModelAdmin):
     inlines = [PlayerWeekStatWeekInline]
 
 
-@admin.register(PlayerWeekStat)
+
+@admin.register(PlayerWeekStat, site=admin_site)
 class PlayerWeekStatAdmin(admin.ModelAdmin):
     list_display = (
         "player",
@@ -97,3 +110,115 @@ class PlayerWeekStatAdmin(admin.ModelAdmin):
     search_fields = ("player__first_name", "player__last_name", "player__external_id", "source_file")
     autocomplete_fields = ("player", "week")
     ordering = ("-week__season", "-week__week_number", "player__last_name", "player__first_name")
+
+
+@admin.register(ImportRun, site=admin_site)
+class ImportRunAdmin(admin.ModelAdmin):
+    change_list_template = "admin/web/importrun/change_list.html"
+    list_display = ("created_at", "status", "original_filename", "uploaded_by")
+    list_filter = ("status", "created_at")
+    readonly_fields = (
+        "status",
+        "uploaded_by",
+        "original_filename",
+        "uploaded_file",
+        "players_created",
+        "players_updated",
+        "weeks_created",
+        "weeks_updated",
+        "stats_created",
+        "stats_updated",
+        "log",
+        "started_at",
+        "finished_at",
+        "created_at",
+    )
+    search_fields = ("original_filename", "log")
+
+    def has_add_permission(self, request):
+        # prevent creating ImportRun manually; use the upload page instead
+        return False
+
+
+# Add a custom "Upload CSV" view under the admin
+class ImportToolsAdminSiteMixin:
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "import-weekly-stats/",
+                self.admin_site.admin_view(self.import_weekly_stats_view),
+                name="import-weekly-stats",
+            ),
+        ]
+        return custom + urls
+
+    def import_weekly_stats_view(self, request):
+        if request.method == "POST":
+            form = ImportWeeklyStatsForm(request.POST, request.FILES)
+            if form.is_valid():
+                f = form.cleaned_data["csv_file"]
+
+                run = ImportRun.objects.create(
+                    uploaded_by=request.user,
+                    uploaded_file=f,
+                    original_filename=getattr(f, "name", ""),
+                    status=ImportRun.Status.PENDING,
+                )
+
+                # Run import
+                run.status = ImportRun.Status.RUNNING
+                run.started_at = timezone.now()
+                run.save(update_fields=["status", "started_at"])
+
+                try:
+                    log_text, counters = import_weekly_stats_csv(run)
+                    run.status = ImportRun.Status.SUCCESS
+                    run.log = log_text
+
+                    for k, v in counters.items():
+                        setattr(run, k, v)
+
+                    messages.success(request, "Import succeeded.")
+                except ValidationError as e:
+                    run.status = ImportRun.Status.FAILED
+                    run.log = "\n".join(e.messages) if hasattr(e, "messages") else str(e)
+                    messages.error(request, f"Import failed: {run.log}")
+                except Exception as e:
+                    run.status = ImportRun.Status.FAILED
+                    run.log = f"Unexpected error: {type(e).__name__}: {e}"
+                    messages.error(request, run.log)
+
+                run.finished_at = timezone.now()
+                run.save()
+
+                # Redirect to the ImportRun record
+                return redirect(f"/admin/web/importrun/{run.id}/change/")
+        else:
+            form = ImportWeeklyStatsForm()
+
+        context = dict(
+            self.admin_site.each_context(request),
+            form=form,
+            title="Import Weekly Stats CSV",
+        )
+        return render(request, "admin/import_weekly_stats.html", context)
+
+
+# Monkey-patch the existing Player/Week/Stat admins to include the extra URL
+# Easiest approach: subclass AdminSite is overkill; so we attach mixin to one admin.
+# We'll attach to ImportRunAdmin by re-registering it is messy; instead we extend admin.site directly.
+# The clean way: create a custom AdminSite. MVP shortcut below:
+
+# Add URL to the global admin site by subclassing AdminSite (clean MVP approach)
+from django.contrib.admin import AdminSite
+
+
+class FantasyAdminSite(ImportToolsAdminSiteMixin, AdminSite):
+    site_header = "Fantasy Lacrosse Admin"
+    site_title = "Fantasy Lacrosse Admin"
+    index_title = "Admin"
+
+
+# IMPORTANT:
+# If you want the clean/custom admin site, you must switch to it in config/urls.py.

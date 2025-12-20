@@ -6,7 +6,7 @@ class Player(models.Model):
     class Position(models.TextChoices):
         OFFENCE = "O", "Offence"
         DEFENCE = "D", "Defence"
-        BOTH = "B", "Both"
+        TRANSITION = "T", "Transition"
         GOALIE = "G", "Goalie"
 
     # NOTE: jersey number is NOT globally unique.
@@ -126,3 +126,45 @@ class PlayerWeekStat(models.Model):
 
     def __str__(self) -> str:
         return f"{self.player} - {self.week}"
+
+class ImportRun(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        RUNNING = "RUNNING", "Running"
+        SUCCESS = "SUCCESS", "Success"
+        FAILED = "FAILED", "Failed"
+
+    uploaded_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="import_runs",
+    )
+
+    uploaded_file = models.FileField(upload_to="imports/")
+    original_filename = models.CharField(max_length=255, blank=True)
+
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+
+    # Summary counters
+    players_created = models.PositiveIntegerField(default=0)
+    players_updated = models.PositiveIntegerField(default=0)
+    weeks_created = models.PositiveIntegerField(default=0)
+    weeks_updated = models.PositiveIntegerField(default=0)
+    stats_created = models.PositiveIntegerField(default=0)
+    stats_updated = models.PositiveIntegerField(default=0)
+
+    # Store errors / summary text
+    log = models.TextField(blank=True)
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"ImportRun {self.id} - {self.status} - {self.original_filename or self.uploaded_file.name}"
