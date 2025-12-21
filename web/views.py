@@ -1,6 +1,19 @@
 from django.shortcuts import render
 
-from django.http import HttpResponse
-
 def home(request):
-    return HttpResponse("Fantasy Lacrosse: Hello world!")
+    return render(request, "web/index.html")
+
+def about(request):
+    return render(request, "web/about.html")
+
+def teams(request):
+    return render(request, "web/teams.html")
+
+def players(request):
+    return render(request, "web/players.html")
+
+def schedule(request):
+    return render(request, "web/schedule.html")
+
+def standings(request):
+    return render(request, "web/standings.html")
