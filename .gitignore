@@ -5,3 +5,5 @@ web/__pycache__/urls.cpython-314.pyc
 /config/__pycache__/
 config/__pycache__/settings.cpython-314.pyc
 /web/__pycache__
+/web/migrations/__pycache__
+/web/migrations/__pycache__
