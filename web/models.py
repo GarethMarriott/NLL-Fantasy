@@ -4,7 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Player(models.Model):
     class Position(models.TextChoices):
-        OFFENCE = "O", "Offence"
+        FORWARD = "F", "Forward"
         DEFENCE = "D", "Defence"
         TRANSITION = "T", "Transition"
         GOALIE = "G", "Goalie"
@@ -16,6 +16,7 @@ class Player(models.Model):
     )
 
     first_name = models.CharField(max_length=50)
+    middle_name = models.CharField(max_length=50, null=True, blank=True)
     last_name = models.CharField(max_length=50)
 
     position = models.CharField(max_length=1, choices=Position.choices)
@@ -43,7 +44,8 @@ class Player(models.Model):
         ordering = ["last_name", "first_name", "id"]
 
     def __str__(self) -> str:
-        return f"{self.last_name}, {self.first_name} #{self.number}"
+        middle = f" {self.middle_name[0]}." if self.middle_name else ""
+        return f"{self.last_name}, {self.first_name}{middle} #{self.number}"
 
 
 class Week(models.Model):

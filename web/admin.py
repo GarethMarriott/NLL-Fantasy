@@ -134,10 +134,40 @@ class ImportRunAdmin(admin.ModelAdmin):
         "created_at",
     )
     search_fields = ("original_filename", "log")
+    actions = ["delete_imported_stats"]
 
     def has_add_permission(self, request):
         # prevent creating ImportRun manually; use the upload page instead
         return False
+
+    def delete_imported_stats(self, request, queryset):
+        """Admin action: delete PlayerWeekStat rows imported by selected ImportRun(s).
+
+        Matches `PlayerWeekStat.source_file` against the ImportRun `original_filename`
+        and the uploaded_file name (fallback) since the importer sets `source_file`
+        to one of those values.
+        """
+        total_deleted = 0
+        for run in queryset:
+            candidates = []
+            if run.original_filename:
+                candidates.append(run.original_filename)
+            if run.uploaded_file and getattr(run.uploaded_file, "name", None):
+                candidates.append(run.uploaded_file.name)
+            if not candidates:
+                continue
+            qs = PlayerWeekStat.objects.filter(source_file__in=candidates)
+            count = qs.count()
+            if count:
+                qs.delete()
+                total_deleted += count
+
+        if total_deleted:
+            messages.success(request, f"Deleted {total_deleted} imported stat rows.")
+        else:
+            messages.info(request, "No imported stat rows found for the selected imports.")
+
+    delete_imported_stats.short_description = "Delete PlayerWeeklyStats created by this import"
 
 
 # Add a custom "Upload CSV" view under the admin
