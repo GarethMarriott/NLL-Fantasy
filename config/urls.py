@@ -18,9 +18,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from web.admin import admin_site
+from web.admin import admin_site, admin_import_teams_view
 
 urlpatterns = [
+    path("admin/import-teams/", admin_site.admin_view(admin_import_teams_view), name="import-teams"),
     path("admin/", admin_site.urls),
     path("", include("web.urls")),
 ]

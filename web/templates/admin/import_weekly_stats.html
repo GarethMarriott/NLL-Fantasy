@@ -3,6 +3,12 @@
   <h1>{{ title }}</h1>
   <p>Upload a CSV to import Players, Weeks, and Player Weekly Stats (upsert).</p>
 
+  {% if request.user.is_staff %}
+    <p>
+      <a href="/admin/import-teams/" class="button">Import Teams CSV</a>
+    </p>
+  {% endif %}
+
   <form method="post" enctype="multipart/form-data" style="margin-top: 1rem;">
     {% csrf_token %}
     {{ form.as_p }}

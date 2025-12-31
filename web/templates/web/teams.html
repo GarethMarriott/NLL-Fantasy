@@ -2,5 +2,62 @@
 {% block title %}Teams — NLL Fantasy{% endblock %}
 {% block content %}
   <h1>Teams</h1>
-  <p>List teams here or loop through a `teams` context variable.</p>
+  {% if request.user.is_staff %}
+    <p>
+      <a href="/admin/import-teams/" class="button">Import Teams CSV (admin)</a>
+      <a href="/admin/import-weekly-stats/" class="button">Import Weekly Stats (admin)</a>
+    </p>
+  {% endif %}
+
+  {% if teams %}
+    <nav class="team-tabs">
+      <ul>
+        {% for item in teams %}
+          <li><a href="#team-{{ item.team.id }}">{{ item.team.name }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+
+    {% for item in teams %}
+      <section id="team-{{ item.team.id }}" class="team-panel">
+        <h2>{{ item.team.name }}</h2>
+        {% if item.players %}
+          <table class="players-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>#</th>
+                <th>Pos</th>
+                <th>Season</th>
+                <th>Week</th>
+                <th>G</th>
+                <th>A</th>
+                <th>P</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pitem in item.players %}
+                {% with player=pitem.player stat=pitem.latest_stat %}
+                <tr>
+                  <td>{{ player.last_name }}, {{ player.first_name }}</td>
+                  <td>{{ player.number }}</td>
+                  <td>{{ player.get_position_display }}</td>
+                  <td>{% if stat %}{{ stat.week.season }}{% else %}-{% endif %}</td>
+                  <td>{% if stat %}{{ stat.week.week_number }}{% else %}-{% endif %}</td>
+                  <td>{% if stat %}{{ stat.goals }}{% else %}-{% endif %}</td>
+                  <td>{% if stat %}{{ stat.assists }}{% else %}-{% endif %}</td>
+                  <td>{% if stat %}{{ stat.points }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endwith %}
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>No players assigned to this team yet.</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+  {% else %}
+    <p>No teams found. Import your teams CSV to add teams.</p>
+  {% endif %}
 {% endblock %}

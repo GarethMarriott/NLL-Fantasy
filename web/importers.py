@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils.dateparse import parse_date
 
 from web.models import Player, Week, PlayerWeekStat, ImportRun
+from web.models import Team
 
 
 INT_FIELDS = [
@@ -219,4 +220,160 @@ def import_weekly_stats_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]
         f"Weeks:   +{counters['weeks_created']} created, {counters['weeks_updated']} updated",
         f"Stats:   +{counters['stats_created']} created, {counters['stats_updated']} updated",
     ]
+    return "\n".join(log_lines), counters
+
+
+@transaction.atomic
+def import_teams_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]:
+    """Read teams CSV from import_run.uploaded_file and create Teams + assign Players.
+
+    Expected minimal columns: team (or team_name), first_name, last_name.
+    Optional: number, position, external_id
+    """
+    counters = {"teams_created": 0, "players_created": 0, "players_updated": 0}
+
+    import_run.uploaded_file.open("rb")
+    try:
+        text_stream = (line.decode("utf-8-sig") for line in import_run.uploaded_file.readlines())
+    finally:
+        import_run.uploaded_file.close()
+
+    reader = csv.DictReader(text_stream)
+    if reader.fieldnames is None:
+        raise ValidationError("CSV has no header row.")
+
+    header = [h.strip() for h in reader.fieldnames if h]
+    # find required columns (accept several aliases; include fteam_id)
+    col_map = {h.lower(): h for h in header}
+    team_col = None
+    matched_team_alias = None
+    for n in ("team", "team_name", "teamname", "fteam_id"):
+        if n in col_map:
+            team_col = col_map[n]
+            matched_team_alias = n
+            break
+    first_col = None
+    for n in ("first_name", "firstname", "first"):
+        if n in col_map:
+            first_col = col_map[n]
+            break
+    last_col = None
+    for n in ("last_name", "lastname", "last"):
+        if n in col_map:
+            last_col = col_map[n]
+            break
+
+    if not team_col or not first_col or not last_col:
+        raise ValidationError("Teams CSV must include columns: team, first_name, last_name")
+
+    # optional (accept p_number as alias)
+    number_col = None
+    for n in ("number", "jersey", "p_number"):
+        if n in col_map:
+            number_col = col_map[n]
+            break
+    pos_col = None
+    for n in ("position", "pos"):
+        if n in col_map:
+            pos_col = col_map[n]
+            break
+    ext_col = None
+    for n in ("external_id", "externalid", "id"):
+        if n in col_map:
+            ext_col = col_map[n]
+            break
+
+    for line_no, row in enumerate(reader, start=2):
+        team_name = (row.get(team_col) or "").strip()
+        first = (row.get(first_col) or "").strip()
+        last = (row.get(last_col) or "").strip()
+        if not team_name or not first or not last:
+            raise ValidationError(f"Line {line_no}: missing team/first_name/last_name")
+
+        number = None
+        if number_col:
+            nval = (row.get(number_col) or "").strip()
+            if nval:
+                try:
+                    number = int(nval)
+                except ValueError:
+                    raise ValidationError(f"Line {line_no}: invalid number {nval!r}")
+
+        position = (row.get(pos_col) or "").strip() if pos_col else ""
+        if position and position not in dict(Player.Position.choices):
+            # normalize some common values
+            p = position.upper()
+            if p in ("F", "FORWARD", "OFFENCE", "OFFENSE"):
+                position = "O"
+            elif p in ("D", "DEFENCE", "DEFENSE"):
+                position = "D"
+            elif p in ("T", "TRANSITION"):
+                position = "T"
+            elif p in ("G", "GOALIE"):
+                position = "G"
+            else:
+                raise ValidationError(f"Line {line_no}: invalid position {position!r}")
+
+        external = (row.get(ext_col) or "").strip() if ext_col else None
+
+        # If the CSV used the `fteam_id` column, treat the value as the team identifier
+        # and match/create Team by name equal to that identifier. Do not treat it as a DB PK.
+        if matched_team_alias == "fteam_id":
+            team, created = Team.objects.get_or_create(name=team_name)
+            if created:
+                counters["teams_created"] += 1
+        else:
+            # For other team column types, allow numeric values to be interpreted as PK
+            team = None
+            if team_name.isdigit():
+                try:
+                    team = Team.objects.filter(id=int(team_name)).first()
+                except Exception:
+                    team = None
+
+            if not team:
+                team, created = Team.objects.get_or_create(name=team_name)
+                if created:
+                    counters["teams_created"] += 1
+
+        player = None
+        if external:
+            player = Player.objects.filter(external_id=external).first()
+
+        if not player:
+            qs = Player.objects.filter(first_name__iexact=first, last_name__iexact=last)
+            if number is not None:
+                qs = qs.filter(number=number)
+            player = qs.first()
+
+        if player:
+            changed = False
+            if getattr(player, "team_id", None) != (team.id if team else None):
+                player.team = team
+                changed = True
+            if number is not None and player.number != number:
+                player.number = number
+                changed = True
+            if position and player.position != position:
+                player.position = position
+                changed = True
+            if external and player.external_id != external:
+                player.external_id = external
+                changed = True
+            if changed:
+                player.save()
+                counters["players_updated"] += 1
+        else:
+            Player.objects.create(
+                first_name=first,
+                last_name=last,
+                number=number or 0,
+                position=position or "O",
+                external_id=external or None,
+                active=True,
+                team=team,
+            )
+            counters["players_created"] += 1
+
+    log_lines = ["Teams import complete.", f"Teams: +{counters['teams_created']}", f"Players: +{counters['players_created']} created, {counters['players_updated']} updated"]
     return "\n".join(log_lines), counters

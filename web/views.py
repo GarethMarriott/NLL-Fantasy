@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from .models import Player
+from .models import Player, Team
 
 
 def home(request):
@@ -12,7 +12,23 @@ def about(request):
 
 
 def teams(request):
-    return render(request, "web/teams.html")
+    teams = (
+        Team.objects.all().prefetch_related("players__weekly_stats__week")
+    )
+
+    # Build list of teams with players and each player's latest stat
+    teams_data = []
+    for t in teams:
+        players = []
+        for p in t.players.filter(active=True).order_by("last_name", "first_name"):
+            weekly = list(p.weekly_stats.all())
+            latest = None
+            if weekly:
+                latest = max(weekly, key=lambda s: (s.week.season, s.week.week_number))
+            players.append({"player": p, "latest_stat": latest})
+        teams_data.append({"team": t, "players": players})
+
+    return render(request, "web/teams.html", {"teams": teams_data})
 
 
 def players(request):
