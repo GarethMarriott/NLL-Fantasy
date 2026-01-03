@@ -1,0 +1,91 @@
+{% extends "web/base.html" %}
+{% block title %}{{ team.name }} — Team — NLL Fantasy{% endblock %}
+{% block content %}
+  <h1>{{ team.name }}</h1>
+  <p><a href="/teams">← All teams</a></p>
+
+  <h2>Player Slots</h2>
+  <table class="players-table slots-table">
+    <thead>
+      <tr>
+        <th>Slot</th>
+        <th>Position</th>
+        <th>Player</th>
+        <th>Team</th>
+        <th>#</th>
+        {% for w in week_range %}
+          <th>W{{ w }}</th>
+        {% endfor %}
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {# Offence slots (1-5) #}
+      {% for slot in offence_slots %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>Offence</td>
+          {% if slot %}
+            <td>{{ slot.player.last_name }}, {{ slot.player.first_name }}</td>
+            <td>{{ team.name }}</td>
+            <td>{{ slot.player.number }}</td>
+            {% for pts in slot.weekly_points %}
+              <td>{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
+            {% endfor %}
+            <td>{{ slot.weeks_total }}</td>
+          {% else %}
+            <td>—</td>
+            <td>{{ team.name }}</td>
+            <td>—</td>
+            <td>—</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+
+      {# Defence slots (6-10) #}
+      {% for slot in defence_slots %}
+        <tr>
+          <td>{{ forloop.counter|add:5 }}</td>
+          <td>Defence</td>
+          {% if slot %}
+            <td>{{ slot.player.last_name }}, {{ slot.player.first_name }}</td>
+            <td>{{ team.name }}</td>
+            <td>{{ slot.player.number }}</td>
+            {% for pts in slot.weekly_points %}
+              <td>{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
+            {% endfor %}
+            <td>{{ slot.weeks_total }}</td>
+          {% else %}
+            <td>—</td>
+            <td>{{ team.name }}</td>
+            <td>—</td>
+            <td>—</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+
+      {# Goalie slots (11-12) #}
+      {% for slot in goalie_slots %}
+        <tr>
+          <td>{{ forloop.counter|add:10 }}</td>
+          <td>Goalie</td>
+          {% if slot %}
+            <td>{{ slot.player.last_name }}, {{ slot.player.first_name }}</td>
+            <td>{{ team.name }}</td>
+            <td>{{ slot.player.number }}</td>
+            {% for pts in slot.weekly_points %}
+              <td>{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
+            {% endfor %}
+            <td>{{ slot.weeks_total }}</td>
+          {% else %}
+            <td>—</td>
+            <td>{{ team.name }}</td>
+            <td>—</td>
+            <td>—</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+
+    </tbody>
+  </table>
+{% endblock %}
