@@ -43,6 +43,15 @@ class Player(models.Model):
 
     position = models.CharField(max_length=1, choices=Position.choices)
 
+    # Optional assigned side for fantasy lineup (e.g., Transition slotted as Offence or Defence)
+    assigned_side = models.CharField(
+        max_length=1,
+        choices=Position.choices,
+        null=True,
+        blank=True,
+        help_text="Override for lineup slot (use O or D for Transition players)",
+    )
+
     external_id = models.CharField(
         max_length=100,
         unique=True,

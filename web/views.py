@@ -19,7 +19,23 @@ def teams(request):
         Team.objects.all().prefetch_related("players__weekly_stats__week")
     )
 
-    # Build list of teams with players and each player's latest stat
+    def fantasy_points(stat_obj):
+        if stat_obj is None:
+            return None
+        return (
+            stat_obj.goals * 4
+            + stat_obj.assists * 2
+            + stat_obj.loose_balls * 2
+            + stat_obj.caused_turnovers * 3
+            + stat_obj.blocked_shots * 2
+            - stat_obj.turnovers
+        )
+
+    # Determine most recent season for calculating totals
+    recent_week = Week.objects.order_by("-season", "-week_number").first()
+    season = recent_week.season if recent_week else None
+
+    # Build list of teams with players and calculate total fantasy points
     teams_data = []
     for t in teams:
         players = []
@@ -28,7 +44,18 @@ def teams(request):
             latest = None
             if weekly:
                 latest = max(weekly, key=lambda s: (s.week.season, s.week.week_number))
-            players.append({"player": p, "latest_stat": latest})
+            
+            # Calculate total fantasy points for this player
+            total_points = 0
+            if season is not None:
+                stats_by_week = {s.week.week_number: s for s in p.weekly_stats.filter(week__season=season)}
+                for wk in range(1, 19):
+                    st = stats_by_week.get(wk)
+                    pts = fantasy_points(st)
+                    if pts is not None:
+                        total_points += pts
+            
+            players.append({"player": p, "latest_stat": latest, "total_fantasy_points": total_points})
         teams_data.append({"team": t, "players": players})
 
     return render(request, "web/teams.html", {"teams": teams_data})
@@ -55,7 +82,8 @@ def team_detail(request, team_id):
     recent_week = Week.objects.order_by("-season", "-week_number").first()
     season = recent_week.season if recent_week else None
 
-    for p in team.players.filter(active=True).order_by("last_name", "first_name"):
+    # Keep players in order of when they were (last) assigned, not alphabetically
+    for p in team.players.filter(active=True).order_by("updated_at", "id"):
         weekly = list(p.weekly_stats.all())
         latest = None
         if weekly:
@@ -77,19 +105,19 @@ def team_detail(request, team_id):
 
         entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points}
         pos = getattr(p, "position", None)
-        if pos in players_by_position:
-            players_by_position[pos].append(entry)
+        side = getattr(p, "assigned_side", None)
+        target = side or ("O" if pos == "T" else pos)
+        if target in players_by_position:
+            players_by_position[target].append(entry)
         else:
             players_by_position["O"].append(entry)
 
-    # Build slots with Transition eligible for both F and D
+    # Build slots without reshuffling Transition; assigned_side controls placement
     offence_pool = players_by_position["O"]
     defence_pool = players_by_position["D"]
-    transition_pool = players_by_position["T"]
 
-    offence_slots = (offence_pool + transition_pool)[:6]
-    remaining_transition = transition_pool[max(0, 6 - len(offence_pool)) :]
-    defence_slots = (defence_pool + remaining_transition)[:6]
+    offence_slots = offence_pool[:6]
+    defence_slots = defence_pool[:6]
     goalie_slots = players_by_position["G"][:2]
 
     while len(offence_slots) < 6:
@@ -137,13 +165,17 @@ def assign_player(request, team_id):
     except Player.DoesNotExist:
         return redirect("team_detail", team_id=team.id)
 
+    slot_group = request.POST.get("slot_group")
     if action == "add":
         player.team = team
+        if slot_group in {"O", "D", "G"}:
+            player.assigned_side = slot_group
         player.save()
     elif action == "drop":
         # only drop if the player is currently on this team
         if getattr(player, "team_id", None) == team.id:
             player.team = None
+            player.assigned_side = None
             player.save()
 
     return redirect("team_detail", team_id=team.id)

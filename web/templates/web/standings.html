@@ -1,26 +1,24 @@
 {% extends "web/base.html" %}
 {% block title %}Standings — NLL Fantasy{% endblock %}
 {% block content %}
-  <h1>Standings</h1>
+  <h1 class="text-2xl font-bold mb-4">Standings</h1>
   {% if standings %}
-    <table class="players-table">
-      <thead>
+    <table class="standings players-table w-full border-collapse text-sm md:text-base">
+      <thead class="bg-slate-800 text-white">
         <tr>
-          <th>Team</th>
-          <th>W</th>
-          <th>L</th>
-          <th>T</th>
-          <th>Total FPTS</th>
+          <th class="py-3 px-3 text-left uppercase tracking-wide text-xs font-semibold">Team</th>
+          <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">W</th>
+          <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">L</th>
+          <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">Total FPTS</th>
         </tr>
       </thead>
       <tbody>
         {% for row in standings %}
-          <tr>
-            <td>{{ row.team.name }}</td>
-            <td>{{ row.wins }}</td>
-            <td>{{ row.losses }}</td>
-            <td>{{ row.ties }}</td>
-            <td>{{ row.total_points }}</td>
+          <tr class="border-b border-gray-200 hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-semibold text-gray-900">{{ row.team.name }}</td>
+            <td class="py-2.5 px-3 text-center">{{ row.wins }}</td>
+            <td class="py-2.5 px-3 text-center">{{ row.losses }}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-blue-600">{{ row.total_points }}</td>
           </tr>
         {% endfor %}
       </tbody>

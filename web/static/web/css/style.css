@@ -2,3 +2,75 @@ body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
 header { background:#0a0a0a; color:#fff; padding:12px; }
 nav a { color:#fff; margin-right:12px; text-decoration:none; }
 main { padding:20px; }
+footer { background:#0a0a0a; color:#fff; text-align:center; padding:10px; position:fixed; bottom:0; width:100%; }
+h1, h2, h3 { color:#333; }
+/* Standings table */
+.standings {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+}
+
+/* Header */
+.standings thead {
+  background-color: #1f2937; /* slate-800 */
+  color: #ffffff;
+}
+
+.standings th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Body */
+.standings td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Zebra rows */
+.standings tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* Hover */
+.standings tbody tr:hover {
+  background-color: #eef2ff;
+}
+
+/* Align numeric columns */
+.standings th:not(:first-child),
+.standings td:not(:first-child) {
+  text-align: center;
+}
+
+/* Emphasize team + points */
+.standings td:first-child {
+  font-weight: 600;
+}
+
+.standings td:last-child {
+  font-weight: 700;
+  color: #2563eb; /* blue-600 */
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .standings {
+    font-size: 0.85rem;
+  }
+
+  .standings th,
+  .standings td {
+    padding: 8px 10px;
+  }
+}
+/* End of standings table */

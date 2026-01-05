@@ -1,7 +1,7 @@
 {% extends "web/base.html" %}
 {% block title %}Matchups — NLL Fantasy{% endblock %}
 {% block content %}
-  <h1>Matchups</h1>
+  <h1 class="text-2xl font-bold mb-4">Matchups</h1>
   {% if schedule_weeks %}
     <form method="get" class="inline-form" style="margin-bottom: 1rem;">
       <label for="week">Week:</label>
@@ -14,9 +14,9 @@
     </form>
 
     {% if selected_week %}
-      <section class="schedule-week">
-        <h2>Week {{ selected_week.week_number }}</h2>
-        <table class="players-table">
+      <section class="schedule-week text-lg leading-relaxed">
+        <h2 class="text-xl font-semibold mb-3">Week {{ selected_week.week_number }}</h2>
+        <table class="players-table w-full text-lg">
           <thead>
             <tr>
               <th colspan="2">Matchups (side by side)</th>

@@ -2,62 +2,85 @@
 {% block title %}{{ team.name }} — Team — NLL Fantasy{% endblock %}
 {% block content %}
   <h1>{{ team.name }}</h1>
-  <p><a href="/teams">← All teams</a></p>
+  <div class="w-full flex justify-start mb-4">
+    <a href="/teams"
+       class="flex items-center gap-2 text-gray-100 transition duration-200 ease-in-out transform px-3 py-2 w-40 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px text-sm"
+       style="-webkit-box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 8px rgba(0,0,0,0); box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 5px rgba(0,0,0,0);">
+      <span class="font-bold">← Back to Teams</span>
+    </a>
+  </div>
 
   <h2>Player Slots</h2>
-  <table class="players-table slots-table">
+  <table class="players-table slots-table border-collapse">
     <thead>
       <tr>
-        <th>Slot</th>
-        <th>Position</th>
-        <th>Player</th>
-        <th>Team</th>
-        <th>#</th>
+        <th class="border border-gray-300 px-2 py-2">Slot</th>
+        <th class="border border-gray-300 px-2 py-2">Position</th>
+        <th class="border border-gray-300 px-2 py-2">#</th>
+        <th class="border border-gray-300 px-2 py-2">Player</th>
+        <th class="border border-gray-300 px-2 py-2">Team</th>
         {% for w in week_range %}
-          <th>W{{ w }}</th>
+          <th class="border border-gray-300 px-1 py-2 text-center text-sm">W{{ w }}</th>
         {% endfor %}
-        <th>Total</th>
+        <th class="border border-gray-300 px-2 py-2">Total</th>
       </tr>
     </thead>
     <tbody>
       {# Offence slots (1-6) #}
       {% for slot in offence_slots %}
         <tr>
-          <td>{{ forloop.counter }}</td>
-          <td>Offence</td>
+          <td class="border border-gray-300 px-2 py-2">{{ forloop.counter }}</td>
+          <td class="border border-gray-300 px-2 py-2"><span class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-md font-semibold border border-green-300">Offence</span></td>
           {% if slot %}
+            <td class="border border-gray-300 px-2 py-2">{{ slot.player.number }}</td>
             <td>
-              {{ slot.player.last_name }}, {{ slot.player.first_name }}
-              <form method="post" action="{% url 'assign_player' team.id %}" style="display:inline">
-                {% csrf_token %}
-                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                <input type="hidden" name="action" value="drop">
-                <button type="submit" class="button small">Drop</button>
-              </form>
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-semibold">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                <form method="post" action="{% url 'assign_player' team.id %}" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                  <input type="hidden" name="action" value="drop">
+                  <button type="submit"
+                          class="px-3 py-2 bg-blue-500 rounded-md text-white outline-none focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2 min-w-[96px]">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                    <span class="font-semibold">Drop</span>
+                  </button>
+                </form>
+              </div>
             </td>
-            <td>{{ team.name }}</td>
-            <td>{{ slot.player.number }}</td>
+            <td class="border border-gray-300 px-2 py-2">{{ team.name }}</td>
             {% for pts in slot.weekly_points %}
-              <td>{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
+              <td class="border border-gray-300 px-1 py-2 text-center">{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
             {% endfor %}
-            <td>{{ slot.weeks_total }}</td>
+            <td class="border border-gray-300 px-2 py-2">{{ slot.weeks_total }}</td>
           {% else %}
+            <td class="border border-gray-300 px-2 py-2">—</td>
             <td>
-              <form method="post" action="{% url 'assign_player' team.id %}">
-                {% csrf_token %}
-                <select name="player_id">
-                  <option value="">Select player…</option>
-                  {% for p in players_for_select %}
-                    <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
-                  {% endfor %}
-                </select>
-                <input type="hidden" name="action" value="add">
-                <button type="submit" class="button small">Add</button>
-              </form>
+              <div class="flex items-center justify-between gap-3">
+                <form method="post" action="{% url 'assign_player' team.id %}" class="flex items-center gap-3 flex-1">
+                  {% csrf_token %}
+                  <input type="hidden" name="slot_group" value="O">
+                  <select name="player_id" class="flex-1">
+                    <option value="">Select player…</option>
+                    {% for p in players_for_select %}
+                      <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="hidden" name="action" value="add">
+                  <button type="submit"
+                          class="px-3 py-2 bg-blue-500 rounded-md text-white outline-none focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2 min-w-[96px]">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span class="font-semibold">Add</span>
+                  </button>
+                </form>
+              </div>
             </td>
-            <td>{{ team.name }}</td>
-            <td>—</td>
-            <td>—</td>
+            <td class="border border-gray-300 px-2 py-2">{{ team.name }}</td>
+            <td class="border border-gray-300 px-1 py-2">—</td>
           {% endif %}
         </tr>
       {% endfor %}
@@ -65,41 +88,58 @@
       {# Defence slots (7-12) #}
       {% for slot in defence_slots %}
         <tr>
-          <td>{{ forloop.counter|add:6 }}</td>
-          <td>Defence</td>
+          <td class="border border-gray-300 px-2 py-2">{{ forloop.counter|add:6 }}</td>
+          <td class="border border-gray-300 px-2 py-2"><span class="inline-block px-3 py-1 bg-orange-100 text-orange-800 rounded-md font-semibold border border-orange-300">Defence</span></td>
           {% if slot %}
+            <td class="border border-gray-300 px-2 py-2">{{ slot.player.number }}</td>
             <td>
-              {{ slot.player.last_name }}, {{ slot.player.first_name }}
-              <form method="post" action="{% url 'assign_player' team.id %}" style="display:inline">
-                {% csrf_token %}
-                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                <input type="hidden" name="action" value="drop">
-                <button type="submit" class="button small">Drop</button>
-              </form>
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-semibold">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                <form method="post" action="{% url 'assign_player' team.id %}" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                  <input type="hidden" name="action" value="drop">
+                  <button type="submit"
+                          class="px-3 py-2 bg-blue-500 rounded-md text-white outline-none focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2 min-w-[96px]">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                    <span class="font-semibold">Drop</span>
+                  </button>
+                </form>
+              </div>
             </td>
-            <td>{{ team.name }}</td>
-            <td>{{ slot.player.number }}</td>
+            <td class="border border-gray-300 px-2 py-2">{{ team.name }}</td>
             {% for pts in slot.weekly_points %}
-              <td>{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
+              <td class="border border-gray-300 px-1 py-2 text-center">{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
             {% endfor %}
-            <td>{{ slot.weeks_total }}</td>
+            <td class="border border-gray-300 px-2 py-2">{{ slot.weeks_total }}</td>
           {% else %}
+            <td class="border border-gray-300 px-2 py-2">—</td>
             <td>
-              <form method="post" action="{% url 'assign_player' team.id %}">
-                {% csrf_token %}
-                <select name="player_id">
-                  <option value="">Select player…</option>
-                  {% for p in players_for_select %}
-                    <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
-                  {% endfor %}
-                </select>
-                <input type="hidden" name="action" value="add">
-                <button type="submit" class="button small">Add</button>
-              </form>
+              <div class="flex items-center justify-between gap-3">
+                <form method="post" action="{% url 'assign_player' team.id %}" class="flex items-center gap-3 flex-1">
+                  {% csrf_token %}
+                  <input type="hidden" name="slot_group" value="D">
+                  <select name="player_id" class="flex-1">
+                    <option value="">Select player…</option>
+                    {% for p in players_for_select %}
+                      <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="hidden" name="action" value="add">
+                  <button type="submit"
+                          class="px-3 py-2 bg-blue-500 rounded-md text-white outline-none focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2 min-w-[96px]">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span class="font-semibold">Add</span>
+                  </button>
+                </form>
+              </div>
             </td>
-            <td>{{ team.name }}</td>
-            <td>—</td>
-            <td>—</td>
+            <td class="border border-gray-300 px-2 py-2">{{ team.name }}</td>
+            <td class="border border-gray-300 px-1 py-2">—</td>
           {% endif %}
         </tr>
       {% endfor %}
@@ -107,56 +147,73 @@
       {# Goalie slots (13-14) #}
       {% for slot in goalie_slots %}
         <tr>
-          <td>{{ forloop.counter|add:12 }}</td>
-          <td>Goalie</td>
+          <td class="border border-gray-300 px-2 py-2">{{ forloop.counter|add:12 }}</td>
+          <td class="border border-gray-300 px-2 py-2"><span class="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-md font-semibold border border-purple-300">Goalie</span></td>
           {% if slot %}
+            <td class="border border-gray-300 px-2 py-2">{{ slot.player.number }}</td>
             <td>
-              {{ slot.player.last_name }}, {{ slot.player.first_name }}
-              <form method="post" action="{% url 'assign_player' team.id %}" style="display:inline">
-                {% csrf_token %}
-                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                <input type="hidden" name="action" value="drop">
-                <button type="submit" class="button small">Drop</button>
-              </form>
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-semibold">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                <form method="post" action="{% url 'assign_player' team.id %}" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                  <input type="hidden" name="action" value="drop">
+                  <button type="submit"
+                          class="px-3 py-2 bg-blue-500 rounded-md text-white outline-none focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2 min-w-[96px]">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                    <span class="font-semibold">Drop</span>
+                  </button>
+                </form>
+              </div>
             </td>
-            <td>{{ team.name }}</td>
-            <td>{{ slot.player.number }}</td>
+            <td class="border border-gray-300 px-2 py-2">{{ team.name }}</td>
             {% for pts in slot.weekly_points %}
-              <td>{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
+              <td class="border border-gray-300 px-1 py-2 text-center">{% if pts is not None %}{{ pts }}{% else %}-{% endif %}</td>
             {% endfor %}
-            <td>{{ slot.weeks_total }}</td>
+            <td class="border border-gray-300 px-2 py-2">{{ slot.weeks_total }}</td>
           {% else %}
+            <td class="border border-gray-300 px-2 py-2">—</td>
             <td>
-              <form method="post" action="{% url 'assign_player' team.id %}">
-                {% csrf_token %}
-                <select name="player_id">
-                  <option value="">Select player…</option>
-                  {% for p in players_for_select %}
-                    <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
-                  {% endfor %}
-                </select>
-                <input type="hidden" name="action" value="add">
-                <button type="submit" class="button small">Add</button>
-              </form>
+              <div class="flex items-center justify-between gap-3">
+                <form method="post" action="{% url 'assign_player' team.id %}" class="flex items-center gap-3 flex-1">
+                  {% csrf_token %}
+                  <input type="hidden" name="slot_group" value="G">
+                  <select name="player_id" class="flex-1">
+                    <option value="">Select player…</option>
+                    {% for p in players_for_select %}
+                      <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="hidden" name="action" value="add">
+                  <button type="submit"
+                          class="px-3 py-2 bg-blue-500 rounded-md text-white outline-none focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-2 min-w-[96px]">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span class="font-semibold">Add</span>
+                  </button>
+                </form>
+              </div>
             </td>
-            <td>{{ team.name }}</td>
-            <td>—</td>
-            <td>—</td>
+            <td class="border border-gray-300 px-2 py-2">{{ team.name }}</td>
+            <td class="border border-gray-300 px-1 py-2">—</td>
           {% endif %}
         </tr>
       {% endfor %}
 
       {# Weekly total row #}
       <tr class="totals-row">
-        <td>—</td>
-        <td>—</td>
-        <td><strong>Weekly Total</strong></td>
-        <td>—</td>
-        <td>—</td>
+        <td class="border border-gray-300 px-2 py-2">—</td>
+        <td class="border border-gray-300 px-2 py-2">—</td>
+        <td class="border border-gray-300 px-2 py-2">—</td>
+        <td class="border border-gray-300 px-2 py-2"><strong>Weekly Total</strong></td>
+        <td class="border border-gray-300 px-2 py-2">—</td>
         {% for total in weekly_totals %}
-          <td><strong>{{ total }}</strong></td>
+          <td class="border border-gray-300 px-1 py-2 text-center"><strong>{{ total }}</strong></td>
         {% endfor %}
-        <td><strong>{{ overall_total }}</strong></td>
+        <td class="border border-gray-300 px-2 py-2"><strong>{{ overall_total }}</strong></td>
       </tr>
 
     </tbody>
