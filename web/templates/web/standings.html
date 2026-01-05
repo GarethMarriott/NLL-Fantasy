@@ -2,5 +2,30 @@
 {% block title %}Standings — NLL Fantasy{% endblock %}
 {% block content %}
   <h1>Standings</h1>
-  <p>List teams here or loop through a `teams` context variable.</p>
+  {% if standings %}
+    <table class="players-table">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>W</th>
+          <th>L</th>
+          <th>T</th>
+          <th>Total FPTS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in standings %}
+          <tr>
+            <td>{{ row.team.name }}</td>
+            <td>{{ row.wins }}</td>
+            <td>{{ row.losses }}</td>
+            <td>{{ row.ties }}</td>
+            <td>{{ row.total_points }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No standings available.</p>
+  {% endif %}
 {% endblock %}

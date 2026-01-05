@@ -2,13 +2,11 @@
 {% block title %}Teams — NLL Fantasy{% endblock %}
 {% block content %}
   <h1>Teams</h1>
-  {% if request.user.is_staff %}
-    <p>
-      <a href="/admin/import-teams/" class="button">Import Teams CSV (admin)</a>
-      <a href="/admin/import-weekly-stats/" class="button">Import Weekly Stats (admin)</a>
-    </p>
-  {% endif %}
-
+  <p class="team-links">
+    {% for item in teams %}
+      <a class="button team-button" href="/teams/{{ item.team.id }}/">{{ item.team.name }}</a>
+    {% endfor %}
+  </p>
   {% if teams %}
     <nav class="team-tabs">
       <ul>

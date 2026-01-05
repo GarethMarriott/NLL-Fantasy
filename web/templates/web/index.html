@@ -3,11 +3,4 @@
 {% block content %}
   <h1>Welcome to NLL Fantasy</h1>
   <p>Quick links and highlights here — latest scores, featured players, etc.</p>
-  {% if teams %}
-    <div class="team-buttons">
-      {% for team in teams %}
-        <a class="button team-button" href="/teams/{{ team.id }}/">{{ team.name }}</a>
-      {% endfor %}
-    </div>
-  {% endif %}
 {% endblock %}

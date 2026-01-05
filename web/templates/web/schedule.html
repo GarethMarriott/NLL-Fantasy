@@ -2,5 +2,27 @@
 {% block title %}Schedule — NLL Fantasy{% endblock %}
 {% block content %}
   <h1>Schedule</h1>
-  <p>List teams here or loop through a `teams` context variable.</p>
+  {% if schedule_weeks %}
+    {% for week in schedule_weeks %}
+      <section class="schedule-week">
+        <h2>Week {{ week.week_number }}</h2>
+        <table class="players-table">
+          <thead>
+            <tr>
+              <th>Matchup</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for game in week.games %}
+              <tr>
+                <td>{{ game.home.name }} vs {{ game.away.name }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endfor %}
+  {% else %}
+    <p>No teams available to generate a schedule.</p>
+  {% endif %}
 {% endblock %}

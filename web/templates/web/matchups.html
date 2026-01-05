@@ -1,0 +1,68 @@
+{% extends "web/base.html" %}
+{% block title %}Matchups — NLL Fantasy{% endblock %}
+{% block content %}
+  <h1>Matchups</h1>
+  {% if schedule_weeks %}
+    <form method="get" class="inline-form" style="margin-bottom: 1rem;">
+      <label for="week">Week:</label>
+      <select name="week" id="week" onchange="this.form.submit()">
+        {% for wk in schedule_weeks %}
+          <option value="{{ wk.week_number }}" {% if selected_week_number == wk.week_number %}selected{% endif %}>Week {{ wk.week_number }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit">Go</button></noscript>
+    </form>
+
+    {% if selected_week %}
+      <section class="schedule-week">
+        <h2>Week {{ selected_week.week_number }}</h2>
+        <table class="players-table">
+          <thead>
+            <tr>
+              <th colspan="2">Matchups (side by side)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for game in selected_week.games %}
+              <tr>
+                <td style="vertical-align: top;">
+                  <strong>{{ game.home.name }}</strong>
+                  <div>
+                    {% if game.home_roster %}
+                      {% for row in game.home_roster %}
+                        <div>{{ row.player.last_name }}, {{ row.player.first_name }} — {% if row.fantasy_points is not None %}{{ row.fantasy_points }}{% else %}-{% endif %}</div>
+                      {% endfor %}
+                    {% else %}
+                      <em>No players</em>
+                    {% endif %}
+                  </div>
+                </td>
+                <td style="vertical-align: top;">
+                  <strong>{{ game.away.name }}</strong>
+                  <div>
+                    {% if game.away_roster %}
+                      {% for row in game.away_roster %}
+                        <div>{{ row.player.last_name }}, {{ row.player.first_name }} — {% if row.fantasy_points is not None %}{{ row.fantasy_points }}{% else %}-{% endif %}</div>
+                      {% endfor %}
+                    {% else %}
+                      <em>No players</em>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Total:</strong> {{ game.home_total }} — <strong>{{ game.home_result }}</strong></td>
+                <td><strong>Total:</strong> {{ game.away_total }} — <strong>{{ game.away_result }}</strong></td>
+              </tr>
+              <tr class="spacer"><td colspan="2"></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% else %}
+      <p>No matchups found for the selected week.</p>
+    {% endif %}
+  {% else %}
+    <p>No teams available to generate matchups.</p>
+  {% endif %}
+{% endblock %}

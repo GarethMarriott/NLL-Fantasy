@@ -20,13 +20,21 @@
       </tr>
     </thead>
     <tbody>
-      {# Offence slots (1-5) #}
+      {# Offence slots (1-6) #}
       {% for slot in offence_slots %}
         <tr>
           <td>{{ forloop.counter }}</td>
           <td>Offence</td>
           {% if slot %}
-            <td>{{ slot.player.last_name }}, {{ slot.player.first_name }}</td>
+            <td>
+              {{ slot.player.last_name }}, {{ slot.player.first_name }}
+              <form method="post" action="{% url 'assign_player' team.id %}" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                <input type="hidden" name="action" value="drop">
+                <button type="submit" class="button small">Drop</button>
+              </form>
+            </td>
             <td>{{ team.name }}</td>
             <td>{{ slot.player.number }}</td>
             {% for pts in slot.weekly_points %}
@@ -34,7 +42,19 @@
             {% endfor %}
             <td>{{ slot.weeks_total }}</td>
           {% else %}
-            <td>—</td>
+            <td>
+              <form method="post" action="{% url 'assign_player' team.id %}">
+                {% csrf_token %}
+                <select name="player_id">
+                  <option value="">Select player…</option>
+                  {% for p in players_for_select %}
+                    <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <input type="hidden" name="action" value="add">
+                <button type="submit" class="button small">Add</button>
+              </form>
+            </td>
             <td>{{ team.name }}</td>
             <td>—</td>
             <td>—</td>
@@ -42,13 +62,21 @@
         </tr>
       {% endfor %}
 
-      {# Defence slots (6-10) #}
+      {# Defence slots (7-12) #}
       {% for slot in defence_slots %}
         <tr>
-          <td>{{ forloop.counter|add:5 }}</td>
+          <td>{{ forloop.counter|add:6 }}</td>
           <td>Defence</td>
           {% if slot %}
-            <td>{{ slot.player.last_name }}, {{ slot.player.first_name }}</td>
+            <td>
+              {{ slot.player.last_name }}, {{ slot.player.first_name }}
+              <form method="post" action="{% url 'assign_player' team.id %}" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                <input type="hidden" name="action" value="drop">
+                <button type="submit" class="button small">Drop</button>
+              </form>
+            </td>
             <td>{{ team.name }}</td>
             <td>{{ slot.player.number }}</td>
             {% for pts in slot.weekly_points %}
@@ -56,7 +84,19 @@
             {% endfor %}
             <td>{{ slot.weeks_total }}</td>
           {% else %}
-            <td>—</td>
+            <td>
+              <form method="post" action="{% url 'assign_player' team.id %}">
+                {% csrf_token %}
+                <select name="player_id">
+                  <option value="">Select player…</option>
+                  {% for p in players_for_select %}
+                    <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <input type="hidden" name="action" value="add">
+                <button type="submit" class="button small">Add</button>
+              </form>
+            </td>
             <td>{{ team.name }}</td>
             <td>—</td>
             <td>—</td>
@@ -64,13 +104,21 @@
         </tr>
       {% endfor %}
 
-      {# Goalie slots (11-12) #}
+      {# Goalie slots (13-14) #}
       {% for slot in goalie_slots %}
         <tr>
-          <td>{{ forloop.counter|add:10 }}</td>
+          <td>{{ forloop.counter|add:12 }}</td>
           <td>Goalie</td>
           {% if slot %}
-            <td>{{ slot.player.last_name }}, {{ slot.player.first_name }}</td>
+            <td>
+              {{ slot.player.last_name }}, {{ slot.player.first_name }}
+              <form method="post" action="{% url 'assign_player' team.id %}" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                <input type="hidden" name="action" value="drop">
+                <button type="submit" class="button small">Drop</button>
+              </form>
+            </td>
             <td>{{ team.name }}</td>
             <td>{{ slot.player.number }}</td>
             {% for pts in slot.weekly_points %}
@@ -78,13 +126,38 @@
             {% endfor %}
             <td>{{ slot.weeks_total }}</td>
           {% else %}
-            <td>—</td>
+            <td>
+              <form method="post" action="{% url 'assign_player' team.id %}">
+                {% csrf_token %}
+                <select name="player_id">
+                  <option value="">Select player…</option>
+                  {% for p in players_for_select %}
+                    <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <input type="hidden" name="action" value="add">
+                <button type="submit" class="button small">Add</button>
+              </form>
+            </td>
             <td>{{ team.name }}</td>
             <td>—</td>
             <td>—</td>
           {% endif %}
         </tr>
       {% endfor %}
+
+      {# Weekly total row #}
+      <tr class="totals-row">
+        <td>—</td>
+        <td>—</td>
+        <td><strong>Weekly Total</strong></td>
+        <td>—</td>
+        <td>—</td>
+        {% for total in weekly_totals %}
+          <td><strong>{{ total }}</strong></td>
+        {% endfor %}
+        <td><strong>{{ overall_total }}</strong></td>
+      </tr>
 
     </tbody>
   </table>
