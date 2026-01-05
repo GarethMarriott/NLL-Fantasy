@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.conf import settings
 
 
 class Team(models.Model):
@@ -195,3 +196,81 @@ class ImportRun(models.Model):
 
     def __str__(self) -> str:
         return f"ImportRun {self.id} - {self.status} - {self.original_filename or self.uploaded_file.name}"
+
+
+class FantasyTeamOwner(models.Model):
+    """Links Django User accounts to fantasy Teams (for chat & ownership)"""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="fantasy_owner",
+    )
+    team = models.OneToOneField(
+        Team,
+        on_delete=models.CASCADE,
+        related_name="owner",
+        help_text="The fantasy team this user owns"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["team__name"]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} owns {self.team.name}"
+
+
+class ChatMessage(models.Model):
+    """League chat messages and system notifications"""
+    class MessageType(models.TextChoices):
+        CHAT = "CHAT", "Chat Message"
+        ADD = "ADD", "Player Added"
+        DROP = "DROP", "Player Dropped"
+        TRADE = "TRADE", "Trade"
+        SYSTEM = "SYSTEM", "System Notification"
+
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="chat_messages",
+        help_text="User who sent the message (null for system messages)"
+    )
+    message_type = models.CharField(
+        max_length=10,
+        choices=MessageType.choices,
+        default=MessageType.CHAT
+    )
+    message = models.TextField()
+    
+    # For transaction notifications
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+        help_text="Player involved in add/drop/trade"
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+        help_text="Team involved in transaction"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["message_type"]),
+        ]
+
+    def __str__(self) -> str:
+        sender_name = self.sender.username if self.sender else "System"
+        return f"[{self.message_type}] {sender_name}: {self.message[:50]}"

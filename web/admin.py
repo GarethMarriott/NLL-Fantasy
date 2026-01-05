@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 
 from .models import Player, Week, PlayerWeekStat
 from .models import ImportRun
+from .models import FantasyTeamOwner, ChatMessage, Team
 from .forms import ImportWeeklyStatsForm, ImportTeamsForm
 from .importers import import_weekly_stats_csv, import_teams_csv
 from django.contrib import admin
@@ -362,3 +363,33 @@ class FantasyAdminSite(ImportToolsAdminSiteMixin, AdminSite):
 
 # IMPORTANT:
 # If you want the clean/custom admin site, you must switch to it in config/urls.py.
+
+
+@admin.register(Team, site=admin_site)
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ("name", "created_at")
+    search_fields = ("name",)
+    ordering = ("name",)
+
+
+@admin.register(FantasyTeamOwner, site=admin_site)
+class FantasyTeamOwnerAdmin(admin.ModelAdmin):
+    list_display = ("user", "team", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("user__username", "team__name")
+    autocomplete_fields = ["team"]
+    raw_id_fields = ["user"]
+    ordering = ("team__name",)
+
+
+@admin.register(ChatMessage, site=admin_site)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ("sender", "message_type", "message_preview", "created_at")
+    list_filter = ("message_type", "created_at")
+    search_fields = ("message", "sender__username")
+    readonly_fields = ("created_at",)
+    ordering = ("-created_at",)
+    
+    def message_preview(self, obj):
+        return obj.message[:50] + "..." if len(obj.message) > 50 else obj.message
+    message_preview.short_description = "Message"

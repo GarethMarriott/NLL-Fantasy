@@ -1,6 +1,11 @@
 from django.shortcuts import render, get_object_or_404
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import JsonResponse
+from django.utils import timezone
 
-from .models import Player, Team, Week
+from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
@@ -520,4 +525,121 @@ def standings(request):
         {
             "standings": standings_list,
         },
+    )
+
+
+# ============ AUTHENTICATION VIEWS ============
+
+def login_view(request):
+    """User login"""
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        user = authenticate(request, username=username, password=password)
+        
+        if user is not None:
+            login(request, user)
+            messages.success(request, f"Welcome back, {user.username}!")
+            return redirect("home")
+        else:
+            messages.error(request, "Invalid username or password.")
+    
+    return render(request, "web/login.html")
+
+
+def logout_view(request):
+    """User logout"""
+    logout(request)
+    messages.success(request, "You have been logged out.")
+    return redirect("home")
+
+
+# ============ CHAT VIEWS ============
+
+@login_required
+def chat_view(request):
+    """Display chat modal page"""
+    messages_list = ChatMessage.objects.select_related(
+        'sender', 'player', 'team'
+    ).all()[:100]  # Last 100 messages
+    
+    return render(request, "web/chat.html", {
+        "messages": messages_list
+    })
+
+
+@login_required
+@require_POST
+def chat_post_message(request):
+    """API endpoint to post a new chat message"""
+    message_text = request.POST.get("message", "").strip()
+    
+    if not message_text:
+        return JsonResponse({"error": "Message cannot be empty"}, status=400)
+    
+    if len(message_text) > 1000:
+        return JsonResponse({"error": "Message too long (max 1000 characters)"}, status=400)
+    
+    # Create the chat message
+    chat_msg = ChatMessage.objects.create(
+        sender=request.user,
+        message_type=ChatMessage.MessageType.CHAT,
+        message=message_text
+    )
+    
+    return JsonResponse({
+        "success": True,
+        "message_id": chat_msg.id,
+        "created_at": chat_msg.created_at.isoformat()
+    })
+
+
+@login_required
+def chat_get_messages(request):
+    """API endpoint to fetch new chat messages (for auto-refresh)"""
+    since_id = request.GET.get("since", 0)
+    
+    messages_list = ChatMessage.objects.select_related(
+        'sender', 'player', 'team'
+    ).filter(id__gt=since_id).order_by('created_at')[:50]
+    
+    data = []
+    for msg in messages_list:
+        sender_name = msg.sender.username if msg.sender else "System"
+        team_name = None
+        
+        # Get team name if sender is a team owner
+        if msg.sender and hasattr(msg.sender, 'fantasy_owner'):
+            team_name = msg.sender.fantasy_owner.team.name
+        
+        data.append({
+            "id": msg.id,
+            "sender": sender_name,
+            "team": team_name,
+            "message": msg.message,
+            "message_type": msg.message_type,
+            "created_at": msg.created_at.isoformat(),
+            "is_system": msg.sender is None
+        })
+    
+    return JsonResponse({"messages": data})
+
+
+def create_transaction_notification(transaction_type, team, player, user=None):
+    """Helper function to create add/drop notifications"""
+    if transaction_type == "ADD":
+        message = f"added {player} to their roster"
+        msg_type = ChatMessage.MessageType.ADD
+    elif transaction_type == "DROP":
+        message = f"dropped {player} from their roster"
+        msg_type = ChatMessage.MessageType.DROP
+    else:
+        return
+    
+    ChatMessage.objects.create(
+        sender=user,
+        message_type=msg_type,
+        message=message,
+        player=player,
+        team=team
     )
