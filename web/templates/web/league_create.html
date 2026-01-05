@@ -1,0 +1,77 @@
+{% extends "web/base.html" %}
+
+{% block title %}Create League - NLL Fantasy{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Create New League</h1>
+
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <form method="POST">
+      {% csrf_token %}
+      
+      <div class="space-y-6">
+        <div>
+          <label for="id_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            League Name *
+          </label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="id_description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Description
+          </label>
+          {{ form.description }}
+          {% if form.description.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+          {% endif %}
+          <p class="mt-1 text-sm text-gray-500">Describe your league rules, scoring, etc.</p>
+        </div>
+
+        <div>
+          <label for="id_max_teams" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Maximum Teams *
+          </label>
+          {{ form.max_teams }}
+          {% if form.max_teams.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.max_teams.errors.0 }}</p>
+          {% endif %}
+          <p class="mt-1 text-sm text-gray-500">How many teams can join this league?</p>
+        </div>
+      </div>
+
+      <div class="mt-8 flex gap-4">
+        <button type="submit" 
+                class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg">
+          Create League
+        </button>
+        <a href="{% url 'league_list' %}" 
+           class="flex-1 text-center px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  input[type="text"], input[type="number"], textarea {
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: white;
+  }
+  .dark input[type="text"], .dark input[type="number"], .dark textarea {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: white;
+  }
+</style>
+{% endblock %}

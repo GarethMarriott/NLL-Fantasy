@@ -1,0 +1,100 @@
+{% extends "web/base.html" %}
+
+{% block title %}{{ league.name }} - NLL Fantasy{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-8">
+  <div class="mb-8">
+    <div class="flex justify-between items-start">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ league.name }}</h1>
+        <p class="text-gray-600 dark:text-gray-400 mt-2">{{ league.description }}</p>
+        <div class="mt-4 flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+          <span>Commissioner: <strong>{{ league.commissioner.username }}</strong></span>
+          <span>Teams: <strong>{{ teams.count }}/{{ league.max_teams }}</strong></span>
+          <span>Created: {{ league.created_at|date:"M d, Y" }}</span>
+        </div>
+      </div>
+      {% if can_join %}
+        <a href="{% url 'team_create' league.id %}" 
+           class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg">
+          Join League
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="rounded-md {% if message.tags == 'error' %}bg-red-50 border border-red-200{% else %}bg-green-50 border border-green-200{% endif %} p-4 mb-4">
+        <p class="text-sm {% if message.tags == 'error' %}text-red-800{% else %}text-green-800{% endif %}">
+          {{ message }}
+        </p>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Teams List -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">League Teams</h2>
+    </div>
+    
+    {% if teams %}
+      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for team in teams %}
+          <div class="px-6 py-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ team.name }}
+                {% if team.id == user_team.id %}
+                  <span class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">Your Team</span>
+                {% endif %}
+              </h3>
+              {% if team.owner %}
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Owner: {{ team.owner.user.username }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="flex gap-2">
+              <a href="{% url 'team_detail' team.id %}" 
+                 class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-900 dark:text-white rounded">
+                View Team
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+        <p>No teams in this league yet.</p>
+        {% if can_join %}
+          <a href="{% url 'team_create' league.id %}" 
+             class="inline-block mt-4 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+            Be the First to Join
+          </a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- League Actions for Commissioner -->
+  {% if is_commissioner %}
+    <div class="mt-6 bg-blue-50 dark:bg-blue-900 rounded-lg p-6">
+      <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">Commissioner Tools</h3>
+      <p class="text-sm text-blue-800 dark:text-blue-200 mb-4">
+        You can manage this league's settings and teams.
+      </p>
+      <div class="flex gap-4">
+        <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
+          League Settings
+        </button>
+        <button class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">
+          Invite Members
+        </button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -3,15 +3,53 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 
 
+class League(models.Model):
+    """Fantasy league that contains multiple teams"""
+    name = models.CharField(max_length=100)
+    commissioner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='leagues_as_commissioner',
+        help_text="User who created and manages the league"
+    )
+    description = models.TextField(blank=True)
+    max_teams = models.PositiveSmallIntegerField(default=12, help_text="Maximum number of teams allowed")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.name} (by {self.commissioner.username})"
+
+
 class Team(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name='teams',
+        null=True,
+        blank=True,
+        help_text="The league this team belongs to"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['name', 'league'],
+                name='unique_team_name_per_league'
+            )
+        ]
 
     def __str__(self) -> str:
+        if self.league:
+            return f"{self.name} ({self.league.name})"
         return self.name
 
 

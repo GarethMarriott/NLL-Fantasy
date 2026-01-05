@@ -4,8 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
+from django.db import models
 
-from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner
+from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner, League
+from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
@@ -20,8 +22,11 @@ def about(request):
 
 
 def teams(request):
+    # Only show teams from active leagues
     teams = (
-        Team.objects.all().prefetch_related("players__weekly_stats__week")
+        Team.objects.filter(
+            league__is_active=True
+        ).prefetch_related("players__weekly_stats__week", "league")
     )
 
     def fantasy_points(stat_obj):
@@ -643,3 +648,122 @@ def create_transaction_notification(transaction_type, team, player, user=None):
         player=player,
         team=team
     )
+
+
+# ============ REGISTRATION & LEAGUE/TEAM MANAGEMENT ============
+
+def register_view(request):
+    """User registration"""
+    if request.method == "POST":
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, f"Welcome {user.username}! Account created successfully.")
+            return redirect("league_list")
+    else:
+        form = UserRegistrationForm()
+    
+    return render(request, "web/register.html", {"form": form})
+
+
+@login_required
+def league_list(request):
+    """List all leagues and user's leagues"""
+    # Leagues the user is commissioner of
+    my_leagues = League.objects.filter(commissioner=request.user)
+    
+    # Leagues where user owns a team
+    my_team_leagues = League.objects.filter(
+        teams__owner__user=request.user
+    ).distinct()
+    
+    # All other active leagues
+    other_leagues = League.objects.filter(is_active=True).exclude(
+        id__in=my_leagues.values_list('id', flat=True)
+    ).exclude(
+        id__in=my_team_leagues.values_list('id', flat=True)
+    )
+    
+    return render(request, "web/league_list.html", {
+        "my_leagues": my_leagues,
+        "my_team_leagues": my_team_leagues,
+        "other_leagues": other_leagues
+    })
+
+
+@login_required
+def league_create(request):
+    """Create a new league"""
+    if request.method == "POST":
+        form = LeagueCreateForm(request.POST)
+        if form.is_valid():
+            league = form.save(commit=False)
+            league.commissioner = request.user
+            league.save()
+            messages.success(request, f"League '{league.name}' created successfully!")
+            return redirect("league_detail", league_id=league.id)
+    else:
+        form = LeagueCreateForm()
+    
+    return render(request, "web/league_create.html", {"form": form})
+
+
+@login_required
+def league_detail(request, league_id):
+    """View league details and teams"""
+    league = get_object_or_404(League, id=league_id)
+    teams = league.teams.select_related('owner__user').all()
+    
+    # Check if user owns a team in this league
+    user_team = None
+    try:
+        user_team = teams.get(owner__user=request.user)
+    except Team.DoesNotExist:
+        pass
+    
+    is_commissioner = league.commissioner == request.user
+    can_join = not user_team and teams.count() < league.max_teams
+    
+    return render(request, "web/league_detail.html", {
+        "league": league,
+        "teams": teams,
+        "user_team": user_team,
+        "is_commissioner": is_commissioner,
+        "can_join": can_join
+    })
+
+
+@login_required
+def team_create(request, league_id):
+    """Create a team in a league and join as owner"""
+    league = get_object_or_404(League, id=league_id)
+    
+    # Check if user already has a team in this league
+    if FantasyTeamOwner.objects.filter(user=request.user, team__league=league).exists():
+        messages.error(request, "You already have a team in this league.")
+        return redirect("league_detail", league_id=league.id)
+    
+    # Check if league is full
+    if league.teams.count() >= league.max_teams:
+        messages.error(request, "This league is full.")
+        return redirect("league_detail", league_id=league.id)
+    
+    if request.method == "POST":
+        form = TeamCreateForm(request.POST, league=league)
+        if form.is_valid():
+            team = form.save()
+            
+            # Create FantasyTeamOwner to link user to team
+            FantasyTeamOwner.objects.create(user=request.user, team=team)
+            
+            messages.success(request, f"Team '{team.name}' created! You've joined {league.name}.")
+            return redirect("league_detail", league_id=league.id)
+    else:
+        form = TeamCreateForm(league=league)
+    
+    return render(request, "web/team_create.html", {
+        "form": form,
+        "league": league
+    })
+

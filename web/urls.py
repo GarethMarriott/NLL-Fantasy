@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     home, about, teams, players, schedule, matchups, standings, team_detail, assign_player,
-    login_view, logout_view, chat_view, chat_post_message, chat_get_messages
+    login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
+    register_view, league_list, league_create, league_detail, team_create
 )
 
 urlpatterns = [
@@ -18,9 +19,16 @@ urlpatterns = [
     # Authentication
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
+    path("register/", register_view, name="register"),
     
     # Chat
     path("chat/", chat_view, name="chat"),
     path("chat/post/", chat_post_message, name="chat_post"),
     path("chat/messages/", chat_get_messages, name="chat_messages"),
+    
+    # League & Team Management
+    path("leagues/", league_list, name="league_list"),
+    path("leagues/create/", league_create, name="league_create"),
+    path("leagues/<int:league_id>/", league_detail, name="league_detail"),
+    path("leagues/<int:league_id>/join/", team_create, name="team_create"),
 ]

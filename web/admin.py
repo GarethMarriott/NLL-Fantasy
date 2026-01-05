@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 
 from .models import Player, Week, PlayerWeekStat
 from .models import ImportRun
-from .models import FantasyTeamOwner, ChatMessage, Team
+from .models import FantasyTeamOwner, ChatMessage, Team, League
 from .forms import ImportWeeklyStatsForm, ImportTeamsForm
 from .importers import import_weekly_stats_csv, import_teams_csv
 from django.contrib import admin
@@ -365,9 +365,23 @@ class FantasyAdminSite(ImportToolsAdminSiteMixin, AdminSite):
 # If you want the clean/custom admin site, you must switch to it in config/urls.py.
 
 
+@admin.register(League, site=admin_site)
+class LeagueAdmin(admin.ModelAdmin):
+    list_display = ("name", "commissioner", "team_count", "max_teams", "is_active", "created_at")
+    list_filter = ("is_active", "created_at")
+    search_fields = ("name", "commissioner__username")
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("-created_at",)
+    
+    def team_count(self, obj):
+        return obj.teams.count()
+    team_count.short_description = "Teams"
+
+
 @admin.register(Team, site=admin_site)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ("name", "created_at")
+    list_display = ("name", "league", "created_at")
+    list_filter = ("league",)
     search_fields = ("name",)
     ordering = ("name",)
 

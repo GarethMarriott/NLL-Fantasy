@@ -1,0 +1,66 @@
+{% extends "web/base.html" %}
+
+{% block title %}Create Team - {{ league.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8">
+  <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Join {{ league.name }}</h1>
+  <p class="text-gray-600 dark:text-gray-400 mb-8">Create your team to join the league</p>
+
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <form method="POST">
+      {% csrf_token %}
+      
+      <div class="space-y-6">
+        <div>
+          <label for="id_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Team Name *
+          </label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+          {% endif %}
+          <p class="mt-1 text-sm text-gray-500">Choose a unique name for your team</p>
+        </div>
+
+        <div class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">League Information</h3>
+          <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+            <li><strong>League:</strong> {{ league.name }}</li>
+            <li><strong>Current Teams:</strong> {{ league.teams.count }}/{{ league.max_teams }}</li>
+            <li><strong>Commissioner:</strong> {{ league.commissioner.username }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-8 flex gap-4">
+        <button type="submit" 
+                class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg">
+          Create Team & Join League
+        </button>
+        <a href="{% url 'league_detail' league.id %}" 
+           class="flex-1 text-center px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  input[type="text"] {
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: white;
+  }
+  .dark input[type="text"] {
+    background-color: #374151;
+    border-color: #4b5563;
+    color: white;
+  }
+</style>
+{% endblock %}
