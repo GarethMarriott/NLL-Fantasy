@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db import models
 
-from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner, League
+from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner, League, Roster
 from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
@@ -22,16 +22,40 @@ def about(request):
 
 
 def teams(request):
-    # Only show teams from active leagues
-    teams = (
-        Team.objects.filter(
-            league__is_active=True
-        ).prefetch_related("players__weekly_stats__week", "league")
-    )
+    # Get selected league from session
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if selected_league_id:
+        teams = (
+            Team.objects.filter(league_id=selected_league_id)
+            .prefetch_related(
+                "roster_entries__player__weekly_stats__week",
+                "roster_entries__player",
+                "league"
+            )
+        )
+    else:
+        # Default to active leagues if no selection
+        teams = (
+            Team.objects.filter(league__is_active=True)
+            .prefetch_related(
+                "roster_entries__player__weekly_stats__week",
+                "roster_entries__player",
+                "league"
+            )
+        )
 
-    def fantasy_points(stat_obj):
+    def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
+        # Goalie scoring: win=5, save=0.75, goal against=-1
+        if player and player.position == "G":
+            return (
+                stat_obj.wins * 5
+                + stat_obj.saves * 0.75
+                - stat_obj.goals_against
+            )
+        # Field player scoring
         return (
             stat_obj.goals * 4
             + stat_obj.assists * 2
@@ -49,7 +73,9 @@ def teams(request):
     teams_data = []
     for t in teams:
         players = []
-        for p in t.players.filter(active=True).order_by("last_name", "first_name"):
+        roster = t.roster_entries.select_related('player').filter(player__active=True)
+        for roster_entry in roster.order_by("player__last_name", "player__first_name"):
+            p = roster_entry.player
             weekly = list(p.weekly_stats.all())
             latest = None
             if weekly:
@@ -61,7 +87,7 @@ def teams(request):
                 stats_by_week = {s.week.week_number: s for s in p.weekly_stats.filter(week__season=season)}
                 for wk in range(1, 19):
                     st = stats_by_week.get(wk)
-                    pts = fantasy_points(st)
+                    pts = fantasy_points(st, p)
                     if pts is not None:
                         total_points += pts
             
@@ -76,9 +102,17 @@ def team_detail(request, team_id):
 
     players_by_position = {"O": [], "D": [], "G": [], "T": []}
     # Best-ball fantasy scoring derived from the raw stat fields
-    def fantasy_points(stat_obj):
+    def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
+        # Goalie scoring: win=5, save=0.75, goal against=-1
+        if player and player.position == "G":
+            return (
+                stat_obj.wins * 5
+                + stat_obj.saves * 0.75
+                - stat_obj.goals_against
+            )
+        # Field player scoring
         return (
             stat_obj.goals * 4
             + stat_obj.assists * 2
@@ -93,7 +127,13 @@ def team_detail(request, team_id):
     season = recent_week.season if recent_week else None
 
     # Keep players in order of when they were (last) assigned, not alphabetically
-    for p in team.players.filter(active=True).order_by("updated_at", "id"):
+    # Get players through roster entries for this team's league
+    roster = team.roster_entries.select_related('player').filter(
+        player__active=True
+    ).order_by("player__updated_at", "player__id")
+    
+    for roster_entry in roster:
+        p = roster_entry.player
         weekly = list(p.weekly_stats.all())
         latest = None
         if weekly:
@@ -106,7 +146,7 @@ def team_detail(request, team_id):
             stats_by_week = {s.week.week_number: s for s in p.weekly_stats.filter(week__season=season)}
             for wk in range(1, 19):
                 st = stats_by_week.get(wk)
-                pts = fantasy_points(st)
+                pts = fantasy_points(st, p)
                 weekly_points.append(pts)
                 if pts is not None:
                     total_points += pts
@@ -146,6 +186,19 @@ def team_detail(request, team_id):
                     weekly_totals[idx] += pts
     overall_total = sum(weekly_totals)
 
+    # Get all players with their team assignment in this league (if any)
+    players_with_teams = []
+    all_players = Player.objects.filter(active=True).order_by("last_name", "first_name")
+    for player in all_players:
+        roster_entry = Roster.objects.filter(
+            player=player,
+            league=team.league
+        ).select_related('team').first()
+        players_with_teams.append({
+            'player': player,
+            'team_in_league': roster_entry.team if roster_entry else None
+        })
+
     return render(
         request,
         "web/team_detail.html",
@@ -157,7 +210,7 @@ def team_detail(request, team_id):
             "week_range": list(range(1, 19)),
             "weekly_totals": weekly_totals,
             "overall_total": overall_total,
-            "players_for_select": Player.objects.filter(active=True).order_by("last_name", "first_name"),
+            "players_for_select": players_with_teams,
         },
     )
 
@@ -177,16 +230,48 @@ def assign_player(request, team_id):
 
     slot_group = request.POST.get("slot_group")
     if action == "add":
-        player.team = team
+        # Validate position matches slot type
+        if slot_group == "O" and player.position not in ["O", "T"]:
+            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Offence slots (position: {player.get_position_display()})")
+            return redirect("team_detail", team_id=team.id)
+        elif slot_group == "D" and player.position not in ["D", "T"]:
+            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Defence slots (position: {player.get_position_display()})")
+            return redirect("team_detail", team_id=team.id)
+        elif slot_group == "G" and player.position != "G":
+            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Goalie slots (position: {player.get_position_display()})")
+            return redirect("team_detail", team_id=team.id)
+        
+        # Check if player is already rostered in this league
+        existing_roster = Roster.objects.filter(
+            player=player,
+            league=team.league
+        ).select_related('team').first()
+        
+        if existing_roster:
+            messages.error(request, f"{player.first_name} {player.last_name} is not available - already on {existing_roster.team.name}")
+            return redirect("team_detail", team_id=team.id)
+        
+        # Create a roster entry for this player on this team in this league
+        Roster.objects.create(
+            player=player,
+            team=team,
+            league=team.league
+        )
+        # Update assigned_side for slot placement
         if slot_group in {"O", "D", "G"}:
             player.assigned_side = slot_group
-        player.save()
-    elif action == "drop":
-        # only drop if the player is currently on this team
-        if getattr(player, "team_id", None) == team.id:
-            player.team = None
-            player.assigned_side = None
             player.save()
+        messages.success(request, f"Added {player.first_name} {player.last_name} to your roster")
+    elif action == "drop":
+        # Remove the roster entry for this player on this team in this league
+        Roster.objects.filter(
+            player=player,
+            team=team,
+            league=team.league
+        ).delete()
+        # Clear assigned_side when dropping
+        player.assigned_side = None
+        player.save()
 
     return redirect("team_detail", team_id=team.id)
 
@@ -199,9 +284,17 @@ def players(request):
         .prefetch_related("weekly_stats__week")
     )
 
-    def fantasy_points(stat_obj):
+    def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
+        # Goalie scoring: win=5, save=0.75, goal against=-1
+        if player and player.position == "G":
+            return (
+                stat_obj.wins * 5
+                + stat_obj.saves * 0.75
+                - stat_obj.goals_against
+            )
+        # Field player scoring
         return (
             stat_obj.goals * 4
             + stat_obj.assists * 2
@@ -213,11 +306,14 @@ def players(request):
 
     # Determine which week to show: selected via query param, else most recent available
     selected_week = None
-    if request.GET.get("week_id"):
+    week_id_param = request.GET.get("week_id")
+    if week_id_param:
         try:
-            selected_week = Week.objects.get(id=int(request.GET["week_id"]))
+            selected_week = Week.objects.get(id=int(week_id_param))
         except (Week.DoesNotExist, ValueError):
-            selected_week = None
+            pass
+    
+    # If no valid week selected, default to most recent
     if selected_week is None:
         selected_week = Week.objects.order_by("-season", "-week_number").first()
 
@@ -229,19 +325,16 @@ def players(request):
     players_with_stats = []
     for p in qs:
         weekly = list(p.weekly_stats.all())
-        latest = None
-        if weekly:
-            latest = max(weekly, key=lambda s: (s.week.season, s.week.week_number))
+        
+        # Find stat for the selected week (if any)
         stat_for_view = None
         if selected_week is not None:
-            stat_for_view = next((s for s in weekly if s.week_id == selected_week.id), None)
-        if stat_for_view is None:
-            stat_for_view = latest
+            stat_for_view = next((s for s in weekly if s.week.id == selected_week.id), None)
 
         players_with_stats.append({
             "player": p,
             "latest_stat": stat_for_view,
-            "fantasy_points": fantasy_points(stat_for_view),
+            "fantasy_points": fantasy_points(stat_for_view, p),
         })
 
     def sort_key(item):
@@ -260,6 +353,9 @@ def players(request):
             week_val = stat.week.week_number if stat else -1
             season_val = stat.week.season if stat else -1
             return (season_val, week_val, player.last_name, player.first_name)
+        if sort_field == "gp":
+            val = stat.games_played if stat else None
+            return (val is None, -(val or 0), player.last_name, player.first_name)
         if sort_field == "fpts":
             return (fpts is None, -(fpts or 0), player.last_name, player.first_name)
         if sort_field == "goals":
@@ -352,15 +448,30 @@ def schedule(request):
 
 
 def matchups(request):
-    teams = list(Team.objects.order_by("id"))
+    # Get selected league from session
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if selected_league_id:
+        teams = list(Team.objects.filter(league_id=selected_league_id).order_by("id"))
+    else:
+        teams = list(Team.objects.filter(league__is_active=True).order_by("id"))
+    
     team_ids = [t.id for t in teams]
     weeks = _build_schedule(team_ids)
 
     id_to_team = {t.id: t for t in teams}
 
-    def fantasy_points(stat_obj):
+    def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
+        # Goalie scoring: win=5, save=0.75, goal against=-1
+        if player and player.position == "G":
+            return (
+                stat_obj.wins * 5
+                + stat_obj.saves * 0.75
+                - stat_obj.goals_against
+            )
+        # Field player scoring
         return (
             stat_obj.goals * 4
             + stat_obj.assists * 2
@@ -386,17 +497,22 @@ def matchups(request):
     team_rosters = {}
     team_totals = {}
     for team in teams:
-        roster = []
-        for p in team.players.filter(active=True).order_by("last_name", "first_name"):
+        roster = team.roster_entries.select_related('player').filter(
+            player__active=True
+        ).order_by("player__last_name", "player__first_name")
+        
+        roster_data = []
+        for roster_entry in roster:
+            p = roster_entry.player
             stat = None
             if week_obj:
                 stat = p.weekly_stats.filter(week=week_obj).first()
                 if stat is None:
                     stat = p.weekly_stats.filter(week__week_number=selected_week_number).order_by("-week__season").first()
-            fpts = fantasy_points(stat)
-            roster.append({"player": p, "stat": stat, "fantasy_points": fpts})
-        team_rosters[team.id] = roster
-        team_totals[team.id] = sum((r["fantasy_points"] or 0) for r in roster if r["fantasy_points"] is not None)
+            fpts = fantasy_points(stat, p)
+            roster_data.append({"player": p, "stat": stat, "fantasy_points": fpts})
+        team_rosters[team.id] = roster_data
+        team_totals[team.id] = sum((r["fantasy_points"] or 0) for r in roster_data if r["fantasy_points"] is not None)
 
     schedule_weeks = []
     for idx, games in enumerate(weeks, start=1):
@@ -443,92 +559,120 @@ def matchups(request):
 
 
 def standings(request):
-    teams = list(Team.objects.order_by("name"))
-    team_ids = [t.id for t in teams]
-    weeks = _build_schedule(team_ids)
+    # Get selected league from session
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if selected_league_id:
+        leagues = League.objects.filter(id=selected_league_id).prefetch_related('teams')
+    else:
+        # Get all active leagues
+        leagues = League.objects.filter(is_active=True).prefetch_related('teams')
+    
+    all_league_standings = []
+    
+    for league in leagues:
+        teams = list(league.teams.order_by("name"))
+        if not teams:
+            continue
+            
+        team_ids = [t.id for t in teams]
+        weeks = _build_schedule(team_ids)
 
-    def fantasy_points(stat_obj):
-        if stat_obj is None:
-            return None
-        return (
-            stat_obj.goals * 4
-            + stat_obj.assists * 2
-            + stat_obj.loose_balls * 2
-            + stat_obj.caused_turnovers * 3
-            + stat_obj.blocked_shots * 2
-            - stat_obj.turnovers
+        def fantasy_points(stat_obj, player=None):
+            if stat_obj is None:
+                return None
+            # Goalie scoring: win=5, save=0.75, goal against=-1
+            if player and player.position == "G":
+                return (
+                    stat_obj.wins * 5
+                    + stat_obj.saves * 0.75
+                    - stat_obj.goals_against
+                )
+            # Field player scoring
+            return (
+                stat_obj.goals * 4
+                + stat_obj.assists * 2
+                + stat_obj.loose_balls * 2
+                + stat_obj.caused_turnovers * 3
+                + stat_obj.blocked_shots * 2
+                - stat_obj.turnovers
+            )
+
+        # prefetch players once via roster entries
+        from collections import defaultdict
+
+        rosters = (
+            Roster.objects.filter(team__in=teams, league=league, player__active=True)
+            .select_related("player", "team")
+            .prefetch_related("player__weekly_stats__week")
         )
+        players_by_team = defaultdict(list)
+        for roster_entry in rosters:
+            players_by_team[roster_entry.team_id].append(roster_entry.player)
 
-    # prefetch players once
-    from collections import defaultdict
-
-    players = (
-        Player.objects.filter(active=True, team__in=teams)
-        .select_related("team")
-        .prefetch_related("weekly_stats__week")
-    )
-    players_by_team = defaultdict(list)
-    for p in players:
-        players_by_team[p.team_id].append(p)
-
-    week_cache = {}
-    standings_map = {
-        t.id: {
-            "team": t,
-            "wins": 0,
-            "losses": 0,
-            "ties": 0,
-            "total_points": 0,
-            "games": 0,
+        week_cache = {}
+        standings_map = {
+            t.id: {
+                "team": t,
+                "wins": 0,
+                "losses": 0,
+                "ties": 0,
+                "total_points": 0,
+                "games": 0,
+            }
+            for t in teams
         }
-        for t in teams
-    }
 
-    def team_week_total(team_id, week_number):
-        week_obj = week_cache.get(week_number)
-        if week_obj is None:
-            week_obj = Week.objects.filter(week_number=week_number).order_by("-season").first()
-            week_cache[week_number] = week_obj
-        total = 0
-        for p in players_by_team.get(team_id, []):
-            stat = None
-            if week_obj:
-                stat = next((s for s in p.weekly_stats.all() if s.week_id == week_obj.id), None)
-            if stat is None:
-                stat = next((s for s in p.weekly_stats.all() if s.week.week_number == week_number), None)
-            pts = fantasy_points(stat)
-            if pts is not None:
-                total += pts
-        return total
+        def team_week_total(team_id, week_number):
+            week_obj = week_cache.get(week_number)
+            if week_obj is None:
+                week_obj = Week.objects.filter(week_number=week_number).order_by("-season").first()
+                week_cache[week_number] = week_obj
+            total = 0
+            for p in players_by_team.get(team_id, []):
+                stat = None
+                if week_obj:
+                    stat = next((s for s in p.weekly_stats.all() if s.week_id == week_obj.id), None)
+                if stat is None:
+                    stat = next((s for s in p.weekly_stats.all() if s.week.week_number == week_number), None)
+                pts = fantasy_points(stat, p)
+                if pts is not None:
+                    total += pts
+            return total
 
-    for idx, games in enumerate(weeks, start=1):
-        for (a, b) in games:
-            home_total = team_week_total(a, idx)
-            away_total = team_week_total(b, idx)
+        for idx, games in enumerate(weeks, start=1):
+            for (a, b) in games:
+                home_total = team_week_total(a, idx)
+                away_total = team_week_total(b, idx)
 
-            standings_map[a]["total_points"] += home_total
-            standings_map[b]["total_points"] += away_total
-            standings_map[a]["games"] += 1
-            standings_map[b]["games"] += 1
+                standings_map[a]["total_points"] += home_total
+                standings_map[b]["total_points"] += away_total
+                standings_map[a]["games"] += 1
+                standings_map[b]["games"] += 1
 
-            if home_total > away_total:
-                standings_map[a]["wins"] += 1
-                standings_map[b]["losses"] += 1
-            elif home_total < away_total:
-                standings_map[b]["wins"] += 1
-                standings_map[a]["losses"] += 1
-            else:
-                standings_map[a]["ties"] += 1
-                standings_map[b]["ties"] += 1
+                if home_total > away_total:
+                    standings_map[a]["wins"] += 1
+                    standings_map[b]["losses"] += 1
+                elif home_total < away_total:
+                    standings_map[b]["wins"] += 1
+                    standings_map[a]["losses"] += 1
+                else:
+                    standings_map[a]["ties"] += 1
+                    standings_map[b]["ties"] += 1
 
-    standings_list = list(standings_map.values())
-    standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
+        standings_list = list(standings_map.values())
+        standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
+        
+        all_league_standings.append({
+            'league': league,
+            'standings': standings_list
+        })
 
     return render(
         request,
         "web/standings.html",
         {
-            "standings": standings_list,
+            "league_standings": all_league_standings,
         },
     )
 
@@ -564,8 +708,16 @@ def logout_view(request):
 @login_required
 def chat_view(request):
     """Display chat modal page"""
-    messages_list = ChatMessage.objects.select_related(
-        'sender', 'player', 'team'
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        messages.warning(request, "Please select a league to view chat.")
+        return redirect('league_list')
+    
+    messages_list = ChatMessage.objects.filter(
+        league_id=selected_league_id
+    ).select_related(
+        'sender', 'player', 'team', 'league'
     ).all()[:100]  # Last 100 messages
     
     return render(request, "web/chat.html", {
@@ -577,6 +729,20 @@ def chat_view(request):
 @require_POST
 def chat_post_message(request):
     """API endpoint to post a new chat message"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        return JsonResponse({"error": "No league selected"}, status=400)
+    
+    try:
+        league = League.objects.get(id=selected_league_id)
+    except League.DoesNotExist:
+        return JsonResponse({"error": "League not found"}, status=404)
+    
+    # Verify user is a member of this league
+    if not FantasyTeamOwner.objects.filter(user=request.user, team__league=league).exists():
+        return JsonResponse({"error": "You are not a member of this league"}, status=403)
+    
     message_text = request.POST.get("message", "").strip()
     
     if not message_text:
@@ -587,6 +753,7 @@ def chat_post_message(request):
     
     # Create the chat message
     chat_msg = ChatMessage.objects.create(
+        league=league,
         sender=request.user,
         message_type=ChatMessage.MessageType.CHAT,
         message=message_text
@@ -602,25 +769,36 @@ def chat_post_message(request):
 @login_required
 def chat_get_messages(request):
     """API endpoint to fetch new chat messages (for auto-refresh)"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        return JsonResponse({"messages": []})
+    
     since_id = request.GET.get("since", 0)
     
-    messages_list = ChatMessage.objects.select_related(
+    messages_list = ChatMessage.objects.filter(
+        league_id=selected_league_id,
+        id__gt=since_id
+    ).select_related(
         'sender', 'player', 'team'
-    ).filter(id__gt=since_id).order_by('created_at')[:50]
+    ).order_by('created_at')[:50]
     
     data = []
     for msg in messages_list:
         sender_name = msg.sender.username if msg.sender else "System"
-        team_name = None
+        team_names = []
         
-        # Get team name if sender is a team owner
-        if msg.sender and hasattr(msg.sender, 'fantasy_owner'):
-            team_name = msg.sender.fantasy_owner.team.name
+        # Get team names if sender is a team owner
+        if msg.sender:
+            team_names = [
+                owner.team.name 
+                for owner in msg.sender.fantasy_teams.filter(team__league_id=selected_league_id)
+            ]
         
         data.append({
             "id": msg.id,
             "sender": sender_name,
-            "team": team_name,
+            "teams": team_names,
             "message": msg.message,
             "message_type": msg.message_type,
             "created_at": msg.created_at.isoformat(),
@@ -632,6 +810,9 @@ def chat_get_messages(request):
 
 def create_transaction_notification(transaction_type, team, player, user=None):
     """Helper function to create add/drop notifications"""
+    if not team or not team.league:
+        return
+        
     if transaction_type == "ADD":
         message = f"added {player} to their roster"
         msg_type = ChatMessage.MessageType.ADD
@@ -642,6 +823,7 @@ def create_transaction_notification(transaction_type, team, player, user=None):
         return
     
     ChatMessage.objects.create(
+        league=team.league,
         sender=user,
         message_type=msg_type,
         message=message,
@@ -767,3 +949,11 @@ def team_create(request, league_id):
         "league": league
     })
 
+
+@login_required
+def select_league(request, league_id):
+    """Set the selected league in session"""
+    league = get_object_or_404(League, id=league_id)
+    request.session['selected_league_id'] = league_id
+    messages.success(request, f"Viewing data for league: {league.name}")
+    return redirect('home')

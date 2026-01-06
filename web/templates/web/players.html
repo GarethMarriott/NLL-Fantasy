@@ -26,6 +26,7 @@
         <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=position&dir={% if sort_field == 'position' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">Pos</a></th>
         <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=season&dir={% if sort_field == 'season' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">Season</a></th>
         <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=week&dir={% if sort_field == 'week' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">Week</a></th>
+        <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=gp&dir={% if sort_field == 'gp' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">GP</a></th>
         <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=fpts&dir={% if sort_field == 'fpts' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">FPTS</a></th>
         <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=goals&dir={% if sort_field == 'goals' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">G</a></th>
         <th><a href="?{% if selected_week %}week_id={{ selected_week.id }}&{% endif %}sort=assists&dir={% if sort_field == 'assists' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}">A</a></th>
@@ -44,6 +45,7 @@
         <td>{{ player.get_position_display }}</td>
         <td>{% if stat %}{{ stat.week.season }}{% else %}-{% endif %}</td>
         <td>{% if stat %}{{ stat.week.week_number }}{% else %}-{% endif %}</td>
+        <td>{% if stat %}{{ stat.games_played }}{% else %}-{% endif %}</td>
         <td>{% if stat %}{{ item.fantasy_points }}{% else %}-{% endif %}</td>
         <td>{% if stat %}{{ stat.goals }}{% else %}-{% endif %}</td>
         <td>{% if stat %}{{ stat.assists }}{% else %}-{% endif %}</td>
@@ -54,7 +56,7 @@
       </tr>
       {% endwith %}
     {% empty %}
-      <tr><td colspan="12">No players found.</td></tr>
+      <tr><td colspan="13">No players found.</td></tr>
     {% endfor %}
     </tbody>
   </table>

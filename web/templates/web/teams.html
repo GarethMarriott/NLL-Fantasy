@@ -1,17 +1,6 @@
 {% extends "web/base.html" %}
 {% block title %}Teams — NLL Fantasy{% endblock %}
 {% block content %}
-  <div class="w-full flex flex-wrap gap-4 justify-center my-4">
-    {% for item in teams %}
-      <div class="flex justify-center w-full sm:w-auto">
-        <a href="/teams/{{ item.team.id }}/"
-           class="flex text-gray-100 justify-center transition duration-200 ease-in-out transform px-4 py-2 w-48 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px"
-           style="-webkit-box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 8px rgba(0,0,0,0); box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 5px rgba(0,0,0,0);">
-          <span class="font-bold text-center">{{ item.team.name }}</span>
-        </a>
-      </div>
-    {% endfor %}
-  </div>
   {% if teams %}
     <nav class="team-tabs">
       <ul>
@@ -23,7 +12,14 @@
 
     {% for item in teams %}
       <section id="team-{{ item.team.id }}" class="team-panel border-2 border-gray-300 rounded-lg p-6 mb-6 shadow-md bg-white">
-        <h2>{{ item.team.name }}</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold">{{ item.team.name }}</h2>
+          <a href="/teams/{{ item.team.id }}/"
+             class="flex text-gray-100 justify-center transition duration-200 ease-in-out transform px-4 py-2 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px"
+             style="-webkit-box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 8px rgba(0,0,0,0); box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 5px rgba(0,0,0,0);">
+            <span class="font-semibold text-sm">View Details</span>
+          </a>
+        </div>
         {% if item.players %}
           <table class="players-table w-full">
             <thead>

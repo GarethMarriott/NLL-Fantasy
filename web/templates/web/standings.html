@@ -2,28 +2,33 @@
 {% block title %}Standings — NLL Fantasy{% endblock %}
 {% block content %}
   <h1 class="text-2xl font-bold mb-4">Standings</h1>
-  {% if standings %}
-    <table class="standings players-table w-full border-collapse text-sm md:text-base">
-      <thead class="bg-slate-800 text-white">
-        <tr>
-          <th class="py-3 px-3 text-left uppercase tracking-wide text-xs font-semibold">Team</th>
-          <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">W</th>
-          <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">L</th>
-          <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">Total FPTS</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in standings %}
-          <tr class="border-b border-gray-200 hover:bg-slate-50">
-            <td class="py-2.5 px-3 font-semibold text-gray-900">{{ row.team.name }}</td>
-            <td class="py-2.5 px-3 text-center">{{ row.wins }}</td>
-            <td class="py-2.5 px-3 text-center">{{ row.losses }}</td>
-            <td class="py-2.5 px-3 text-center font-bold text-blue-600">{{ row.total_points }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  {% if league_standings %}
+    {% for league_data in league_standings %}
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-3 text-gray-800">{{ league_data.league.name }}</h2>
+        <table class="standings players-table w-full border-collapse text-sm md:text-base">
+          <thead class="bg-slate-800 text-white">
+            <tr>
+              <th class="py-3 px-3 text-left uppercase tracking-wide text-xs font-semibold">Team</th>
+              <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">W</th>
+              <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">L</th>
+              <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">Total FPTS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in league_data.standings %}
+              <tr class="border-b border-gray-200 hover:bg-slate-50">
+                <td class="py-2.5 px-3 font-semibold text-gray-900">{{ row.team.name }}</td>
+                <td class="py-2.5 px-3 text-center">{{ row.wins }}</td>
+                <td class="py-2.5 px-3 text-center">{{ row.losses }}</td>
+                <td class="py-2.5 px-3 text-center font-bold text-blue-600">{{ row.total_points }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
   {% else %}
-    <p>No standings available.</p>
+    <p>No active leagues with standings available.</p>
   {% endif %}
 {% endblock %}

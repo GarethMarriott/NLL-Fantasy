@@ -2,6 +2,17 @@
 {% block title %}{{ team.name }} — Team — NLL Fantasy{% endblock %}
 {% block content %}
   <h1>{{ team.name }}</h1>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="rounded-md {% if message.tags == 'error' %}bg-red-50 border border-red-200{% else %}bg-green-50 border border-green-200{% endif %} p-4 mb-4">
+        <p class="text-sm {% if message.tags == 'error' %}text-red-800{% else %}text-green-800{% endif %}">
+          {{ message }}
+        </p>
+      </div>
+    {% endfor %}
+  {% endif %}
+
   <div class="w-full flex justify-start mb-4">
     <a href="/teams"
        class="flex items-center gap-2 text-gray-100 transition duration-200 ease-in-out transform px-3 py-2 w-40 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px text-sm"
@@ -65,7 +76,7 @@
                   <select name="player_id" class="flex-1">
                     <option value="">Select player…</option>
                     {% for p in players_for_select %}
-                      <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                      <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.number }}){% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
                     {% endfor %}
                   </select>
                   <input type="hidden" name="action" value="add">
@@ -124,7 +135,7 @@
                   <select name="player_id" class="flex-1">
                     <option value="">Select player…</option>
                     {% for p in players_for_select %}
-                      <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                      <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.number }}){% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
                     {% endfor %}
                   </select>
                   <input type="hidden" name="action" value="add">
@@ -183,7 +194,7 @@
                   <select name="player_id" class="flex-1">
                     <option value="">Select player…</option>
                     {% for p in players_for_select %}
-                      <option value="{{ p.id }}">{{ p.last_name }}, {{ p.first_name }} ({{ p.number }}){% if p.team %} — {{ p.team.name }}{% endif %}</option>
+                      <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.number }}){% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
                     {% endfor %}
                   </select>
                   <input type="hidden" name="action" value="add">

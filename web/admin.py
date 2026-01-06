@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 
 from .models import Player, Week, PlayerWeekStat
 from .models import ImportRun
-from .models import FantasyTeamOwner, ChatMessage, Team, League
+from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster
 from .forms import ImportWeeklyStatsForm, ImportTeamsForm
 from .importers import import_weekly_stats_csv, import_teams_csv
 from django.contrib import admin
@@ -23,17 +23,14 @@ class PlayerWeekStatInline(admin.TabularInline):
         "goals",
         "assists",
         "points",
-        "penalty_minutes",
-        "powerplay_goals",
-        "powerplay_assists",
-        "shorthanded_goals",
         "loose_balls",
         "turnovers",
         "caused_turnovers",
         "blocked_shots",
-        "shots_on_goal",
-        "faceoff_percentage",
-        "source_file",
+        "games_played",
+        "wins",
+        "saves",
+        "goals_against",
         "updated_at",
     )
     readonly_fields = ("updated_at",)
@@ -59,17 +56,14 @@ class PlayerWeekStatWeekInline(admin.TabularInline):
         "goals",
         "assists",
         "points",
-        "penalty_minutes",
-        "powerplay_goals",
-        "powerplay_assists",
-        "shorthanded_goals",
         "loose_balls",
         "turnovers",
         "caused_turnovers",
         "blocked_shots",
-        "shots_on_goal",
-        "faceoff_percentage",
-        "source_file",
+        "games_played",
+        "wins",
+        "saves",
+        "goals_against",
         "updated_at",
     )
     readonly_fields = ("updated_at",)
@@ -94,21 +88,18 @@ class PlayerWeekStatAdmin(admin.ModelAdmin):
         "goals",
         "assists",
         "points",
-        "penalty_minutes",
-        "powerplay_goals",
-        "powerplay_assists",
-        "shorthanded_goals",
         "loose_balls",
         "turnovers",
         "caused_turnovers",
         "blocked_shots",
-        "shots_on_goal",
-        "faceoff_percentage",
-        "source_file",
+        "games_played",
+        "wins",
+        "saves",
+        "goals_against",
         "updated_at",
     )
     list_filter = ("week__season", "week__week_number", "player__position")
-    search_fields = ("player__first_name", "player__last_name", "player__external_id", "source_file")
+    search_fields = ("player__first_name", "player__last_name", "player__external_id")
     autocomplete_fields = ("player", "week")
     ordering = ("-week__season", "-week__week_number", "player__last_name", "player__first_name")
 
@@ -398,8 +389,8 @@ class FantasyTeamOwnerAdmin(admin.ModelAdmin):
 
 @admin.register(ChatMessage, site=admin_site)
 class ChatMessageAdmin(admin.ModelAdmin):
-    list_display = ("sender", "message_type", "message_preview", "created_at")
-    list_filter = ("message_type", "created_at")
+    list_display = ("sender", "league", "message_type", "message_preview", "created_at")
+    list_filter = ("message_type", "league", "created_at")
     search_fields = ("message", "sender__username")
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
@@ -407,3 +398,15 @@ class ChatMessageAdmin(admin.ModelAdmin):
     def message_preview(self, obj):
         return obj.message[:50] + "..." if len(obj.message) > 50 else obj.message
     message_preview.short_description = "Message"
+
+
+@admin.register(Roster, site=admin_site)
+class RosterAdmin(admin.ModelAdmin):
+    list_display = ("player", "team", "league", "added_date")
+    list_filter = ("league", "team", "added_date")
+    search_fields = ("player__first_name", "player__last_name", "team__name")
+    autocomplete_fields = ["player", "team"]
+    ordering = ("league", "team", "player")
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('player', 'team', 'league')

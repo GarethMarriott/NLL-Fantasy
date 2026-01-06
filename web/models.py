@@ -53,6 +53,43 @@ class Team(models.Model):
         return self.name
 
 
+class Roster(models.Model):
+    """Manages player assignments to teams within specific leagues"""
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='roster_entries'
+    )
+    player = models.ForeignKey(
+        'Player',  # Forward reference since Player is defined later
+        on_delete=models.CASCADE,
+        related_name='roster_entries'
+    )
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name='roster_entries',
+        help_text="The league this roster assignment belongs to"
+    )
+    added_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['team', 'player']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['player', 'league'],
+                name='unique_player_per_league'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['team', 'league']),
+            models.Index(fields=['player', 'league']),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.player} on {self.team.name} ({self.league.name})"
+
+
 class Player(models.Model):
     class Position(models.TextChoices):
         OFFENCE = "O", "Offence"
@@ -70,15 +107,6 @@ class Player(models.Model):
     first_name = models.CharField(max_length=50)
     middle_name = models.CharField(max_length=50, null=True, blank=True)
     last_name = models.CharField(max_length=50)
-
-    # Optional team association
-    team = models.ForeignKey(
-        Team,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="players",
-    )
 
     position = models.CharField(max_length=1, choices=Position.choices)
 
@@ -154,27 +182,17 @@ class PlayerWeekStat(models.Model):
     assists = models.PositiveSmallIntegerField(default=0)
     points = models.PositiveSmallIntegerField(default=0)
 
-    penalty_minutes = models.PositiveSmallIntegerField(default=0)
-    powerplay_goals = models.PositiveSmallIntegerField(default=0)
-    powerplay_assists = models.PositiveSmallIntegerField(default=0)
-    shorthanded_goals = models.PositiveSmallIntegerField(default=0)
-
     loose_balls = models.PositiveSmallIntegerField(default=0)
     turnovers = models.PositiveSmallIntegerField(default=0)
     caused_turnovers = models.PositiveSmallIntegerField(default=0)
-
     blocked_shots = models.PositiveSmallIntegerField(default=0)
-    shots_on_goal = models.PositiveSmallIntegerField(default=0)
 
-    faceoff_percentage = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="0.00 to 100.00",
-    )
+    # Goalie-specific stats
+    wins = models.PositiveSmallIntegerField(default=0, help_text="Goalie wins")
+    saves = models.PositiveSmallIntegerField(default=0, help_text="Goalie saves")
+    goals_against = models.PositiveSmallIntegerField(default=0, help_text="Goals allowed by goalie")
 
-    source_file = models.CharField(max_length=255, null=True, blank=True)
+    games_played = models.PositiveSmallIntegerField(default=1, help_text="Number of games played this week")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -238,10 +256,10 @@ class ImportRun(models.Model):
 
 class FantasyTeamOwner(models.Model):
     """Links Django User accounts to fantasy Teams (for chat & ownership)"""
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="fantasy_owner",
+        related_name="fantasy_teams",
     )
     team = models.OneToOneField(
         Team,
@@ -253,6 +271,12 @@ class FantasyTeamOwner(models.Model):
 
     class Meta:
         ordering = ["team__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'team'],
+                name='unique_user_team'
+            )
+        ]
 
     def __str__(self) -> str:
         return f"{self.user.username} owns {self.team.name}"
@@ -267,6 +291,14 @@ class ChatMessage(models.Model):
         TRADE = "TRADE", "Trade"
         SYSTEM = "SYSTEM", "System Notification"
 
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name="chat_messages",
+        null=True,
+        blank=True,
+        help_text="The league this message belongs to"
+    )
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

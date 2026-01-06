@@ -14,15 +14,10 @@ INT_FIELDS = [
     "goals",
     "assists",
     "points",
-    "penalty_minutes",
-    "powerplay_goals",
-    "powerplay_assists",
-    "shorthanded_goals",
     "loose_balls",
     "turnovers",
     "caused_turnovers",
     "blocked_shots",
-    "shots_on_goal",
 ]
 
 
@@ -56,19 +51,6 @@ def _to_int(value: str, field: str, line_no: int) -> int:
         return int(v)
     except ValueError:
         raise ValidationError(f"Line {line_no}: Invalid integer for '{field}': {value!r}")
-
-
-def _to_decimal_pct(value: str, line_no: int) -> Decimal:
-    v = (value or "").strip()
-    if v == "":
-        return Decimal("0")
-    try:
-        d = Decimal(v)
-    except InvalidOperation:
-        raise ValidationError(f"Line {line_no}: Invalid decimal for faceoff_percentage: {value!r}")
-    if d < 0 or d > 100:
-        raise ValidationError(f"Line {line_no}: faceoff_percentage out of range 0..100: {value!r}")
-    return d
 
 
 @transaction.atomic
@@ -144,9 +126,6 @@ def import_weekly_stats_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]
         stat_defaults: Dict[str, Any] = {}
         for field in INT_FIELDS:
             stat_defaults[field] = _to_int(row.get(field, ""), field, line_no)
-
-        stat_defaults["faceoff_percentage"] = _to_decimal_pct(row.get("faceoff_percentage", ""), line_no)
-        stat_defaults["source_file"] = import_run.original_filename or import_run.uploaded_file.name
 
         # --- Upsert Week ---
         wk_key = (season, week_number)
@@ -348,9 +327,6 @@ def import_teams_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]:
 
         if player:
             changed = False
-            if getattr(player, "team_id", None) != (team.id if team else None):
-                player.team = team
-                changed = True
             if number is not None and player.number != number:
                 player.number = number
                 changed = True
@@ -371,7 +347,6 @@ def import_teams_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]:
                 position=position or "O",
                 external_id=external or None,
                 active=True,
-                team=team,
             )
             counters["players_created"] += 1
 
