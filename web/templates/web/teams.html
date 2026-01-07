@@ -1,54 +1,68 @@
 {% extends "web/base.html" %}
 {% block title %}Teams — NLL Fantasy{% endblock %}
 {% block content %}
-  {% if teams %}
-    <nav class="team-tabs">
-      <ul>
-        {% for item in teams %}
-          <li><a href="#team-{{ item.team.id }}">{{ item.team.name }}</a></li>
-        {% endfor %}
-      </ul>
-    </nav>
+  <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
+    <h2 class="mb-3 text-2xl font-semibold leading-tight">Teams</h2>
+    <p class="mb-4 text-sm text-gray-600">View all fantasy teams and rosters</p>
 
-    {% for item in teams %}
-      <section id="team-{{ item.team.id }}" class="team-panel border-2 border-gray-300 rounded-lg p-6 mb-6 shadow-md bg-white">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-2xl font-bold">{{ item.team.name }}</h2>
-          <a href="/teams/{{ item.team.id }}/"
-             class="flex text-gray-100 justify-center transition duration-200 ease-in-out transform px-4 py-2 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px"
-             style="-webkit-box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 8px rgba(0,0,0,0); box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 5px rgba(0,0,0,0);">
-            <span class="font-semibold text-sm">View Details</span>
-          </a>
-        </div>
-        {% if item.players %}
-          <table class="players-table w-full">
-            <thead>
-              <tr>
-                <th class="text-left px-4 py-2">Name</th>
-                <th class="text-center px-3 py-2">#</th>
-                <th class="text-center px-3 py-2">Pos</th>
-                <th class="text-right px-4 py-2">Total FPTS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for pitem in item.players %}
-                {% with player=pitem.player stat=pitem.latest_stat %}
-                <tr>
-                  <td class="text-left px-4 py-2">{{ player.last_name }}, {{ player.first_name }}</td>
-                  <td class="text-center px-3 py-2">{{ player.number }}</td>
-                  <td class="text-center px-3 py-2">{{ player.get_position_display }}</td>
-                  <td class="text-right px-4 py-2 font-bold text-blue-600">{{ pitem.total_fantasy_points|default:"0" }}</td>
-                </tr>
-                {% endwith %}
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <p>No players assigned to this team yet.</p>
-        {% endif %}
-      </section>
-    {% endfor %}
-  {% else %}
-    <p>No teams found. Import your teams CSV to add teams.</p>
-  {% endif %}
+    {% if teams %}
+      <nav class="team-tabs mb-4">
+        <ul class="flex flex-wrap gap-2">
+          {% for item in teams %}
+            <li>
+              <a href="#team-{{ item.team.id }}" 
+                 class="inline-block px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium transition-colors">
+                {{ item.team.name }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      {% for item in teams %}
+        <section id="team-{{ item.team.id }}" class="team-panel mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xl font-bold">{{ item.team.name }}</h3>
+            <a href="/teams/{{ item.team.id }}/"
+               class="flex text-gray-100 justify-center transition duration-200 ease-in-out transform px-4 py-2 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px"
+               style="-webkit-box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 8px rgba(0,0,0,0); box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 5px rgba(0,0,0,0);">
+              <span class="font-semibold text-sm">View Details</span>
+            </a>
+          </div>
+          {% if item.players %}
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-xs">
+                <thead class="rounded-t-lg dark:bg-gray-300">
+                  <tr class="text-center">
+                    <th class="p-3 text-left">Name</th>
+                    <th class="p-3">#</th>
+                    <th class="p-3">Pos</th>
+                    <th class="p-3">Total FPTS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for pitem in item.players %}
+                    {% with player=pitem.player stat=pitem.latest_stat %}
+                    <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
+                      <td class="p-3 text-left">
+                        <span class="font-semibold">{{ player.last_name }}, {{ player.first_name }}</span>
+                      </td>
+                      <td class="p-3">{{ player.number|default:"-" }}</td>
+                      <td class="p-3">{{ player.get_position_display }}</td>
+                      <td class="p-3"><strong>{{ pitem.total_fantasy_points|default:"0" }}</strong></td>
+                    </tr>
+                    {% endwith %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-gray-600 italic">No players assigned to this team yet.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    {% else %}
+      <p class="text-gray-600 italic">No teams found. Import your teams CSV to add teams.</p>
+    {% endif %}
+  </div>
 {% endblock %}

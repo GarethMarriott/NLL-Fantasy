@@ -1,34 +1,72 @@
 {% extends "web/base.html" %}
 {% block title %}Standings — NLL Fantasy{% endblock %}
 {% block content %}
-  <h1 class="text-2xl font-bold mb-4">Standings</h1>
   {% if league_standings %}
     {% for league_data in league_standings %}
-      <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-3 text-gray-800">{{ league_data.league.name }}</h2>
-        <table class="standings players-table w-full border-collapse text-sm md:text-base">
-          <thead class="bg-slate-800 text-white">
-            <tr>
-              <th class="py-3 px-3 text-left uppercase tracking-wide text-xs font-semibold">Team</th>
-              <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">W</th>
-              <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">L</th>
-              <th class="py-3 px-3 text-center uppercase tracking-wide text-xs font-semibold">Total FPTS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in league_data.standings %}
-              <tr class="border-b border-gray-200 hover:bg-slate-50">
-                <td class="py-2.5 px-3 font-semibold text-gray-900">{{ row.team.name }}</td>
-                <td class="py-2.5 px-3 text-center">{{ row.wins }}</td>
-                <td class="py-2.5 px-3 text-center">{{ row.losses }}</td>
-                <td class="py-2.5 px-3 text-center font-bold text-blue-600">{{ row.total_points }}</td>
+      <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50 mb-8">
+        <h2 class="mb-3 text-2xl font-semibold leading-tight">{{ league_data.league.name }} Standings</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead class="rounded-t-lg dark:bg-gray-300">
+              <tr class="text-right">
+                <th title="Ranking" class="p-3 text-left">#</th>
+                <th title="Team name" class="p-3 text-left">Team</th>
+                <th title="Wins" class="p-3">W</th>
+                <th title="Losses" class="p-3">L</th>
+                <th title="Win percentage" class="p-3">Win%</th>
+                <th title="Games behind" class="p-3">GB</th>
+                <th title="Total fantasy points" class="p-3">FPTS</th>
+                <th title="Fantasy points against" class="p-3">PA</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for row in league_data.standings %}
+                <tr class="text-right border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
+                  <td class="px-3 py-2 text-left">
+                    <span>{{ forloop.counter }}</span>
+                  </td>
+                  <td class="px-3 py-2 text-left">
+                    <span class="font-semibold">{{ row.team.name }}</span>
+                  </td>
+                  <td class="px-3 py-2">
+                    <span>{{ row.wins }}</span>
+                  </td>
+                  <td class="px-3 py-2">
+                    <span>{{ row.losses }}</span>
+                  </td>
+                  <td class="px-3 py-2">
+                    {% widthratio row.wins row.wins|add:row.losses 1000 as win_pct %}
+                    <span>.{% widthratio win_pct 1 1 %}</span>
+                  </td>
+                  <td class="px-3 py-2">
+                    {% if forloop.first %}
+                      <span>-</span>
+                    {% else %}
+                      {% widthratio league_data.standings.0.wins|add:league_data.standings.0.losses 2 1 as first_total %}
+                      {% widthratio row.wins|add:row.losses 2 1 as current_total %}
+                      {% widthratio league_data.standings.0.wins 1 2 as first_wins_x2 %}
+                      {% widthratio row.wins 1 2 as current_wins_x2 %}
+                      {% with gb_diff=first_wins_x2|add:current_total|add:"-"|add:current_wins_x2|add:"-"|add:first_total %}
+                        <span>{{ row.games_behind|default:"0" }}</span>
+                      {% endwith %}
+                    {% endif %}
+                  </td>
+                  <td class="px-3 py-2">
+                    <span class="font-bold">{{ row.total_points }}</span>
+                  </td>
+                  <td class="px-3 py-2">
+                    <span>{{ row.points_against }}</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     {% endfor %}
   {% else %}
-    <p>No active leagues with standings available.</p>
+    <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
+      <p>No active leagues with standings available.</p>
+    </div>
   {% endif %}
 {% endblock %}

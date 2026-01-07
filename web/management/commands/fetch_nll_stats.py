@@ -63,7 +63,7 @@ class Command(BaseCommand):
 
             # Read the necessary JSON files
             data = {}
-            required_files = ['games.json', 'player_seasons.json', 'players.json', 'teams.json', 'game_scoring.json']
+            required_files = ['games.json', 'player_seasons.json', 'players.json', 'teams.json', 'game_scoring.json', 'jerseynumbers.json']
             
             for filename in zip_file.namelist():
                 if filename in required_files:
@@ -110,6 +110,14 @@ class Command(BaseCommand):
         
         # Build team lookup dictionary by ID
         teams_by_id = {t['id']: t for t in data.get('teams', [])}
+        
+        # Build jersey number lookup dictionary by player_id
+        jersey_numbers = {}
+        for jersey in data.get('jerseynumbers', []):
+            player_id = jersey.get('player_id')
+            number = jersey.get('jersey_num')
+            if player_id and number is not None:
+                jersey_numbers[player_id] = number
 
         # Process game_scoring data (this has individual player stats per game)
         game_scoring = data.get('game_scoring', [])
@@ -217,7 +225,15 @@ class Command(BaseCommand):
                     continue
 
                 # Find or create player in our database
-                player = self.find_or_create_player(player_data, stat, dry_run)
+                jersey_number = jersey_numbers.get(root_player_id)
+                
+                # Get team name for this player
+                team_id = stat.get('team_id')
+                team_name = None
+                if team_id and team_id in teams_by_id:
+                    team_name = teams_by_id[team_id].get('team')
+                
+                player = self.find_or_create_player(player_data, stat, jersey_number, team_name, dry_run)
                 
                 if not player:
                     stats_skipped += 1
@@ -288,8 +304,16 @@ class Command(BaseCommand):
             'skipped': stats_skipped
         }
 
-    def find_or_create_player(self, player_data, stat, dry_run):
-        """Find a player in our database by name, or create if not found"""
+    def find_or_create_player(self, player_data, stat, jersey_number, team_name, dry_run):
+        """Find a player in our database by NLL stats ID, or create if not found"""
+        # Get NLL stats player ID
+        nll_player_id = player_data.get('id')
+        if not nll_player_id:
+            return None
+        
+        # Convert to string for external_id field
+        external_id = str(nll_player_id)
+        
         # Parse name from "First Last" or "First Middle Last" format
         full_name = player_data.get('name', '').strip()
         
@@ -305,72 +329,148 @@ class Command(BaseCommand):
         last_name = ' '.join(name_parts[1:])  # Handle middle names and multi-word last names
         middle_name = name_parts[1] if len(name_parts) == 3 else ''
         
+        # Try to find by external_id first (most reliable)
         try:
-            # Try exact match first
-            return Player.objects.get(
-                first_name__iexact=first_name,
-                last_name__iexact=last_name
-            )
-        except Player.DoesNotExist:
-            # Try with just first and last name (ignoring middle)
-            if len(name_parts) >= 3:
-                last_name = name_parts[-1]
-                try:
-                    return Player.objects.get(
-                        first_name__iexact=first_name,
-                        last_name__iexact=last_name
-                    )
-                except Player.DoesNotExist:
-                    pass
+            player = Player.objects.get(external_id=external_id)
             
-            # Player not found - create new one
-            last_name = ' '.join(name_parts[1:])  # Restore full last name
+            # Update name, jersey number, or team if changed
+            needs_update = False
+            if player.first_name != first_name or player.last_name != last_name:
+                player.first_name = first_name
+                player.last_name = last_name
+                if middle_name and not player.middle_name:
+                    player.middle_name = middle_name
+                needs_update = True
             
-            # Determine position from player data
-            if player_data.get('goalie', False):
-                position = 'G'
-            elif player_data.get('defense', False):
-                position = 'D'
-            elif player_data.get('transition', False):
-                position = 'T'
-            else:
-                # Default to offense, or check if they have goalie stats in this game
-                if stat.get('sv', 0) > 0 or stat.get('ga', 0) > 0:
-                    position = 'G'
-                else:
-                    position = 'O'
+            if jersey_number is not None and player.number != jersey_number:
+                player.number = jersey_number
+                needs_update = True
             
-            if dry_run:
+            if team_name and player.nll_team != team_name:
+                player.nll_team = team_name
+                needs_update = True
+            
+            if needs_update and not dry_run:
+                player.save()
+                team_str = f" ({team_name})" if team_name else ""
                 self.stdout.write(
-                    f'    [DRY RUN] Would create new player: {first_name} {last_name} ({position})'
+                    f'    * Updated player: {player.first_name} {player.last_name} #{player.number or "--"}{team_str}'
                 )
-                # Return a mock player object for dry run
-                class MockPlayer:
-                    def __init__(self, fname, lname, pos):
-                        self.first_name = fname
-                        self.last_name = lname
-                        self.position = pos
-                return MockPlayer(first_name, last_name, position)
             
-            # Create the new player
-            player = Player.objects.create(
-                first_name=first_name,
-                middle_name=middle_name,
-                last_name=last_name,
-                position=position
-            )
-            
-            self.stdout.write(
-                f'    + Created new player: {first_name} {last_name} ({position})'
-            )
             return player
             
-        except Player.MultipleObjectsReturned:
-            # If multiple, return the first one
-            return Player.objects.filter(
-                first_name__iexact=first_name,
-                last_name__iexact=last_name
-            ).first()
+        except Player.DoesNotExist:
+            # Try to find by name match and update with external_id
+            try:
+                player = Player.objects.get(
+                    first_name__iexact=first_name,
+                    last_name__iexact=last_name
+                )
+                # Found by name - update with external_id
+                if not player.external_id:
+                    player.external_id = external_id
+                    if not dry_run:
+                        player.save()
+                        self.stdout.write(
+                            f'    * Updated player with NLL ID: {first_name} {last_name} (ID: {external_id})'
+                        )
+                return player
+                
+            except Player.DoesNotExist:
+                # Try with just first and last name (ignoring middle)
+                if len(name_parts) >= 3:
+                    last_name = name_parts[-1]
+                    try:
+                        player = Player.objects.get(
+                            first_name__iexact=first_name,
+                            last_name__iexact=last_name
+                        )
+                        # Found by name - update with external_id
+                        if not player.external_id:
+                            player.external_id = external_id
+                            if not dry_run:
+                                player.save()
+                                self.stdout.write(
+                                    f'    * Updated player with NLL ID: {first_name} {last_name} (ID: {external_id})'
+                                )
+                        return player
+                    except Player.DoesNotExist:
+                        pass
+                
+                # Player not found - create new one
+                last_name = ' '.join(name_parts[1:])  # Restore full last name
+                
+                # Determine position from player data
+                if player_data.get('goalie', False):
+                    position = 'G'
+                elif player_data.get('defense', False):
+                    position = 'D'
+                elif player_data.get('transition', False):
+                    position = 'T'
+                else:
+                    # Default to offense, or check if they have goalie stats in this game
+                    if stat.get('sv', 0) > 0 or stat.get('ga', 0) > 0:
+                        position = 'G'
+                    else:
+                        position = 'O'
+                
+                if dry_run:
+                    num_str = f" #{jersey_number}" if jersey_number is not None else ""
+                    team_str = f" ({team_name})" if team_name else ""
+                    self.stdout.write(
+                        f'    [DRY RUN] Would create new player: {first_name} {last_name}{num_str} ({position}){team_str} with NLL ID: {external_id}'
+                    )
+                    # Return a mock player object for dry run
+                    class MockPlayer:
+                        def __init__(self, fname, lname, pos, ext_id, num, team):
+                            self.first_name = fname
+                            self.last_name = lname
+                            self.position = pos
+                            self.external_id = ext_id
+                            self.number = num
+                            self.nll_team = team
+                    return MockPlayer(first_name, last_name, position, external_id, jersey_number, team_name)
+                
+                # Create the new player with NLL stats ID, jersey number, and team
+                player = Player.objects.create(
+                    first_name=first_name,
+                    middle_name=middle_name,
+                    last_name=last_name,
+                    position=position,
+                    external_id=external_id,
+                    number=jersey_number,
+                    nll_team=team_name
+                )
+                
+                num_str = f" #{jersey_number}" if jersey_number is not None else ""
+                team_str = f" ({team_name})" if team_name else ""
+                self.stdout.write(
+                    f'    + Created new player: {first_name} {last_name}{num_str} ({position}){team_str} with NLL ID: {external_id}'
+                )
+                return player
+                
+            except Player.MultipleObjectsReturned:
+                # If multiple players with same name, try to find one without external_id and update it
+                player = Player.objects.filter(
+                    first_name__iexact=first_name,
+                    last_name__iexact=last_name,
+                    external_id__isnull=True
+                ).first()
+                
+                if player:
+                    player.external_id = external_id
+                    if not dry_run:
+                        player.save()
+                        self.stdout.write(
+                            f'    * Updated player with NLL ID: {first_name} {last_name} (ID: {external_id})'
+                        )
+                    return player
+                
+                # Otherwise return the first match
+                return Player.objects.filter(
+                    first_name__iexact=first_name,
+                    last_name__iexact=last_name
+                ).first()
 
     def save_field_player_stat_accumulated(self, player, week, acc, dry_run):
         """Save or update accumulated field player stats"""

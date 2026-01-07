@@ -110,6 +110,14 @@ class Player(models.Model):
 
     position = models.CharField(max_length=1, choices=Position.choices)
 
+    # NLL team the player belongs to (real-world team, not fantasy)
+    nll_team = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="The actual NLL team this player plays for"
+    )
+
     # Optional assigned side for fantasy lineup (e.g., Transition slotted as Offence or Defence)
     assigned_side = models.CharField(
         max_length=1,

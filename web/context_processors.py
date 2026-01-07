@@ -1,4 +1,4 @@
-from .models import League
+from .models import League, FantasyTeamOwner
 
 
 def selected_league(request):
@@ -12,6 +12,12 @@ def selected_league(request):
         except League.DoesNotExist:
             pass
     
+    # Check if user is in any league
+    user_has_league = False
+    if request.user.is_authenticated:
+        user_has_league = FantasyTeamOwner.objects.filter(user=request.user).exists()
+    
     return {
-        'selected_league': league
+        'selected_league': league,
+        'user_has_league': user_has_league
     }
