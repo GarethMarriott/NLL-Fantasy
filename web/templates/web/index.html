@@ -1,13 +1,33 @@
 {% extends "web/base.html" %}
 {% load custom_filters %}
-{% block title %}Home — NLL Fantasy{% endblock %}
+{% block title %}{% if team %}Your Team{% else %}Home{% endif %} — NLL Fantasy{% endblock %}
 {% block content %}
   {% if team %}
     <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
-      <h1 class="text-2xl font-semibold leading-tight mb-4">{{ team.name }}</h1>
-      <p class="text-sm text-gray-600 mb-4">{{ team.league.name }}</p>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold leading-tight">{{ team.name }}</h1>
+        <p class="text-sm text-gray-600">{{ team.league.name }}</p>
+      </div>
 
-      <h2 class="text-xl font-semibold mb-3">Week {{ current_week }} Roster</h2>
+      <!-- Week Selector -->
+      <div class="mb-4">
+        <label for="week-selector" class="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
+        <select id="week-selector" onchange="window.location.href='?week=' + this.value" class="block w-full sm:w-64 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          {% for week in available_weeks %}
+            {% if week.is_future %}
+              <option value="{{ week.week_number }}" {% if week.week_number == current_week %}selected{% endif %}>
+                Week {{ week.week_number }} (Future)
+              </option>
+            {% else %}
+              <option value="{{ week.week_number }}" {% if week.week_number == current_week %}selected{% endif %}>
+                Week {{ week.week_number }} ({{ week.start_date|date:"M d" }})
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      <h2 class="text-xl font-semibold mb-3">Week {{ current_week }} Roster{% if is_future_week %} <span class="text-sm text-gray-500">(Projected)</span>{% endif %}</h2>
       <div class="overflow-x-auto">
         <table class="min-w-full text-xs border-collapse border border-gray-300">
           <thead class="dark:bg-gray-300">

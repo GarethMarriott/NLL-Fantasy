@@ -19,6 +19,16 @@
       </div>
       <form method="get" class="flex items-center gap-3">
         <div>
+          <label for="position" class="mr-2 text-sm font-medium">Position:</label>
+          <select name="position" id="position" onchange="this.form.submit()" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Runners</option>
+            <option value="O" {% if selected_position == 'O' %}selected{% endif %}>Offense</option>
+            <option value="D" {% if selected_position == 'D' %}selected{% endif %}>Defense</option>
+            <option value="T" {% if selected_position == 'T' %}selected{% endif %}>Transition</option>
+            <option value="G" {% if selected_position == 'G' %}selected{% endif %}>Goalie</option>
+          </select>
+        </div>
+        <div>
           <label for="season" class="mr-2 text-sm font-medium">Season:</label>
           <select name="season" id="season" onchange="this.form.submit()" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             {% for s in seasons %}
@@ -50,61 +60,94 @@
         <thead class="rounded-t-lg dark:bg-gray-300">
           <tr class="text-right">
             <th title="Player name" class="p-3 text-left">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=name&dir={% if sort_field == 'name' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=name&dir={% if sort_field == 'name' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 Name
               </a>
             </th>
             <th title="NLL Team" class="p-3 text-left">Team</th>
             <th title="Jersey number" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=number&dir={% if sort_field == 'number' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=number&dir={% if sort_field == 'number' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 #
               </a>
             </th>
             <th title="Position" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=position&dir={% if sort_field == 'position' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=position&dir={% if sort_field == 'position' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 Pos
               </a>
             </th>
             <th title="Games played" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=gp&dir={% if sort_field == 'gp' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=gp&dir={% if sort_field == 'gp' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 GP
               </a>
             </th>
             <th title="Fantasy points" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=fpts&dir={% if sort_field == 'fpts' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=fpts&dir={% if sort_field == 'fpts' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 FPTS
               </a>
             </th>
+            {% if selected_position == 'G' %}
+            <th title="Wins" class="p-3">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=wins&dir={% if sort_field == 'wins' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+                W
+              </a>
+            </th>
+            <th title="Saves" class="p-3">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=saves&dir={% if sort_field == 'saves' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+                SV
+              </a>
+            </th>
+            <th title="Goals against" class="p-3">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=ga&dir={% if sort_field == 'ga' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+                GA
+              </a>
+            </th>
+            <th title="Save percentage" class="p-3">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=sv_pct&dir={% if sort_field == 'sv_pct' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+                SV%
+              </a>
+            </th>
             <th title="Goals" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=goals&dir={% if sort_field == 'goals' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=goals&dir={% if sort_field == 'goals' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 G
               </a>
             </th>
             <th title="Assists" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=assists&dir={% if sort_field == 'assists' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=assists&dir={% if sort_field == 'assists' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+                A
+              </a>
+            </th>
+            {% else %}
+            <th title="Goals" class="p-3">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=goals&dir={% if sort_field == 'goals' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+                G
+              </a>
+            </th>
+            <th title="Assists" class="p-3">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=assists&dir={% if sort_field == 'assists' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 A
               </a>
             </th>
             <th title="Loose balls" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=loose&dir={% if sort_field == 'loose' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=loose&dir={% if sort_field == 'loose' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 LB
               </a>
             </th>
             <th title="Caused turnovers" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=ct&dir={% if sort_field == 'ct' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=ct&dir={% if sort_field == 'ct' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 CT
               </a>
             </th>
             <th title="Blocked shots" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=bs&dir={% if sort_field == 'bs' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=bs&dir={% if sort_field == 'bs' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 BS
               </a>
             </th>
             <th title="Turnovers" class="p-3">
-              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}&sort=to&dir={% if sort_field == 'to' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
+              <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=to&dir={% if sort_field == 'to' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 TO
               </a>
             </th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
@@ -129,6 +172,26 @@
             <td class="px-3 py-2">
               <span class="font-bold">{% if item.fantasy_points %}{{ item.fantasy_points|floatformat:1 }}{% else %}-{% endif %}</span>
             </td>
+            {% if selected_position == 'G' %}
+            <td class="px-3 py-2">
+              <span>{% if stat %}{{ stat.wins }}{% else %}-{% endif %}</span>
+            </td>
+            <td class="px-3 py-2">
+              <span>{% if stat %}{{ stat.saves }}{% else %}-{% endif %}</span>
+            </td>
+            <td class="px-3 py-2">
+              <span>{% if stat %}{{ stat.goals_against }}{% else %}-{% endif %}</span>
+            </td>
+            <td class="px-3 py-2">
+              <span>{% if stat and stat.saves > 0 %}{% widthratio stat.saves stat.saves|add:stat.goals_against 100 %}%{% else %}-{% endif %}</span>
+            </td>
+            <td class="px-3 py-2">
+              <span>{% if stat %}{{ stat.goals }}{% else %}-{% endif %}</span>
+            </td>
+            <td class="px-3 py-2">
+              <span>{% if stat %}{{ stat.assists }}{% else %}-{% endif %}</span>
+            </td>
+            {% else %}
             <td class="px-3 py-2">
               <span>{% if stat %}{{ stat.goals }}{% else %}-{% endif %}</span>
             </td>
@@ -147,11 +210,12 @@
             <td class="px-3 py-2">
               <span>{% if stat %}{{ stat.turnovers }}{% else %}-{% endif %}</span>
             </td>
+            {% endif %}
           </tr>
           {% endwith %}
         {% empty %}
           <tr class="border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
-            <td colspan="11" class="px-3 py-2 text-center text-gray-500">No players found.</td>
+            <td colspan="{% if selected_position == 'G' %}12{% else %}12{% endif %}" class="px-3 py-2 text-center text-gray-500">No players found.</td>
           </tr>
         {% endfor %}
         </tbody>

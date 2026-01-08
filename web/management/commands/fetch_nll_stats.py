@@ -525,13 +525,15 @@ class Command(BaseCommand):
         wins = acc['wins']
         saves = acc['saves']
         goals_against = acc['goals_against']
+        goals = acc['goals']
+        assists = acc['assists']
         games_played = acc['games_played']
         
         if dry_run:
             gp_str = f" ({games_played} games)" if games_played > 1 else ""
             self.stdout.write(
                 f'    [DRY RUN] {player.first_name} {player.last_name} (G): '
-                f'{wins}W, {saves}SV, {goals_against}GA{gp_str}'
+                f'{wins}W, {saves}SV, {goals_against}GA, {goals}G, {assists}A{gp_str}'
             )
             return 'created'
 
@@ -543,6 +545,8 @@ class Command(BaseCommand):
                 'wins': wins,
                 'saves': saves,
                 'goals_against': goals_against,
+                'goals': goals,
+                'assists': assists,
                 'games_played': games_played,
             }
         )
@@ -551,12 +555,12 @@ class Command(BaseCommand):
         if created:
             self.stdout.write(
                 f'    + {player.first_name} {player.last_name} (G): '
-                f'{wins}W, {saves}SV, {goals_against}GA{gp_str}'
+                f'{wins}W, {saves}SV, {goals_against}GA, {goals}G, {assists}A{gp_str}'
             )
             return 'created'
         else:
             self.stdout.write(
                 f'    * {player.first_name} {player.last_name} (G): '
-                f'{wins}W, {saves}SV, {goals_against}GA{gp_str} (updated)'
+                f'{wins}W, {saves}SV, {goals_against}GA, {goals}G, {assists}A{gp_str} (updated)'
             )
             return 'updated'

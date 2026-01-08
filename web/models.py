@@ -13,7 +13,11 @@ class League(models.Model):
         help_text="User who created and manages the league"
     )
     description = models.TextField(blank=True)
-    max_teams = models.PositiveSmallIntegerField(default=12, help_text="Maximum number of teams allowed")
+    max_teams = models.PositiveSmallIntegerField(
+        default=12,
+        validators=[MinValueValidator(2), MaxValueValidator(12)],
+        help_text="Maximum number of teams allowed (must be even: 4, 6, 8, 10, or 12)"
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -72,18 +76,30 @@ class Roster(models.Model):
         help_text="The league this roster assignment belongs to"
     )
     added_date = models.DateTimeField(auto_now_add=True)
+    week_added = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Week number when this player was added to the roster"
+    )
+    week_dropped = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Week number when this player was dropped from the roster (NULL if still active)"
+    )
 
     class Meta:
         ordering = ['team', 'player']
         constraints = [
             models.UniqueConstraint(
                 fields=['player', 'league'],
-                name='unique_player_per_league'
+                name='unique_player_per_league',
+                condition=models.Q(week_dropped__isnull=True)
             )
         ]
         indexes = [
             models.Index(fields=['team', 'league']),
             models.Index(fields=['player', 'league']),
+            models.Index(fields=['week_added', 'week_dropped']),
         ]
 
     def __str__(self) -> str:

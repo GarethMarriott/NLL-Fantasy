@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    home, about, teams, players, schedule, matchups, standings, team_detail, assign_player,
+    home, about, players, schedule, matchups, standings, team_detail, assign_player,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league
 )
@@ -8,7 +8,6 @@ from .views import (
 urlpatterns = [
     path("", home, name="home"),
     path("about/", about, name="about"),
-    path("teams", teams, name="teams"),
     path("teams/<int:team_id>/", team_detail, name="team_detail"),
     path("teams/<int:team_id>/assign-player/", assign_player, name="assign_player"),
     path("players/", players, name="players"),

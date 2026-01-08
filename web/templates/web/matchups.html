@@ -1,68 +1,175 @@
 {% extends "web/base.html" %}
 {% block title %}Matchups — NLL Fantasy{% endblock %}
 {% block content %}
-  <h1 class="text-2xl font-bold mb-4">Matchups</h1>
-  {% if schedule_weeks %}
-    <form method="get" class="inline-form" style="margin-bottom: 1rem;">
-      <label for="week">Week:</label>
-      <select name="week" id="week" onchange="this.form.submit()">
-        {% for wk in schedule_weeks %}
-          <option value="{{ wk.week_number }}" {% if selected_week_number == wk.week_number %}selected{% endif %}>Week {{ wk.week_number }}</option>
-        {% endfor %}
-      </select>
-      <noscript><button type="submit">Go</button></noscript>
-    </form>
+  <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-2xl font-semibold leading-tight">Matchups</h2>
+      <a href="{% url 'schedule' %}" class="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium">
+        View Full Schedule →
+      </a>
+    </div>
+    <p class="mb-4 text-sm text-gray-600">View weekly head-to-head matchups and team rosters</p>
 
-    {% if selected_week %}
-      <section class="schedule-week text-lg leading-relaxed">
-        <h2 class="text-xl font-semibold mb-3">Week {{ selected_week.week_number }}</h2>
-        <table class="players-table w-full text-lg">
-          <thead>
-            <tr>
-              <th colspan="2">Matchups (side by side)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for game in selected_week.games %}
-              <tr>
-                <td style="vertical-align: top;">
-                  <strong>{{ game.home.name }}</strong>
-                  <div>
-                    {% if game.home_roster %}
-                      {% for row in game.home_roster %}
-                        <div>{{ row.player.last_name }}, {{ row.player.first_name }} — {% if row.fantasy_points is not None %}{{ row.fantasy_points }}{% else %}-{% endif %}</div>
+    {% if schedule_weeks %}
+      <form method="get" class="inline-form mb-4">
+        <label for="week" class="text-sm font-medium mr-2">Week:</label>
+        <select name="week" id="week" onchange="this.form.submit()" class="px-3 py-1.5 border border-gray-300 rounded-md">
+          {% for wk in schedule_weeks %}
+            <option value="{{ wk.week_number }}" {% if selected_week_number == wk.week_number %}selected{% endif %}>Week {{ wk.week_number }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="ml-2 px-3 py-1.5 bg-blue-500 text-white rounded-md">Go</button></noscript>
+      </form>
+
+      {% if selected_week %}
+        <section class="schedule-week">
+          <h3 class="text-xl font-semibold mb-4">Week {{ selected_week.week_number }}</h3>
+          
+          {% for game in selected_week.games %}
+            <div class="mb-6 border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
+              <div class="grid grid-cols-2 gap-6">
+                {# Home Team #}
+                <div>
+                  <h4 class="text-lg font-bold mb-3">
+                    <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                      {{ game.home.name }}
+                    </a>
+                  </h4>
+                  
+                  {# Offense Section #}
+                  <div class="mb-3">
+                    <h5 class="font-semibold mb-2 text-green-700 text-sm">Offence</h5>
+                    <div class="space-y-1">
+                      {% for slot in game.home_roster.offence_slots %}
+                        {% if slot %}
+                          <div class="flex justify-between text-xs">
+                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                          </div>
+                        {% else %}
+                          <div class="text-xs text-gray-400">Empty slot</div>
+                        {% endif %}
                       {% endfor %}
-                    {% else %}
-                      <em>No players</em>
-                    {% endif %}
+                    </div>
                   </div>
-                </td>
-                <td style="vertical-align: top;">
-                  <strong>{{ game.away.name }}</strong>
-                  <div>
-                    {% if game.away_roster %}
-                      {% for row in game.away_roster %}
-                        <div>{{ row.player.last_name }}, {{ row.player.first_name }} — {% if row.fantasy_points is not None %}{{ row.fantasy_points }}{% else %}-{% endif %}</div>
+                  
+                  {# Defence Section #}
+                  <div class="mb-3">
+                    <h5 class="font-semibold mb-2 text-orange-700 text-sm">Defence</h5>
+                    <div class="space-y-1">
+                      {% for slot in game.home_roster.defence_slots %}
+                        {% if slot %}
+                          <div class="flex justify-between text-xs">
+                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                          </div>
+                        {% else %}
+                          <div class="text-xs text-gray-400">Empty slot</div>
+                        {% endif %}
                       {% endfor %}
-                    {% else %}
-                      <em>No players</em>
-                    {% endif %}
+                    </div>
                   </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Total:</strong> {{ game.home_total }} — <strong>{{ game.home_result }}</strong></td>
-                <td><strong>Total:</strong> {{ game.away_total }} — <strong>{{ game.away_result }}</strong></td>
-              </tr>
-              <tr class="spacer"><td colspan="2"></td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
+                  
+                  {# Goalie Section #}
+                  <div class="mb-3">
+                    <h5 class="font-semibold mb-2 text-purple-700 text-sm">Goalie</h5>
+                    <div class="space-y-1">
+                      {% for slot in game.home_roster.goalie_slots %}
+                        {% if slot %}
+                          <div class="flex justify-between text-xs">
+                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                          </div>
+                        {% else %}
+                          <div class="text-xs text-gray-400">Empty slot</div>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                  
+                  <div class="border-t border-gray-300 pt-2 mt-2">
+                    <div class="flex justify-between text-sm font-bold">
+                      <span>Total:</span>
+                      <span class="{% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">{{ game.home_total }} — {{ game.home_result }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {# Away Team #}
+                <div>
+                  <h4 class="text-lg font-bold mb-3">
+                    <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                      {{ game.away.name }}
+                    </a>
+                  </h4>
+                  
+                  {# Offense Section #}
+                  <div class="mb-3">
+                    <h5 class="font-semibold mb-2 text-green-700 text-sm">Offence</h5>
+                    <div class="space-y-1">
+                      {% for slot in game.away_roster.offence_slots %}
+                        {% if slot %}
+                          <div class="flex justify-between text-xs">
+                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                          </div>
+                        {% else %}
+                          <div class="text-xs text-gray-400">Empty slot</div>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                  
+                  {# Defence Section #}
+                  <div class="mb-3">
+                    <h5 class="font-semibold mb-2 text-orange-700 text-sm">Defence</h5>
+                    <div class="space-y-1">
+                      {% for slot in game.away_roster.defence_slots %}
+                        {% if slot %}
+                          <div class="flex justify-between text-xs">
+                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                          </div>
+                        {% else %}
+                          <div class="text-xs text-gray-400">Empty slot</div>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                  
+                  {# Goalie Section #}
+                  <div class="mb-3">
+                    <h5 class="font-semibold mb-2 text-purple-700 text-sm">Goalie</h5>
+                    <div class="space-y-1">
+                      {% for slot in game.away_roster.goalie_slots %}
+                        {% if slot %}
+                          <div class="flex justify-between text-xs">
+                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                          </div>
+                        {% else %}
+                          <div class="text-xs text-gray-400">Empty slot</div>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                  
+                  <div class="border-t border-gray-300 pt-2 mt-2">
+                    <div class="flex justify-between text-sm font-bold">
+                      <span>Total:</span>
+                      <span class="{% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">{{ game.away_total }} — {{ game.away_result }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </section>
+      {% else %}
+        <p class="text-gray-600 italic">No matchups found for the selected week.</p>
+      {% endif %}
     {% else %}
-      <p>No matchups found for the selected week.</p>
+      <p class="text-gray-600 italic">No teams available to generate matchups.</p>
     {% endif %}
-  {% else %}
-    <p>No teams available to generate matchups.</p>
-  {% endif %}
+  </div>
 {% endblock %}

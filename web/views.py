@@ -34,19 +34,60 @@ def home(request):
                 )
                 team = owner.team
                 
+                # Get all available weeks for this league's season
+                league_season = team.league.created_at.year
+                available_weeks = list(Week.objects.filter(
+                    season=league_season
+                ).order_by('week_number'))
+                
                 # Get the most recent week
-                most_recent_week = Week.objects.filter(
-                    season=team.league.created_at.year
-                ).order_by('-week_number').first()
+                most_recent_week = available_weeks[-1] if available_weeks else None
+                
+                # Add future week placeholders (up to week 21 for NLL season)
+                if most_recent_week:
+                    max_week = most_recent_week.week_number
+                    for future_week_num in range(max_week + 1, 22):
+                        # Create a placeholder dict for future weeks
+                        available_weeks.append({
+                            'week_number': future_week_num,
+                            'season': league_season,
+                            'is_future': True
+                        })
+                
+                # Get selected week from query parameter, default to most recent
+                selected_week_param = request.GET.get('week')
+                selected_week = most_recent_week
+                is_future_week = False
+                if selected_week_param:
+                    try:
+                        week_num = int(selected_week_param)
+                        # Try to find in actual weeks first
+                        selected_week = next((w for w in available_weeks if (w.week_number if hasattr(w, 'week_number') else w['week_number']) == week_num), most_recent_week)
+                        # Check if it's a future week
+                        if isinstance(selected_week, dict):
+                            is_future_week = True
+                    except (ValueError, StopIteration):
+                        pass
                 
                 if not most_recent_week:
                     # No weeks available yet
                     context.update({'team': team})
                 else:
-                    # Get roster entries for this team
+                    # Get the week number we're looking at
+                    selected_week_number = selected_week.week_number if hasattr(selected_week, 'week_number') else selected_week['week_number']
+                    
+                    # Get roster entries for this team for the selected week
+                    # Show players who were on roster during that week
+                    # For future weeks, show current roster (week_dropped is None)
+                    # Handle NULL week_added (legacy data before week tracking)
                     roster_entries = Roster.objects.filter(
                         team=team,
-                        league=team.league
+                        league=team.league,
+                    ).filter(
+                        models.Q(week_added__isnull=True) | models.Q(week_added__lte=selected_week_number)
+                    ).filter(
+                        models.Q(week_dropped__isnull=True) |
+                        models.Q(week_dropped__gt=selected_week_number)
                     ).select_related('player')
                     
                     # Build slots structure similar to team_detail
@@ -58,12 +99,14 @@ def home(request):
                     def fantasy_points(stat_obj, player=None):
                         if stat_obj is None:
                             return None
-                        # Goalie scoring: win=5, save=0.75, goal against=-1
+                        # Goalie scoring: win=5, save=0.75, goal against=-1, goal=4, assist=2
                         if player and player.position == "G":
                             return (
                                 stat_obj.wins * 5
                                 + stat_obj.saves * 0.75
                                 - stat_obj.goals_against
+                                + stat_obj.goals * 4
+                                + stat_obj.assists * 2
                             )
                         # Field player scoring
                         return (
@@ -78,11 +121,13 @@ def home(request):
                     for entry in roster_entries:
                         player = entry.player
                         
-                        # Get stat for most recent week only
-                        stat = PlayerWeekStat.objects.filter(
-                            player=player,
-                            week=most_recent_week
-                        ).first()
+                        # Get stat for selected week (only if it's not a future week)
+                        stat = None
+                        if not is_future_week:
+                            stat = PlayerWeekStat.objects.filter(
+                                player=player,
+                                week=selected_week
+                            ).first()
                         
                         pts = fantasy_points(stat, player)
                         
@@ -147,7 +192,10 @@ def home(request):
                     
                     context.update({
                         'team': team,
-                        'current_week': most_recent_week.week_number,
+                        'current_week': selected_week_number,
+                        'selected_week': selected_week,
+                        'available_weeks': available_weeks,
+                        'is_future_week': is_future_week,
                         'offence_slots': offence_slots[:6],
                         'defence_slots': defence_slots[:6],
                         'goalie_slots': goalie_slots[:2],
@@ -164,82 +212,6 @@ def about(request):
     return render(request, "web/about.html")
 
 
-def teams(request):
-    # Get selected league from session
-    selected_league_id = request.session.get('selected_league_id')
-    
-    if selected_league_id:
-        teams = (
-            Team.objects.filter(league_id=selected_league_id)
-            .prefetch_related(
-                "roster_entries__player__weekly_stats__week",
-                "roster_entries__player",
-                "league"
-            )
-        )
-    else:
-        # Default to active leagues if no selection
-        teams = (
-            Team.objects.filter(league__is_active=True)
-            .prefetch_related(
-                "roster_entries__player__weekly_stats__week",
-                "roster_entries__player",
-                "league"
-            )
-        )
-
-    def fantasy_points(stat_obj, player=None):
-        if stat_obj is None:
-            return None
-        # Goalie scoring: win=5, save=0.75, goal against=-1
-        if player and player.position == "G":
-            return (
-                stat_obj.wins * 5
-                + stat_obj.saves * 0.75
-                - stat_obj.goals_against
-            )
-        # Field player scoring
-        return (
-            stat_obj.goals * 4
-            + stat_obj.assists * 2
-            + stat_obj.loose_balls * 2
-            + stat_obj.caused_turnovers * 3
-            + stat_obj.blocked_shots * 2
-            - stat_obj.turnovers
-        )
-
-    # Determine most recent season for calculating totals
-    recent_week = Week.objects.order_by("-season", "-week_number").first()
-    season = recent_week.season if recent_week else None
-
-    # Build list of teams with players and calculate total fantasy points
-    teams_data = []
-    for t in teams:
-        players = []
-        roster = t.roster_entries.select_related('player').filter(player__active=True)
-        for roster_entry in roster.order_by("player__last_name", "player__first_name"):
-            p = roster_entry.player
-            weekly = list(p.weekly_stats.all())
-            latest = None
-            if weekly:
-                latest = max(weekly, key=lambda s: (s.week.season, s.week.week_number))
-            
-            # Calculate total fantasy points for this player
-            total_points = 0
-            if season is not None:
-                stats_by_week = {s.week.week_number: s for s in p.weekly_stats.filter(week__season=season)}
-                for wk in range(1, 19):
-                    st = stats_by_week.get(wk)
-                    pts = fantasy_points(st, p)
-                    if pts is not None:
-                        total_points += pts
-            
-            players.append({"player": p, "latest_stat": latest, "total_fantasy_points": total_points})
-        teams_data.append({"team": t, "players": players})
-
-    return render(request, "web/teams.html", {"teams": teams_data})
-
-
 def team_detail(request, team_id):
     team = get_object_or_404(Team, id=team_id)
 
@@ -248,12 +220,14 @@ def team_detail(request, team_id):
     def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
-        # Goalie scoring: win=5, save=0.75, goal against=-1
+        # Goalie scoring: win=5, save=0.75, goal against=-1, goal=4, assist=2
         if player and player.position == "G":
             return (
                 stat_obj.wins * 5
                 + stat_obj.saves * 0.75
                 - stat_obj.goals_against
+                + stat_obj.goals * 4
+                + stat_obj.assists * 2
             )
         # Field player scoring
         return (
@@ -270,9 +244,10 @@ def team_detail(request, team_id):
     season = recent_week.season if recent_week else None
 
     # Keep players in order of when they were (last) assigned, not alphabetically
-    # Get players through roster entries for this team's league
+    # Get players through roster entries for this team's league - CURRENT ROSTER ONLY
     roster = team.roster_entries.select_related('player').filter(
-        player__active=True
+        player__active=True,
+        week_dropped__isnull=True  # Only show players currently on the roster
     ).order_by("player__updated_at", "player__id")
     
     for roster_entry in roster:
@@ -364,13 +339,14 @@ def team_detail(request, team_id):
     
     overall_total = sum(weekly_totals)
 
-    # Get all players with their team assignment in this league (if any)
+    # Get all players with their team assignment in this league (if any) - CURRENT ROSTER ONLY
     players_with_teams = []
     all_players = Player.objects.filter(active=True).order_by("last_name", "first_name")
     for player in all_players:
         roster_entry = Roster.objects.filter(
             player=player,
-            league=team.league
+            league=team.league,
+            week_dropped__isnull=True  # Only check current roster assignments
         ).select_related('team').first()
         players_with_teams.append({
             'player': player,
@@ -406,8 +382,23 @@ def assign_player(request, team_id):
     except Player.DoesNotExist:
         return redirect("team_detail", team_id=team.id)
 
+    # Determine current week number based on most recent week
+    current_week = Week.objects.order_by('-season', '-week_number').first()
+    current_week_number = current_week.week_number if current_week else 1
+
     slot_group = request.POST.get("slot_group")
     if action == "add":
+        # Check roster size limit (12 players max)
+        current_roster_count = Roster.objects.filter(
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True
+        ).count()
+        
+        if current_roster_count >= 12:
+            messages.error(request, "Roster is full. Maximum 12 players allowed per team.")
+            return redirect("team_detail", team_id=team.id)
+        
         # Validate position matches slot type
         if slot_group == "O" and player.position not in ["O", "T"]:
             messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Offence slots (position: {player.get_position_display()})")
@@ -419,10 +410,11 @@ def assign_player(request, team_id):
             messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Goalie slots (position: {player.get_position_display()})")
             return redirect("team_detail", team_id=team.id)
         
-        # Check if player is already rostered in this league
+        # Check if player is already rostered in this league (active roster only)
         existing_roster = Roster.objects.filter(
             player=player,
-            league=team.league
+            league=team.league,
+            week_dropped__isnull=True
         ).select_related('team').first()
         
         if existing_roster:
@@ -433,7 +425,8 @@ def assign_player(request, team_id):
         Roster.objects.create(
             player=player,
             team=team,
-            league=team.league
+            league=team.league,
+            week_added=current_week_number
         )
         # Update assigned_side for slot placement
         if slot_group in {"O", "D", "G"}:
@@ -441,36 +434,52 @@ def assign_player(request, team_id):
             player.save()
         messages.success(request, f"Added {player.first_name} {player.last_name} to your roster")
     elif action == "drop":
-        # Remove the roster entry for this player on this team in this league
-        Roster.objects.filter(
+        # Soft delete: set week_dropped instead of deleting the roster entry
+        roster_entry = Roster.objects.filter(
             player=player,
             team=team,
-            league=team.league
-        ).delete()
-        # Clear assigned_side when dropping
-        player.assigned_side = None
-        player.save()
+            league=team.league,
+            week_dropped__isnull=True
+        ).first()
+        
+        if roster_entry:
+            roster_entry.week_dropped = current_week_number
+            roster_entry.save()
+            # Clear assigned_side when dropping
+            player.assigned_side = None
+            player.save()
+            messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
 
     return redirect("team_detail", team_id=team.id)
 
 
 def players(request):
     """Render players list with their latest weekly stats (if any)."""
-    qs = (
-        Player.objects.filter(active=True)
-        .order_by("last_name", "first_name")
-        .prefetch_related("weekly_stats__week")
-    )
+    # Get position filter
+    selected_position = request.GET.get("position", "")
+    
+    qs = Player.objects.filter(active=True)
+    
+    # Apply position filter if selected
+    if selected_position:
+        qs = qs.filter(position=selected_position)
+    else:
+        # Exclude goalies from "All Positions" view
+        qs = qs.exclude(position="G")
+    
+    qs = qs.order_by("last_name", "first_name").prefetch_related("weekly_stats__week")
 
     def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
-        # Goalie scoring: win=5, save=0.75, goal against=-1
+        # Goalie scoring: win=5, save=0.75, goal against=-1, goal=4, assist=2
         if player and player.position == "G":
             return (
                 stat_obj.wins * 5
                 + stat_obj.saves * 0.75
                 - stat_obj.goals_against
+                + stat_obj.goals * 4
+                + stat_obj.assists * 2
             )
         # Field player scoring
         return (
@@ -574,6 +583,22 @@ def players(request):
         if sort_field == "to":
             val = stat.turnovers if stat else None
             return (val is None, val or 0, player.last_name, player.first_name)
+        # Goalie-specific sorts
+        if sort_field == "wins":
+            val = stat.wins if stat else None
+            return (val is None, -(val or 0), player.last_name, player.first_name)
+        if sort_field == "saves":
+            val = stat.saves if stat else None
+            return (val is None, -(val or 0), player.last_name, player.first_name)
+        if sort_field == "ga":
+            val = stat.goals_against if stat else None
+            return (val is None, val or 0, player.last_name, player.first_name)
+        if sort_field == "sv_pct":
+            if stat and stat.saves and (stat.saves + stat.goals_against) > 0:
+                val = stat.saves / (stat.saves + stat.goals_against)
+            else:
+                val = None
+            return (val is None, -(val or 0), player.last_name, player.first_name)
         # default: name
         return (player.last_name, player.first_name)
 
@@ -589,6 +614,7 @@ def players(request):
             "selected_season": selected_season,
             "week_options": week_options,
             "selected_week_num": selected_week_num,
+            "selected_position": selected_position,
             "sort_field": sort_field,
             "sort_dir": sort_dir,
         },
@@ -598,7 +624,9 @@ def players(request):
 def _build_schedule(team_ids):
     teams_local = list(team_ids)
     n = len(teams_local)
-    if n % 2 != 0:
+    
+    # Require even number of teams - no bye weeks allowed
+    if n % 2 != 0 or n < 2:
         return []
 
     anchor = teams_local[0]
@@ -607,7 +635,6 @@ def _build_schedule(team_ids):
     def one_round(order_anchor, order_rot):
         weeks = []
         rot = order_rot[:]
-        m = len(rot)
         for _ in range(n - 1):
             pairings = []
             pairings.append((order_anchor, rot[-1]))
@@ -653,23 +680,51 @@ def matchups(request):
     
     if selected_league_id:
         teams = list(Team.objects.filter(league_id=selected_league_id).order_by("id"))
+        # Get the league to determine its season
+        league = League.objects.get(id=selected_league_id)
+        league_season = league.created_at.year
     else:
         teams = list(Team.objects.filter(league__is_active=True).order_by("id"))
+        # Use the most recent season
+        latest_week = Week.objects.order_by('-season', '-week_number').first()
+        league_season = latest_week.season if latest_week else timezone.now().year
+    
+    # Get actual weeks that exist for this season
+    actual_weeks = Week.objects.filter(season=league_season).order_by('week_number')
+    max_week = actual_weeks.last().week_number if actual_weeks.exists() else 0
+    
+    # Move current user's team to the front (anchor position) if logged in
+    if request.user.is_authenticated and selected_league_id:
+        user_team_owner = FantasyTeamOwner.objects.filter(
+            user=request.user, 
+            team__league_id=selected_league_id
+        ).select_related('team').first()
+        
+        if user_team_owner:
+            user_team = user_team_owner.team
+            # Remove user's team from list and add it to the front
+            teams = [t for t in teams if t.id != user_team.id]
+            teams.insert(0, user_team)
     
     team_ids = [t.id for t in teams]
-    weeks = _build_schedule(team_ids)
+    all_weeks = _build_schedule(team_ids)
+    
+    # Limit to only weeks that have been played (or are in the current week)
+    weeks = all_weeks[:max_week] if max_week > 0 else []
 
     id_to_team = {t.id: t for t in teams}
 
     def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
-        # Goalie scoring: win=5, save=0.75, goal against=-1
+        # Goalie scoring: win=5, save=0.75, goal against=-1, goal=4, assist=2
         if player and player.position == "G":
             return (
                 stat_obj.wins * 5
                 + stat_obj.saves * 0.75
                 - stat_obj.goals_against
+                + stat_obj.goals * 4
+                + stat_obj.assists * 2
             )
         # Field player scoring
         return (
@@ -693,15 +748,33 @@ def matchups(request):
     if selected_week_number is not None:
         week_obj = Week.objects.filter(week_number=selected_week_number).order_by("-season").first()
 
-    # build rosters with fantasy points for the selected week
+    # Build detailed rosters with slot structure (like team_detail view)
     team_rosters = {}
     team_totals = {}
     for team in teams:
-        roster = team.roster_entries.select_related('player').filter(
-            player__active=True
-        ).order_by("player__last_name", "player__first_name")
+        # Get roster organized by position - FILTERED BY HISTORICAL WEEK
+        # Players who were active during the selected week:
+        # - week_added <= selected_week_number (or week_added is NULL for legacy data)
+        # - AND (week_dropped is NULL OR week_dropped > selected_week_number)
+        players_by_position = {"O": [], "D": [], "G": [], "T": []}
         
-        roster_data = []
+        roster_query = team.roster_entries.select_related('player').filter(
+            player__active=True
+        )
+        
+        # Apply historical filtering based on selected week
+        if selected_week_number:
+            roster_query = roster_query.filter(
+                models.Q(week_added__isnull=True) | models.Q(week_added__lte=selected_week_number)
+            ).filter(
+                models.Q(week_dropped__isnull=True) | models.Q(week_dropped__gt=selected_week_number)
+            )
+        else:
+            # If no week selected, show current roster only
+            roster_query = roster_query.filter(week_dropped__isnull=True)
+        
+        roster = roster_query.order_by("player__updated_at", "player__id")
+        
         for roster_entry in roster:
             p = roster_entry.player
             stat = None
@@ -710,9 +783,48 @@ def matchups(request):
                 if stat is None:
                     stat = p.weekly_stats.filter(week__week_number=selected_week_number).order_by("-week__season").first()
             fpts = fantasy_points(stat, p)
-            roster_data.append({"player": p, "stat": stat, "fantasy_points": fpts})
-        team_rosters[team.id] = roster_data
-        team_totals[team.id] = sum((r["fantasy_points"] or 0) for r in roster_data if r["fantasy_points"] is not None)
+            
+            entry = {"player": p, "fantasy_points": fpts}
+            pos = getattr(p, "position", None)
+            side = getattr(p, "assigned_side", None)
+            target = side or ("O" if pos == "T" else pos)
+            if target in players_by_position:
+                players_by_position[target].append(entry)
+            else:
+                players_by_position["O"].append(entry)
+        
+        # Build slots
+        offence_pool = players_by_position["O"]
+        defence_pool = players_by_position["D"]
+        
+        offence_slots = offence_pool[:6]
+        defence_slots = defence_pool[:6]
+        goalie_slots = players_by_position["G"][:2]
+        
+        while len(offence_slots) < 6:
+            offence_slots.append(None)
+        while len(defence_slots) < 6:
+            defence_slots.append(None)
+        while len(goalie_slots) < 2:
+            goalie_slots.append(None)
+        
+        # Calculate totals based on best-ball: top 3 offense, top 3 defense, top 1 goalie
+        offense_scores = [slot["fantasy_points"] for slot in offence_slots if slot and slot["fantasy_points"] is not None]
+        defense_scores = [slot["fantasy_points"] for slot in defence_slots if slot and slot["fantasy_points"] is not None]
+        goalie_scores = [slot["fantasy_points"] for slot in goalie_slots if slot and slot["fantasy_points"] is not None]
+        
+        offense_scores.sort(reverse=True)
+        defense_scores.sort(reverse=True)
+        goalie_scores.sort(reverse=True)
+        
+        week_total = sum(offense_scores[:3]) + sum(defense_scores[:3]) + sum(goalie_scores[:1])
+        
+        team_rosters[team.id] = {
+            "offence_slots": offence_slots,
+            "defence_slots": defence_slots,
+            "goalie_slots": goalie_slots,
+        }
+        team_totals[team.id] = week_total
 
     schedule_weeks = []
     for idx, games in enumerate(weeks, start=1):
@@ -723,8 +835,8 @@ def matchups(request):
                     {
                         "home": id_to_team.get(a),
                         "away": id_to_team.get(b),
-                        "home_roster": team_rosters.get(a, []),
-                        "away_roster": team_rosters.get(b, []),
+                        "home_roster": team_rosters.get(a, {}),
+                        "away_roster": team_rosters.get(b, {}),
                         "home_total": team_totals.get(a, 0),
                         "away_total": team_totals.get(b, 0),
                         "home_result": (
@@ -781,12 +893,14 @@ def standings(request):
         def fantasy_points(stat_obj, player=None):
             if stat_obj is None:
                 return None
-            # Goalie scoring: win=5, save=0.75, goal against=-1
+            # Goalie scoring: win=5, save=0.75, goal against=-1, goal=4, assist=2
             if player and player.position == "G":
                 return (
                     stat_obj.wins * 5
                     + stat_obj.saves * 0.75
                     - stat_obj.goals_against
+                    + stat_obj.goals * 4
+                    + stat_obj.assists * 2
                 )
             # Field player scoring
             return (
@@ -806,10 +920,9 @@ def standings(request):
             .select_related("player", "team")
             .prefetch_related("player__weekly_stats__week")
         )
-        players_by_team = defaultdict(list)
-        for roster_entry in rosters:
-            players_by_team[roster_entry.team_id].append(roster_entry.player)
-
+        # Store all rosters with their week ranges for historical lookup
+        all_rosters = list(rosters)
+        
         week_cache = {}
         standings_map = {
             t.id: {
@@ -830,7 +943,18 @@ def standings(request):
                 week_obj = Week.objects.filter(week_number=week_number).order_by("-season").first()
                 week_cache[week_number] = week_obj
             total = 0
-            for p in players_by_team.get(team_id, []):
+            
+            # Get players who were on the roster during this specific week
+            active_players = []
+            for roster_entry in all_rosters:
+                if roster_entry.team_id == team_id:
+                    # Check if player was active during this week
+                    week_added = roster_entry.week_added or 0  # Treat NULL as week 0 (always active)
+                    week_dropped = roster_entry.week_dropped or 999  # Treat NULL as week 999 (still active)
+                    if week_added <= week_number < week_dropped:
+                        active_players.append(roster_entry.player)
+            
+            for p in active_players:
                 stat = None
                 if week_obj:
                     stat = next((s for s in p.weekly_stats.all() if s.week_id == week_obj.id), None)
@@ -1137,9 +1261,15 @@ def team_create(request, league_id):
         return redirect("league_detail", league_id=league.id)
     
     # Check if league is full
-    if league.teams.count() >= league.max_teams:
+    current_team_count = league.teams.count()
+    if current_team_count >= league.max_teams:
         messages.error(request, "This league is full.")
         return redirect("league_detail", league_id=league.id)
+    
+    # Prevent odd number of teams - if we're at max_teams - 1 and max_teams is even,
+    # warn that one more team is needed
+    if current_team_count == league.max_teams - 1:
+        messages.info(request, f"Note: This league needs {league.max_teams} teams (even number). One more team needed after yours!")
     
     if request.method == "POST":
         form = TeamCreateForm(request.POST, league=league)

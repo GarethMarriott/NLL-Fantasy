@@ -37,6 +37,13 @@ class LeagueCreateForm(forms.ModelForm):
         fields = ['name', 'description', 'max_teams']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
+            'max_teams': forms.Select(choices=[
+                (4, '4 teams'),
+                (6, '6 teams'),
+                (8, '8 teams'),
+                (10, '10 teams'),
+                (12, '12 teams'),
+            ]),
         }
 
 

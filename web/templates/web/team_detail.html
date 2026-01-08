@@ -3,8 +3,16 @@
 {% block title %}{{ team.name }} — Team — NLL Fantasy{% endblock %}
 {% block content %}
   <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
-    <h2 class="mb-3 text-2xl font-semibold leading-tight">{{ team.name }}</h2>
-    <p class="mb-4 text-sm text-gray-600">Manage your fantasy roster</p>
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h2 class="text-2xl font-semibold leading-tight">{{ team.name }}</h2>
+        <p class="text-sm text-gray-600">Manage your fantasy roster</p>
+      </div>
+      <a href="{% url 'matchups' %}"
+         class="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium">
+        ← Back to Matchups
+      </a>
+    </div>
 
     {% if messages %}
       {% for message in messages %}
@@ -15,14 +23,6 @@
         </div>
       {% endfor %}
     {% endif %}
-
-    <div class="w-full flex justify-start mb-4">
-      <a href="/teams"
-         class="flex items-center gap-2 text-gray-100 transition duration-200 ease-in-out transform px-3 py-2 w-40 border-b-4 border-gray-500 hover:border-b-2 bg-gradient-to-t from-gray-400 via-gray-600 to-gray-200 rounded-2xl hover:translate-y-px text-sm"
-         style="-webkit-box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 8px rgba(0,0,0,0); box-shadow: 0px 10px 13px -7px #000000, 5px 5px 15px 5px rgba(0,0,0,0);">
-        <span class="font-bold">← Back to Teams</span>
-      </a>
-    </div>
 
     <div class="overflow-x-auto">
       <table class="min-w-full text-base">
