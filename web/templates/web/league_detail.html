@@ -15,12 +15,20 @@
           <span>Created: {{ league.created_at|date:"M d, Y" }}</span>
         </div>
       </div>
-      {% if can_join %}
-        <a href="{% url 'team_create' league.id %}" 
-           class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg">
-          Join League
-        </a>
-      {% endif %}
+      <div class="flex gap-3">
+        {% if user == league.commissioner %}
+          <a href="{% url 'league_settings' league.id %}" 
+             class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg">
+            Settings
+          </a>
+        {% endif %}
+        {% if can_join %}
+          <a href="{% url 'team_create' league.id %}" 
+             class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg">
+            Join League
+          </a>
+        {% endif %}
+      </div>
     </div>
   </div>
 

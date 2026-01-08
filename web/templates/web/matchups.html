@@ -42,7 +42,7 @@
                     <div class="space-y-1">
                       {% for slot in game.home_roster.offence_slots %}
                         {% if slot %}
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
                             <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                             <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                           </div>
@@ -59,7 +59,7 @@
                     <div class="space-y-1">
                       {% for slot in game.home_roster.defence_slots %}
                         {% if slot %}
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
                             <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                             <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                           </div>
@@ -76,7 +76,7 @@
                     <div class="space-y-1">
                       {% for slot in game.home_roster.goalie_slots %}
                         {% if slot %}
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
                             <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                             <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                           </div>
@@ -109,7 +109,7 @@
                     <div class="space-y-1">
                       {% for slot in game.away_roster.offence_slots %}
                         {% if slot %}
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
                             <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                             <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                           </div>
@@ -126,7 +126,7 @@
                     <div class="space-y-1">
                       {% for slot in game.away_roster.defence_slots %}
                         {% if slot %}
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
                             <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                             <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                           </div>
@@ -143,7 +143,7 @@
                     <div class="space-y-1">
                       {% for slot in game.away_roster.goalie_slots %}
                         {% if slot %}
-                          <div class="flex justify-between text-xs">
+                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
                             <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                             <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                           </div>

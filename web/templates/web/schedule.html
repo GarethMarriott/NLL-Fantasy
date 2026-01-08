@@ -5,7 +5,7 @@
   {% if schedule_weeks %}
     {% for week in schedule_weeks %}
       <section class="schedule-week">
-        <h2>Week {{ week.week_number }}</h2>
+        <h2>Week {{ week.week_number }}{% if week.week_number > 18 %} - Playoffs{% endif %}</h2>
         <table class="players-table">
           <thead>
             <tr>
@@ -15,7 +15,11 @@
           <tbody>
             {% for game in week.games %}
               <tr>
-                <td>{{ game.home.name }} vs {{ game.away.name }}</td>
+                {% if game.is_playoff %}
+                  <td><strong>{{ game.round_name }}:</strong> Seed #{{ game.seed1 }} vs Seed #{{ game.seed2 }}</td>
+                {% else %}
+                  <td>{{ game.home.name }} vs {{ game.away.name }}</td>
+                {% endif %}
               </tr>
             {% endfor %}
           </tbody>

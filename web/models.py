@@ -19,6 +19,76 @@ class League(models.Model):
         help_text="Maximum number of teams allowed (must be even: 4, 6, 8, 10, or 12)"
     )
     is_active = models.BooleanField(default=True)
+    
+    # Commissioner Settings
+    is_public = models.BooleanField(
+        default=True,
+        help_text="Whether the league is publicly visible and joinable"
+    )
+    roster_size = models.PositiveSmallIntegerField(
+        default=12,
+        validators=[MinValueValidator(6), MaxValueValidator(20)],
+        help_text="Maximum number of players per team"
+    )
+    playoff_weeks = models.PositiveSmallIntegerField(
+        default=2,
+        validators=[MinValueValidator(0), MaxValueValidator(4)],
+        help_text="Number of playoff weeks (0-4)"
+    )
+    playoff_teams = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(2), MaxValueValidator(8)],
+        help_text="Number of teams that make playoffs (2, 4, 6, or 8)"
+    )
+    
+    # Custom Scoring Settings
+    scoring_goals = models.DecimalField(
+        max_digits=5, decimal_places=2, default=4.00,
+        help_text="Points per goal"
+    )
+    scoring_assists = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        help_text="Points per assist"
+    )
+    scoring_loose_balls = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        help_text="Points per loose ball"
+    )
+    scoring_caused_turnovers = models.DecimalField(
+        max_digits=5, decimal_places=2, default=3.00,
+        help_text="Points per caused turnover"
+    )
+    scoring_blocked_shots = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        help_text="Points per blocked shot"
+    )
+    scoring_turnovers = models.DecimalField(
+        max_digits=5, decimal_places=2, default=-1.00,
+        help_text="Points per turnover (typically negative)"
+    )
+    
+    # Goalie Scoring
+    scoring_goalie_wins = models.DecimalField(
+        max_digits=5, decimal_places=2, default=5.00,
+        help_text="Points per goalie win"
+    )
+    scoring_goalie_saves = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0.75,
+        help_text="Points per save"
+    )
+    scoring_goalie_goals_against = models.DecimalField(
+        max_digits=5, decimal_places=2, default=-1.00,
+        help_text="Points per goal against (typically negative)"
+    )
+    scoring_goalie_goals = models.DecimalField(
+        max_digits=5, decimal_places=2, default=4.00,
+        help_text="Points per goalie goal"
+    )
+    scoring_goalie_assists = models.DecimalField(
+        max_digits=5, decimal_places=2, default=2.00,
+        help_text="Points per goalie assist"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -55,6 +125,42 @@ class Team(models.Model):
         if self.league:
             return f"{self.name} ({self.league.name})"
         return self.name
+    
+    def can_make_roster_changes(self):
+        """
+        Check if this team can currently make roster changes.
+        Returns (can_change: bool, message: str, locked_until: date or None)
+        """
+        from django.utils import timezone
+        
+        if not self.league:
+            return True, "No league restrictions", None
+        
+        # Get the current week for this league's season
+        league_season = self.league.created_at.year
+        now = timezone.now().date()
+        
+        # Find the week that contains today or is upcoming
+        current_week = Week.objects.filter(
+            season=league_season,
+            start_date__lte=now
+        ).order_by('-week_number').first()
+        
+        if not current_week:
+            # No week has started yet, allow changes
+            return True, "Season hasn't started", None
+        
+        if current_week.is_locked():
+            # Calculate unlock date
+            unlock_date = current_week.end_date
+            days_until_tuesday = (1 - unlock_date.weekday()) % 7
+            if days_until_tuesday == 0:
+                days_until_tuesday = 7
+            unlock_date = unlock_date + timezone.timedelta(days=days_until_tuesday)
+            
+            return False, f"Rosters locked until Tuesday, {unlock_date.strftime('%B %d')}", unlock_date
+        
+        return True, "Roster changes allowed", None
 
 
 class Roster(models.Model):
@@ -194,6 +300,32 @@ class Week(models.Model):
 
     def __str__(self) -> str:
         return f"{self.season} - Week {self.week_number} ({self.start_date} to {self.end_date})"
+    
+    def is_locked(self):
+        """
+        Returns True if roster transactions are locked for this week.
+        
+        Lock rules:
+        - Locked from start_date (Friday) until the Tuesday after end_date
+        - Unlocked on Tuesdays after games end, ready for next week's transactions
+        """
+        from django.utils import timezone
+        now = timezone.now().date()
+        
+        # If we're before the week starts, it's unlocked
+        if now < self.start_date:
+            return False
+        
+        # Calculate the Tuesday after the week ends (unlock day)
+        # end_date is typically Sunday, so Tuesday is +2 days
+        unlock_date = self.end_date
+        days_until_tuesday = (1 - unlock_date.weekday()) % 7  # Tuesday is weekday 1
+        if days_until_tuesday == 0:
+            days_until_tuesday = 7  # If end_date is Tuesday, wait until next Tuesday
+        unlock_date = unlock_date + timezone.timedelta(days=days_until_tuesday)
+        
+        # Locked if we're between start and unlock date
+        return self.start_date <= now < unlock_date
 
 
 class PlayerWeekStat(models.Model):

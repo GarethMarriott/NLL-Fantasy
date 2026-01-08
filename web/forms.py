@@ -63,3 +63,57 @@ class TeamCreateForm(forms.ModelForm):
         if commit:
             team.save()
         return team
+
+
+class TeamSettingsForm(forms.ModelForm):
+    """Form for team owner to update their team name"""
+    class Meta:
+        model = Team
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+        }
+
+
+class LeagueSettingsForm(forms.ModelForm):
+    """Form for commissioner to update league settings"""
+    class Meta:
+        model = League
+        fields = [
+            'name', 'description', 'max_teams', 'is_public', 'roster_size', 'playoff_weeks', 'playoff_teams',
+            'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
+            'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers',
+            'scoring_goalie_wins', 'scoring_goalie_saves', 'scoring_goalie_goals_against',
+            'scoring_goalie_goals', 'scoring_goalie_assists'
+        ]
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 3, 'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'max_teams': forms.Select(choices=[
+                (4, '4 teams'),
+                (6, '6 teams'),
+                (8, '8 teams'),
+                (10, '10 teams'),
+                (12, '12 teams'),
+            ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'is_public': forms.CheckboxInput(attrs={'class': 'rounded'}),
+            'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
+            'playoff_weeks': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 4}),
+            'playoff_teams': forms.Select(choices=[
+                (2, '2 teams'),
+                (4, '4 teams'),
+                (6, '6 teams'),
+                (8, '8 teams'),
+            ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'scoring_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_loose_balls': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_caused_turnovers': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_blocked_shots': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_turnovers': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_goalie_wins': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_goalie_saves': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_goalie_goals_against': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_goalie_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'scoring_goalie_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+        }

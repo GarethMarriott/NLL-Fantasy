@@ -59,6 +59,10 @@
       <table class="min-w-full text-xs">
         <thead class="rounded-t-lg dark:bg-gray-300">
           <tr class="text-right">
+            {% if user_team %}
+            <th title="Roster status" class="p-3" style="width: 80px;"></th>
+            <th title="Add player" class="p-3" style="width: 60px;"></th>
+            {% endif %}
             <th title="Player name" class="p-3 text-left">
               <a href="?season={{ selected_season }}{% if selected_week_num %}&week={{ selected_week_num }}{% endif %}{% if selected_position %}&position={{ selected_position }}{% endif %}&sort=name&dir={% if sort_field == 'name' and sort_dir == 'asc' %}desc{% else %}asc{% endif %}" class="hover:underline">
                 Name
@@ -154,6 +158,26 @@
         {% for item in players %}
           {% with player=item.player stat=item.latest_stat %}
           <tr class="text-right border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
+            {% if user_team %}
+            <!-- Roster status indicator -->
+            <td class="px-2 py-2">
+              {% if item.roster_status == 'on_your_team' %}
+                <div class="inline-block px-2 py-1 bg-blue-500 text-white rounded text-xs font-semibold whitespace-nowrap" title="On your team">Your Team</div>
+              {% elif item.roster_status == 'on_other_team' %}
+                <div class="inline-block px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold whitespace-nowrap" title="On {{ item.rostered_team.name }}">Rostered</div>
+              {% endif %}
+            </td>
+            <!-- Add button -->
+            <td class="px-2 py-2">
+              {% if item.roster_status == 'available' and roster_can_change %}
+                <div class="inline-block px-2 py-1 bg-green-500 text-white rounded text-xs font-semibold whitespace-nowrap cursor-pointer hover:bg-green-600"
+                  onclick="showReplaceOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
+                  title="Add player">
+                  Add
+                </div>
+              {% endif %}
+            </td>
+            {% endif %}
             <td class="px-3 py-2 text-left">
               <span class="font-semibold">{{ player.last_name }}, {{ player.first_name }}</span>
             </td>
@@ -215,11 +239,99 @@
           {% endwith %}
         {% empty %}
           <tr class="border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
-            <td colspan="{% if selected_position == 'G' %}12{% else %}12{% endif %}" class="px-3 py-2 text-center text-gray-500">No players found.</td>
+            <td colspan="{% if user_team %}{% if selected_position == 'G' %}14{% else %}14{% endif %}{% else %}{% if selected_position == 'G' %}12{% else %}12{% endif %}{% endif %}" class="px-3 py-2 text-center text-gray-500">No players found.</td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+
+  {% if user_team %}
+  <!-- Modal for selecting player to replace -->
+  <div id="replaceModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" onclick="closeModal(event)">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-lg font-semibold mb-4">Add <span id="newPlayerName"></span></h3>
+      <p class="mb-4 text-sm text-gray-600">Select a player to drop from your roster:</p>
+      <div id="replaceOptions" class="space-y-2 mb-4">
+        <!-- Options will be populated by JavaScript -->
+      </div>
+      <button onclick="closeReplaceModal()" class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function showReplaceOptions(newPlayerId, newPlayerName, newPlayerPosition) {
+      document.getElementById('newPlayerName').textContent = newPlayerName;
+      const optionsDiv = document.getElementById('replaceOptions');
+      optionsDiv.innerHTML = '';
+
+      // Get roster for this position
+      const roster = {{ user_roster_json|safe }};
+      const positionRoster = roster[newPlayerPosition] || [];
+
+      if (positionRoster.length === 0) {
+        optionsDiv.innerHTML = '<p class="text-sm text-red-500">No players in this position to replace.</p>';
+      } else {
+        positionRoster.forEach(player => {
+          const button = document.createElement('button');
+          button.className = 'w-full px-4 py-2 text-left bg-gray-100 hover:bg-gray-200 rounded border border-gray-300';
+          button.textContent = `Drop ${player.first_name} ${player.last_name}`;
+          button.onclick = () => swapPlayer(newPlayerId, player.id);
+          optionsDiv.appendChild(button);
+        });
+      }
+
+      document.getElementById('replaceModal').classList.remove('hidden');
+      document.getElementById('replaceModal').classList.add('flex');
+    }
+
+    function closeReplaceModal() {
+      document.getElementById('replaceModal').classList.add('hidden');
+      document.getElementById('replaceModal').classList.remove('flex');
+    }
+
+    function closeModal(event) {
+      if (event.target.id === 'replaceModal') {
+        closeReplaceModal();
+      }
+    }
+
+    function swapPlayer(addPlayerId, dropPlayerId) {
+      // Create form and submit
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/teams/{{ user_team.id }}/assign-player/';
+      
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = '{{ csrf_token }}';
+      
+      const addInput = document.createElement('input');
+      addInput.type = 'hidden';
+      addInput.name = 'player_id';
+      addInput.value = addPlayerId;
+      
+      const dropInput = document.createElement('input');
+      dropInput.type = 'hidden';
+      dropInput.name = 'drop_player_id';
+      dropInput.value = dropPlayerId;
+      
+      const actionInput = document.createElement('input');
+      actionInput.type = 'hidden';
+      actionInput.name = 'action';
+      actionInput.value = 'swap';
+      
+      form.appendChild(csrfInput);
+      form.appendChild(addInput);
+      form.appendChild(dropInput);
+      form.appendChild(actionInput);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  </script>
+  {% endif %}
 {% endblock %}

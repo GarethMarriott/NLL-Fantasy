@@ -1,0 +1,201 @@
+{% extends "web/base.html" %}
+{% block title %}League Settings — {{ league.name }}{% endblock %}
+{% block content %}
+  <div class="container p-4 mx-auto max-w-4xl rounded-md sm:p-6 dark:text-gray-800 dark:bg-gray-50">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-2xl font-semibold leading-tight">League Settings</h2>
+      <a href="{% url 'league_detail' league.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+        ← Back to League
+      </a>
+    </div>
+
+    <p class="mb-6 text-sm text-gray-600">
+      Configure settings for <span class="font-semibold">{{ league.name }}</span>
+    </p>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      {# General Settings #}
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">General Settings</h3>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">League Name</label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Description</label>
+          {{ form.description }}
+          {% if form.description.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.description.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Max Teams</label>
+            {{ form.max_teams }}
+            {% if form.max_teams.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.max_teams.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Roster Size</label>
+            {{ form.roster_size }}
+            <p class="text-xs text-gray-500 mt-1">Players per team (6-20)</p>
+            {% if form.roster_size.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.roster_size.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Playoff Teams</label>
+            {{ form.playoff_teams }}
+            <p class="text-xs text-gray-500 mt-1">Top teams make playoffs</p>
+            {% if form.playoff_teams.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.playoff_teams.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Playoff Weeks</label>
+            {{ form.playoff_weeks }}
+            <p class="text-xs text-gray-500 mt-1">After 18 regular season</p>
+            {% if form.playoff_weeks.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.playoff_weeks.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label class="flex items-center">
+            {{ form.is_public }}
+            <span class="ml-2 text-sm font-medium">Public League (anyone can join)</span>
+          </label>
+          {% if form.is_public.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.is_public.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Field Player Scoring #}
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Field Player Scoring</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Goals</label>
+            {{ form.scoring_goals }}
+            {% if form.scoring_goals.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_goals.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Assists</label>
+            {{ form.scoring_assists }}
+            {% if form.scoring_assists.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_assists.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Loose Balls</label>
+            {{ form.scoring_loose_balls }}
+            {% if form.scoring_loose_balls.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_loose_balls.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Caused Turnovers</label>
+            {{ form.scoring_caused_turnovers }}
+            {% if form.scoring_caused_turnovers.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_caused_turnovers.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Blocked Shots</label>
+            {{ form.scoring_blocked_shots }}
+            {% if form.scoring_blocked_shots.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_blocked_shots.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Turnovers</label>
+            {{ form.scoring_turnovers }}
+            <p class="text-xs text-gray-500 mt-1">Usually negative</p>
+            {% if form.scoring_turnovers.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_turnovers.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Goalie Scoring #}
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Goalie Scoring</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Wins</label>
+            {{ form.scoring_goalie_wins }}
+            {% if form.scoring_goalie_wins.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_goalie_wins.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Saves</label>
+            {{ form.scoring_goalie_saves }}
+            {% if form.scoring_goalie_saves.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_goalie_saves.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Goals Against</label>
+            {{ form.scoring_goalie_goals_against }}
+            <p class="text-xs text-gray-500 mt-1">Usually negative</p>
+            {% if form.scoring_goalie_goals_against.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_goalie_goals_against.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Goalie Goals</label>
+            {{ form.scoring_goalie_goals }}
+            {% if form.scoring_goalie_goals.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_goalie_goals.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Goalie Assists</label>
+            {{ form.scoring_goalie_assists }}
+            {% if form.scoring_goalie_assists.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.scoring_goalie_assists.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-4">
+        <a href="{% url 'league_detail' league.id %}" class="px-4 py-2 text-gray-700 hover:text-gray-900">
+          Cancel
+        </a>
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+          Save Settings
+        </button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

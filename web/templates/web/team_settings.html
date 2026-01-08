@@ -1,0 +1,46 @@
+{% extends "web/base.html" %}
+{% block title %}Team Settings — {{ team.name }}{% endblock %}
+{% block content %}
+  <div class="container p-4 mx-auto max-w-2xl rounded-md sm:p-6 dark:text-gray-800 dark:bg-gray-50">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-2xl font-semibold leading-tight">Team Settings</h2>
+      <a href="{% url 'home' %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+        ← Back to Your Team
+      </a>
+    </div>
+
+    <p class="mb-6 text-sm text-gray-600">
+      Configure settings for your team: <span class="font-semibold">{{ team.name }}</span>
+    </p>
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Team Information</h3>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Team Name</label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div class="text-sm text-gray-600">
+          <p><strong>League:</strong> {{ team.league.name }}</p>
+          <p><strong>Owner:</strong> {{ team.owner.user.username }}</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-4">
+        <a href="{% url 'home' %}" class="px-4 py-2 text-gray-700 hover:text-gray-900">
+          Cancel
+        </a>
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+          Save Settings
+        </button>
+      </div>
+    </form>
+  </div>
+{% endblock %}
