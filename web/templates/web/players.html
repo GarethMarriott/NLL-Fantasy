@@ -12,7 +12,7 @@
             {% if selected_week_num %}
               — Week {{ selected_week_num }}
             {% else %}
-              — Season Totals
+              — {% if selected_stat_type == 'playoff' %}Playoff{% elif selected_stat_type == 'all' %}All Games{% else %}Regular Season{% endif %} Totals
             {% endif %}
           </h3>
         {% endif %}
@@ -47,6 +47,14 @@
                 Week {{ wk.week_number }}
               </option>
             {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="stat_type" class="mr-2 text-sm font-medium">Type:</label>
+          <select name="stat_type" id="stat_type" onchange="this.form.submit()" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="regular" {% if selected_stat_type == 'regular' %}selected{% endif %}>Regular Season</option>
+            <option value="playoff" {% if selected_stat_type == 'playoff' %}selected{% endif %}>Playoffs</option>
+            <option value="all" {% if selected_stat_type == 'all' %}selected{% endif %}>All Games</option>
           </select>
         </div>
         <input type="hidden" name="sort" value="{{ sort_field }}">
@@ -270,11 +278,47 @@
 
       // Get roster for this position
       const roster = {{ user_roster_json|safe }};
-      const positionRoster = roster[newPlayerPosition] || [];
+      let positionRoster = roster[newPlayerPosition] || [];
+      
+      // For transition players, also include O and D players
+      if (newPlayerPosition === 'T') {
+        const offenseRoster = roster['O'] || [];
+        const defenseRoster = roster['D'] || [];
+        // Combine and deduplicate by ID
+        const combined = [...positionRoster, ...offenseRoster, ...defenseRoster];
+        const seen = new Set();
+        positionRoster = combined.filter(p => {
+          if (seen.has(p.id)) return false;
+          seen.add(p.id);
+          return true;
+        });
+      }
 
-      if (positionRoster.length === 0) {
-        optionsDiv.innerHTML = '<p class="text-sm text-red-500">No players in this position to replace.</p>';
-      } else {
+      // Check if roster is full
+      const rosterCount = {{ roster_count }};
+      const rosterMax = {{ roster_max }};
+      const hasSpace = rosterCount < rosterMax;
+
+      // Add "Add without dropping" option if roster isn't full
+      if (hasSpace) {
+        const addButton = document.createElement('button');
+        addButton.className = 'w-full px-4 py-2 text-left bg-green-100 hover:bg-green-200 rounded border border-green-400 font-semibold text-green-800';
+        addButton.textContent = `Add ${newPlayerName} (${rosterCount}/${rosterMax})`;
+        addButton.onclick = () => addPlayerDirect(newPlayerId, newPlayerPosition);
+        optionsDiv.appendChild(addButton);
+        
+        // Add separator if there are also players to swap
+        if (positionRoster.length > 0) {
+          const separator = document.createElement('div');
+          separator.className = 'text-center text-xs text-gray-500 my-2';
+          separator.textContent = 'OR';
+          optionsDiv.appendChild(separator);
+        }
+      }
+
+      if (positionRoster.length === 0 && !hasSpace) {
+        optionsDiv.innerHTML = '<p class="text-sm text-red-500">Roster is full. No players in this position to replace.</p>';
+      } else if (positionRoster.length > 0) {
         positionRoster.forEach(player => {
           const button = document.createElement('button');
           button.className = 'w-full px-4 py-2 text-left bg-gray-100 hover:bg-gray-200 rounded border border-gray-300';
@@ -297,6 +341,47 @@
       if (event.target.id === 'replaceModal') {
         closeReplaceModal();
       }
+    }
+
+    function addPlayerDirect(playerId, position) {
+      // Create form and submit for direct add (no drop)
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/teams/{{ user_team.id }}/assign-player/';
+      
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = '{{ csrf_token }}';
+      
+      const playerInput = document.createElement('input');
+      playerInput.type = 'hidden';
+      playerInput.name = 'player_id';
+      playerInput.value = playerId;
+      
+      const actionInput = document.createElement('input');
+      actionInput.type = 'hidden';
+      actionInput.name = 'action';
+      actionInput.value = 'add';
+      
+      const slotInput = document.createElement('input');
+      slotInput.type = 'hidden';
+      slotInput.name = 'slot_group';
+      // Determine slot group based on position
+      if (position === 'G') {
+        slotInput.value = 'G';
+      } else if (position === 'D') {
+        slotInput.value = 'D';
+      } else {
+        slotInput.value = 'O'; // O or T goes to offense
+      }
+      
+      form.appendChild(csrfInput);
+      form.appendChild(playerInput);
+      form.appendChild(actionInput);
+      form.appendChild(slotInput);
+      document.body.appendChild(form);
+      form.submit();
     }
 
     function swapPlayer(addPlayerId, dropPlayerId) {

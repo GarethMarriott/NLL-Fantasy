@@ -22,6 +22,45 @@
     {% endfor %}
   {% endif %}
 
+  <!-- Search Bar -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Find a League</h2>
+    <form method="get" action="{% url 'league_list' %}" class="flex flex-col md:flex-row gap-4">
+      <div class="flex-1">
+        <input 
+          type="text" 
+          name="search" 
+          value="{{ search_query }}"
+          placeholder="Enter league name or code..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+      </div>
+      <div class="flex gap-2">
+        <select 
+          name="search_type" 
+          class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="name" {% if search_type == 'name' %}selected{% endif %}>By Name</option>
+          <option value="code" {% if search_type == 'code' %}selected{% endif %}>By Code</option>
+        </select>
+        <button 
+          type="submit" 
+          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+        >
+          Search
+        </button>
+        {% if search_query %}
+          <a 
+            href="{% url 'league_list' %}" 
+            class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-lg"
+          >
+            Clear
+          </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
   <!-- My Leagues as Commissioner -->
   {% if my_leagues %}
     <section class="mb-8">
@@ -30,7 +69,8 @@
         {% for league in my_leagues %}
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ league.description|truncatewords:15 }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
             <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
               <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
               <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">Commissioner</span>
@@ -53,7 +93,8 @@
         {% for league in my_team_leagues %}
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ league.description|truncatewords:15 }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
             <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
               <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
               <span>By: {{ league.commissioner.username }}</span>
@@ -69,14 +110,17 @@
   {% endif %}
 
   <!-- Other Available Leagues -->
-  {% if other_leagues %}
-    <section>
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Available Leagues</h2>
+  <section>
+    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+      {% if search_query %}Search Results{% else %}Available Leagues{% endif %}
+    </h2>
+    {% if other_leagues %}
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {% for league in other_leagues %}
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ league.description|truncatewords:15 }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
             <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
               <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
               <span>By: {{ league.commissioner.username }}</span>
@@ -88,10 +132,20 @@
           </div>
         {% endfor %}
       </div>
-    </section>
-  {% endif %}
+    {% else %}
+      {% if search_query %}
+        <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+          <p class="text-gray-600 dark:text-gray-400 mb-4">No leagues found matching "{{ search_query }}"</p>
+          <a href="{% url 'league_list' %}" 
+             class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg">
+            View All Leagues
+          </a>
+        </div>
+      {% endif %}
+    {% endif %}
+  </section>
 
-  {% if not my_leagues and not my_team_leagues and not other_leagues %}
+  {% if not my_leagues and not my_team_leagues and not other_leagues and not search_query %}
     <div class="text-center py-12">
       <p class="text-gray-600 dark:text-gray-400 mb-4">No leagues available yet.</p>
       <a href="{% url 'league_create' %}" 

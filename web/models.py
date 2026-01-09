@@ -1,11 +1,19 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
+import secrets
+import string
 
 
 class League(models.Model):
     """Fantasy league that contains multiple teams"""
     name = models.CharField(max_length=100)
+    unique_id = models.CharField(
+        max_length=8,
+        unique=True,
+        editable=False,
+        help_text="Unique 8-character code for finding and joining the league"
+    )
     commissioner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -39,6 +47,11 @@ class League(models.Model):
         default=4,
         validators=[MinValueValidator(2), MaxValueValidator(8)],
         help_text="Number of teams that make playoffs (2, 4, 6, or 8)"
+    )
+    
+    use_waivers = models.BooleanField(
+        default=False,
+        help_text="Enable waiver claims that process when rosters unlock on Tuesday"
     )
     
     # Custom Scoring Settings
@@ -95,6 +108,20 @@ class League(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def save(self, *args, **kwargs):
+        if not self.unique_id:
+            self.unique_id = self.generate_unique_id()
+        super().save(*args, **kwargs)
+    
+    @staticmethod
+    def generate_unique_id():
+        """Generate a unique 8-character alphanumeric code"""
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            code = ''.join(secrets.choice(chars) for _ in range(8))
+            if not League.objects.filter(unique_id=code).exists():
+                return code
+
     def __str__(self) -> str:
         return f"{self.name} (by {self.commissioner.username})"
 
@@ -108,6 +135,10 @@ class Team(models.Model):
         null=True,
         blank=True,
         help_text="The league this team belongs to"
+    )
+    waiver_priority = models.PositiveIntegerField(
+        default=0,
+        help_text="Lower number = higher priority. Resets to last when claim succeeds"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -282,6 +313,11 @@ class Week(models.Model):
 
     start_date = models.DateField()
     end_date = models.DateField()
+    
+    is_playoff = models.BooleanField(
+        default=False,
+        help_text="True if this week contains NLL playoff games (not fantasy playoffs)"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -306,26 +342,37 @@ class Week(models.Model):
         Returns True if roster transactions are locked for this week.
         
         Lock rules:
-        - Locked from start_date (Friday) until the Tuesday after end_date
-        - Unlocked on Tuesdays after games end, ready for next week's transactions
+        - Locked from start_date at 7:00 PM (when games typically start) until Tuesday at 9:00 AM after end_date
+        - Unlocked on Tuesdays at 9 AM after games end, ready for next week's transactions
         """
         from django.utils import timezone
-        now = timezone.now().date()
+        from datetime import time
+        
+        now = timezone.now()
+        
+        # Create datetime for start_date at 7:00 PM (when games typically start on Friday)
+        start_datetime = timezone.make_aware(
+            timezone.datetime.combine(self.start_date, time(19, 0))  # 7:00 PM
+        )
         
         # If we're before the week starts, it's unlocked
-        if now < self.start_date:
+        if now < start_datetime:
             return False
         
-        # Calculate the Tuesday after the week ends (unlock day)
-        # end_date is typically Sunday, so Tuesday is +2 days
+        # Calculate the Tuesday after the week ends (unlock day) at 9:00 AM
         unlock_date = self.end_date
         days_until_tuesday = (1 - unlock_date.weekday()) % 7  # Tuesday is weekday 1
         if days_until_tuesday == 0:
             days_until_tuesday = 7  # If end_date is Tuesday, wait until next Tuesday
         unlock_date = unlock_date + timezone.timedelta(days=days_until_tuesday)
         
-        # Locked if we're between start and unlock date
-        return self.start_date <= now < unlock_date
+        # Create datetime for Tuesday at 9:00 AM in the current timezone
+        unlock_datetime = timezone.make_aware(
+            timezone.datetime.combine(unlock_date, time(9, 0))
+        )
+        
+        # Locked if we're between start and unlock datetime
+        return start_datetime <= now < unlock_datetime
 
 
 class PlayerWeekStat(models.Model):
@@ -500,3 +547,75 @@ class ChatMessage(models.Model):
     def __str__(self) -> str:
         sender_name = self.sender.username if self.sender else "System"
         return f"[{self.message_type}] {sender_name}: {self.message[:50]}"
+
+class WaiverClaim(models.Model):
+    """Waiver claims for players that process when rosters unlock"""
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        SUCCESSFUL = "SUCCESSFUL", "Successful"
+        FAILED = "FAILED", "Failed"
+        CANCELLED = "CANCELLED", "Cancelled"
+    
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name="waiver_claims",
+        help_text="The league this claim belongs to"
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name="waiver_claims",
+        help_text="Team making the claim"
+    )
+    player_to_add = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name="waiver_claims_for",
+        help_text="Player to add if claim is successful"
+    )
+    player_to_drop = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name="waiver_claims_dropping",
+        null=True,
+        blank=True,
+        help_text="Player to drop if claim is successful (null if roster has space)"
+    )
+    week = models.ForeignKey(
+        'Week',
+        on_delete=models.CASCADE,
+        related_name="waiver_claims",
+        help_text="Week when this claim was submitted"
+    )
+    priority = models.IntegerField(
+        default=0,
+        help_text="Waiver priority snapshot at time of claim (lower is better)"
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+    processed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this claim was processed"
+    )
+    failure_reason = models.TextField(
+        blank=True,
+        help_text="Why the claim failed (if applicable)"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["priority", "created_at"]
+        indexes = [
+            models.Index(fields=["league", "status", "priority"]),
+            models.Index(fields=["week", "status"]),
+        ]
+    
+    def __str__(self) -> str:
+        return f"{self.team.name} claims {self.player_to_add} (Week {self.week.week_number})"

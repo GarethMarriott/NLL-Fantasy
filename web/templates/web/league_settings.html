@@ -10,7 +10,14 @@
     </div>
 
     <p class="mb-6 text-sm text-gray-600">
-      Configure settings for <span class="font-semibold">{{ league.name }}</span>
+      {% if is_commissioner %}
+        Configure settings for <span class="font-semibold">{{ league.name }}</span>
+      {% else %}
+        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+          Read-Only
+        </span>
+        Viewing settings for <span class="font-semibold">{{ league.name }}</span> (only commissioner can edit)
+      {% endif %}
     </p>
 
     <form method="post" class="space-y-6">
@@ -80,6 +87,17 @@
           </label>
           {% if form.is_public.errors %}
             <p class="text-red-500 text-xs mt-1">{{ form.is_public.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div class="mt-4">
+          <label class="flex items-center">
+            {{ form.use_waivers }}
+            <span class="ml-2 text-sm font-medium">Enable Waiver Claims</span>
+          </label>
+          <p class="text-xs text-gray-500 mt-1 ml-6">When enabled, player pickups during locked period are submitted as claims that process when rosters unlock on Tuesday 9 AM</p>
+          {% if form.use_waivers.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.use_waivers.errors.0 }}</p>
           {% endif %}
         </div>
       </div>
@@ -190,12 +208,28 @@
 
       <div class="flex items-center justify-between pt-4">
         <a href="{% url 'league_detail' league.id %}" class="px-4 py-2 text-gray-700 hover:text-gray-900">
-          Cancel
+          {% if is_commissioner %}Cancel{% else %}Back{% endif %}
         </a>
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-          Save Settings
-        </button>
+        {% if is_commissioner %}
+          <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            Save Settings
+          </button>
+        {% endif %}
       </div>
     </form>
   </div>
+  
+  {% if not is_commissioner %}
+  <script>
+    // Disable all form inputs for non-commissioners
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.querySelector('form');
+      const inputs = form.querySelectorAll('input, select, textarea');
+      inputs.forEach(input => {
+        input.disabled = true;
+        input.classList.add('bg-gray-100', 'cursor-not-allowed');
+      });
+    });
+  </script>
+  {% endif %}
 {% endblock %}

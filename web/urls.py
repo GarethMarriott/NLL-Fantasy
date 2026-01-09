@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     home, about, players, schedule, matchups, standings, team_detail, assign_player,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
-    register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings
+    register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
+    submit_waiver_claim, cancel_waiver_claim
 )
 
 urlpatterns = [
@@ -10,6 +11,8 @@ urlpatterns = [
     path("about/", about, name="about"),
     path("teams/<int:team_id>/", team_detail, name="team_detail"),
     path("teams/<int:team_id>/assign-player/", assign_player, name="assign_player"),
+    path("teams/<int:team_id>/waiver-claim/", submit_waiver_claim, name="submit_waiver_claim"),
+    path("waiver-claims/<int:claim_id>/cancel/", cancel_waiver_claim, name="cancel_waiver_claim"),
     path("players/", players, name="players"),
     path("schedule/", schedule, name="schedule"),
     path("matchups/", matchups, name="matchups"),

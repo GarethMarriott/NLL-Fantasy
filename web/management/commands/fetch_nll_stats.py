@@ -141,10 +141,27 @@ class Command(BaseCommand):
         
         self.stdout.write(f'Found stats for {len(stats_by_game)} games in {season_filter} season')
 
+        # Separate regular season and playoff games
+        regular_games = [g for g in games if not g.get('playoffs')]
+        playoff_games = [g for g in games if g.get('playoffs')]
+        
+        # Find the max regular season week to offset playoff weeks
+        max_regular_week = max([g.get('week', 0) for g in regular_games]) if regular_games else 0
+        
+        self.stdout.write(f'Regular season weeks: 1-{max_regular_week}')
+        if playoff_games:
+            self.stdout.write(f'Playoff games found: {len(playoff_games)} games')
+
         # Group games by week to calculate week date ranges
         games_by_week = {}
         for game in games:
             week_number = game.get('week', 1)
+            is_playoff = game.get('playoffs', False)
+            
+            # Offset playoff week numbers to come after regular season
+            if is_playoff:
+                week_number = max_regular_week + week_number
+            
             if week_number not in games_by_week:
                 games_by_week[week_number] = []
             games_by_week[week_number].append(game)
@@ -155,6 +172,8 @@ class Command(BaseCommand):
             for week_number, week_games in games_by_week.items():
                 # Parse game dates to find start and end of week
                 game_dates = []
+                # Check if any game in this week is a playoff game
+                is_playoff_week = False
                 for game in week_games:
                     date_str = game.get('dt')
                     if date_str:
@@ -163,6 +182,11 @@ class Command(BaseCommand):
                             game_dates.append(game_date)
                         except ValueError:
                             pass
+                    
+                    # Check for playoff indicators in the game data
+                    # The 'playoffs' field is the definitive indicator
+                    if game.get('playoffs') == True:
+                        is_playoff_week = True
                 
                 if game_dates:
                     start_date = min(game_dates)
@@ -177,12 +201,22 @@ class Command(BaseCommand):
                     week_number=week_number,
                     defaults={
                         'start_date': start_date,
-                        'end_date': end_date
+                        'end_date': end_date,
+                        'is_playoff': is_playoff_week
                     }
                 )
+                
+                # Update is_playoff field for existing weeks if it changed
+                if not created and week.is_playoff != is_playoff_week:
+                    week.is_playoff = is_playoff_week
+                    week.save()
+                
                 weeks_created[week_number] = week
+                playoff_indicator = " (PLAYOFF)" if is_playoff_week else ""
                 if created:
-                    self.stdout.write(f'Created Week {week_number}: {start_date} to {end_date}')
+                    self.stdout.write(f'Created Week {week_number}: {start_date} to {end_date}{playoff_indicator}')
+                elif week.is_playoff != is_playoff_week:
+                    self.stdout.write(f'Updated Week {week_number} playoff status{playoff_indicator}')
 
         # Group stats by player and week to accumulate multiple games
         stats_by_player_week = {}
@@ -191,6 +225,11 @@ class Command(BaseCommand):
         for game in games:
             game_id = game.get('id')
             week_number = game.get('week', 1)
+            is_playoff = game.get('playoffs', False)
+            
+            # Offset playoff week numbers to match what we stored
+            if is_playoff:
+                week_number = max_regular_week + week_number
             game_date = game.get('dt')
             
             # Skip if filtering by week and this isn't it

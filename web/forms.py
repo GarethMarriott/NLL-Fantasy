@@ -80,7 +80,8 @@ class LeagueSettingsForm(forms.ModelForm):
     class Meta:
         model = League
         fields = [
-            'name', 'description', 'max_teams', 'is_public', 'roster_size', 'playoff_weeks', 'playoff_teams',
+            'name', 'description', 'max_teams', 'is_public', 'roster_size', 
+            'playoff_weeks', 'playoff_teams', 'use_waivers',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
             'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers',
             'scoring_goalie_wins', 'scoring_goalie_saves', 'scoring_goalie_goals_against',
@@ -105,6 +106,7 @@ class LeagueSettingsForm(forms.ModelForm):
                 (6, '6 teams'),
                 (8, '8 teams'),
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'use_waivers': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'scoring_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_loose_balls': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
