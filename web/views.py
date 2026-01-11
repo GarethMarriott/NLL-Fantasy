@@ -2459,7 +2459,10 @@ def draft_room(request):
     teams = Team.objects.filter(league=league).select_related('league')
     team_count = teams.count()
     league_is_full = team_count == league.max_teams
-    
+
+    # Lock draft if any team has players on their roster
+    draft_locked = Roster.objects.filter(league=league, week_dropped__isnull=True).exists()
+
     # Get available players (not on any roster in this league and not drafted)
     drafted_player_ids = []
     if draft:
@@ -2473,7 +2476,7 @@ def draft_room(request):
             week_dropped__isnull=True
         ).values_list('player_id', flat=True)
     )
-    
+
     excluded_ids = set(drafted_player_ids + rostered_player_ids)
     
     # Get sort parameters
@@ -2603,6 +2606,7 @@ def draft_room(request):
         'sort_by': sort_by,
         'sort_dir': sort_dir,
         'user_picks': user_picks,
+        'draft_locked': draft_locked,
     }
     
     return render(request, 'web/draft_room.html', context)
