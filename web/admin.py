@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 
 from .models import Player, Week, PlayerWeekStat
 from .models import ImportRun
-from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster, WaiverClaim
+from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster, WaiverClaim, Draft, DraftPosition, DraftPick
 from .forms import ImportWeeklyStatsForm, ImportTeamsForm
 from .importers import import_weekly_stats_csv, import_teams_csv
 from django.contrib import admin
@@ -422,3 +422,39 @@ class WaiverClaimAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('team', 'player_to_add', 'player_to_drop', 'week', 'league')
+
+
+@admin.register(Draft, site=admin_site)
+class DraftAdmin(admin.ModelAdmin):
+    list_display = ("league", "draft_order_type", "draft_style", "is_active", "completed", "current_round", "current_pick", "started_at")
+    list_filter = ("is_active", "completed", "draft_order_type", "draft_style", "created_at")
+    search_fields = ("league__name",)
+    readonly_fields = ("created_at", "started_at", "completed_at")
+    ordering = ("-created_at",)
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('league')
+
+
+@admin.register(DraftPosition, site=admin_site)
+class DraftPositionAdmin(admin.ModelAdmin):
+    list_display = ("draft", "team", "position")
+    list_filter = ("draft",)
+    search_fields = ("team__name", "draft__league__name")
+    ordering = ("draft", "position")
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('draft', 'team')
+
+
+@admin.register(DraftPick, site=admin_site)
+class DraftPickAdmin(admin.ModelAdmin):
+    list_display = ("draft", "round", "pick_number", "overall_pick", "team", "player", "timestamp")
+    list_filter = ("draft", "round")
+    search_fields = ("team__name", "player__first_name", "player__last_name", "draft__league__name")
+    autocomplete_fields = ["team", "player"]
+    readonly_fields = ("timestamp",)
+    ordering = ("draft", "overall_pick")
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('draft', 'team', 'player')

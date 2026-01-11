@@ -1,16 +1,23 @@
 from django.urls import path
 from .views import (
-    home, about, players, schedule, matchups, standings, team_detail, assign_player,
+    home, about, players, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
-    submit_waiver_claim, cancel_waiver_claim
+    submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft
 )
 
 urlpatterns = [
     path("", home, name="home"),
     path("about/", about, name="about"),
+    path("teams/", my_team, name="my_team"),
     path("teams/<int:team_id>/", team_detail, name="team_detail"),
     path("teams/<int:team_id>/assign-player/", assign_player, name="assign_player"),
+    path("teams/<int:team_id>/move-transition/", move_transition_player, name="move_transition_player"),
+    path("teams/<int:team_id>/trades/", trade_center, name="trade_center"),
+    path("teams/<int:team_id>/trades/propose/", propose_trade, name="propose_trade"),
+    path("trades/<int:trade_id>/accept/", accept_trade, name="accept_trade"),
+    path("trades/<int:trade_id>/reject/", reject_trade, name="reject_trade"),
+    path("trades/<int:trade_id>/cancel/", cancel_trade, name="cancel_trade"),
     path("teams/<int:team_id>/waiver-claim/", submit_waiver_claim, name="submit_waiver_claim"),
     path("waiver-claims/<int:claim_id>/cancel/", cancel_waiver_claim, name="cancel_waiver_claim"),
     path("players/", players, name="players"),
@@ -36,4 +43,11 @@ urlpatterns = [
     path("leagues/<int:league_id>/join/", team_create, name="team_create"),
     path("leagues/<int:league_id>/select/", select_league, name="select_league"),
     path("teams/<int:team_id>/settings/", team_settings, name="team_settings"),
+    
+    # Draft
+    path("draft/", draft_room, name="draft_room"),
+    path("draft/start/", start_draft, name="start_draft"),
+    path("draft/cancel/", cancel_draft, name="cancel_draft"),
+    path("draft/<int:draft_id>/pick/", make_draft_pick, name="make_draft_pick"),
+    path("draft/set-order/", set_draft_order, name="set_draft_order"),
 ]

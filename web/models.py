@@ -342,7 +342,7 @@ class Week(models.Model):
         Returns True if roster transactions are locked for this week.
         
         Lock rules:
-        - Locked from start_date at 7:00 PM (when games typically start) until Tuesday at 9:00 AM after end_date
+        - Locked from start_date at 5:00 PM (Friday) until Tuesday at 9:00 AM after end_date
         - Unlocked on Tuesdays at 9 AM after games end, ready for next week's transactions
         """
         from django.utils import timezone
@@ -350,9 +350,9 @@ class Week(models.Model):
         
         now = timezone.now()
         
-        # Create datetime for start_date at 7:00 PM (when games typically start on Friday)
+        # Create datetime for start_date at 5:00 PM (Friday)
         start_datetime = timezone.make_aware(
-            timezone.datetime.combine(self.start_date, time(19, 0))  # 7:00 PM
+            timezone.datetime.combine(self.start_date, time(17, 0))  # 5:00 PM
         )
         
         # If we're before the week starts, it's unlocked
@@ -619,3 +619,258 @@ class WaiverClaim(models.Model):
     
     def __str__(self) -> str:
         return f"{self.team.name} claims {self.player_to_add} (Week {self.week.week_number})"
+
+
+class Draft(models.Model):
+    """Draft for a fantasy league"""
+    class DraftOrderType(models.TextChoices):
+        RANDOM = "RANDOM", "Random"
+        MANUAL = "MANUAL", "Commissioner Selected"
+    
+    class DraftStyle(models.TextChoices):
+        SNAKE = "SNAKE", "Snake Draft (1,2,3,4 then 4,3,2,1)"
+        LINEAR = "LINEAR", "Linear Draft (1,2,3,4 every round)"
+    
+    league = models.OneToOneField(
+        League,
+        on_delete=models.CASCADE,
+        related_name='draft',
+        help_text="The league this draft belongs to"
+    )
+    is_active = models.BooleanField(
+        default=False,
+        help_text="Whether the draft is currently in progress"
+    )
+    completed = models.BooleanField(
+        default=False,
+        help_text="Whether the draft has been completed"
+    )
+    draft_order_type = models.CharField(
+        max_length=10,
+        choices=DraftOrderType.choices,
+        default=DraftOrderType.RANDOM,
+        help_text="How the draft order was determined"
+    )
+    draft_style = models.CharField(
+        max_length=10,
+        choices=DraftStyle.choices,
+        default=DraftStyle.SNAKE,
+        help_text="Draft pick order style"
+    )
+    current_round = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Current round number"
+    )
+    current_pick = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Current pick number within the round"
+    )
+    total_rounds = models.PositiveSmallIntegerField(
+        default=12,
+        help_text="Total number of rounds (should match league roster_size)"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self) -> str:
+        status = "Completed" if self.completed else ("Active" if self.is_active else "Not Started")
+        return f"Draft for {self.league.name} ({status})"
+    
+    def get_draft_order(self):
+        """Get the ordered list of teams for this draft"""
+        return list(self.draft_positions.select_related('team').order_by('position'))
+    
+    def get_current_team(self):
+        """Get the team that should pick next based on draft style"""
+        if self.completed:
+            return None
+        
+        teams = self.get_draft_order()
+        num_teams = len(teams)
+        
+        if num_teams == 0:
+            return None
+        
+        # Determine position based on draft style
+        if self.draft_style == self.DraftStyle.SNAKE:
+            # Snake draft: odd rounds go forward, even rounds go backward
+            if self.current_round % 2 == 1:  # Odd round (1, 3, 5, ...)
+                position = self.current_pick
+            else:  # Even round (2, 4, 6, ...)
+                position = num_teams - self.current_pick + 1
+        else:  # LINEAR
+            # Linear draft: same order every round
+            position = self.current_pick
+        
+        # Find the team at this position
+        for draft_pos in teams:
+            if draft_pos.position == position:
+                return draft_pos.team
+        
+        return None
+    
+    def advance_pick(self):
+        """Move to the next pick"""
+        teams = self.get_draft_order()
+        num_teams = len(teams)
+        
+        if self.current_pick < num_teams:
+            self.current_pick += 1
+        else:
+            # Move to next round
+            self.current_round += 1
+            self.current_pick = 1
+            
+            # Check if draft is complete
+            if self.current_round > self.total_rounds:
+                self.completed = True
+                self.is_active = False
+                from django.utils import timezone
+                self.completed_at = timezone.now()
+        
+        self.save()
+
+
+class DraftPosition(models.Model):
+    """Defines the draft order for teams in a draft"""
+    draft = models.ForeignKey(
+        Draft,
+        on_delete=models.CASCADE,
+        related_name='draft_positions'
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='draft_positions'
+    )
+    position = models.PositiveSmallIntegerField(
+        help_text="Draft position (1 = first pick)"
+    )
+    
+    class Meta:
+        ordering = ['draft', 'position']
+        unique_together = [['draft', 'team'], ['draft', 'position']]
+    
+    def __str__(self) -> str:
+        return f"{self.team.name} - Pick #{self.position} in {self.draft.league.name}"
+
+
+class DraftPick(models.Model):
+    """Individual draft pick record"""
+    draft = models.ForeignKey(
+        Draft,
+        on_delete=models.CASCADE,
+        related_name='picks'
+    )
+    round = models.PositiveSmallIntegerField(
+        help_text="Round number"
+    )
+    pick_number = models.PositiveSmallIntegerField(
+        help_text="Pick number within the round"
+    )
+    overall_pick = models.PositiveSmallIntegerField(
+        help_text="Overall pick number in the draft"
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='draft_picks'
+    )
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name='draft_picks',
+        null=True,
+        blank=True,
+        help_text="Player selected (null if not yet picked)"
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['draft', 'overall_pick']
+        unique_together = [['draft', 'round', 'pick_number']]
+        indexes = [
+            models.Index(fields=['draft', 'overall_pick']),
+            models.Index(fields=['team', 'draft']),
+        ]
+    
+    def __str__(self) -> str:
+        player_name = self.player.get_full_name() if self.player else "TBD"
+        return f"Round {self.round}, Pick {self.pick_number}: {self.team.name} - {player_name}"
+
+
+class Trade(models.Model):
+    """Trade offer between two teams"""
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        ACCEPTED = 'ACCEPTED', 'Accepted'
+        REJECTED = 'REJECTED', 'Rejected'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+    
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name='trades'
+    )
+    proposing_team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='proposed_trades'
+    )
+    receiving_team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='received_trades'
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    executed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the trade was executed (players actually swapped)"
+    )
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['league', 'status']),
+            models.Index(fields=['proposing_team', 'status']),
+            models.Index(fields=['receiving_team', 'status']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"Trade: {self.proposing_team.name} ↔ {self.receiving_team.name} ({self.status})"
+
+
+class TradePlayer(models.Model):
+    """Players included in a trade"""
+    trade = models.ForeignKey(
+        Trade,
+        on_delete=models.CASCADE,
+        related_name='players'
+    )
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE
+    )
+    from_team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='+'
+    )
+    
+    class Meta:
+        unique_together = [['trade', 'player']]
+    
+    def __str__(self) -> str:
+        return f"{self.player.get_full_name()} from {self.from_team.name}"

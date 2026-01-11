@@ -1,0 +1,182 @@
+{% extends "web/base.html" %}
+{% block title %}Trade Center — {{ team.name }} — NLL Fantasy{% endblock %}
+{% block content %}
+<div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h2 class="text-2xl font-semibold leading-tight">Trade Center</h2>
+      <p class="text-sm text-gray-600">{{ team.name }} — {{ league.name }}</p>
+    </div>
+    <a href="{% url 'team_detail' team.id %}"
+       class="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium">
+      ← Back to Team
+    </a>
+  </div>
+
+  <!-- Your Roster -->
+  <div class="mb-6 bg-white dark:bg-gray-50 rounded-lg shadow p-4">
+    <h3 class="text-lg font-semibold mb-3">Your Roster</h3>
+    <div id="your-roster" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+      {% for roster_entry in user_roster %}
+      <div class="player-card bg-gray-100 border-2 border-gray-300 rounded p-2 cursor-pointer hover:border-blue-500 transition-colors"
+           data-player-id="{{ roster_entry.player.id }}"
+           data-team-id="{{ team.id }}"
+           onclick="togglePlayerSelection(this, 'your')">
+        <div class="font-semibold text-sm">{{ roster_entry.player.last_name }}, {{ roster_entry.player.first_name }}</div>
+        <div class="text-xs text-gray-600">
+          <span class="inline-block px-1.5 py-0.5 rounded font-semibold
+            {% if roster_entry.player.position == 'O' %}bg-green-100 text-green-800
+            {% elif roster_entry.player.position == 'D' %}bg-orange-100 text-orange-800
+            {% elif roster_entry.player.position == 'T' %}bg-purple-100 text-purple-800
+            {% else %}bg-blue-100 text-blue-800{% endif %}">
+            {{ roster_entry.player.position }}
+          </span>
+          {{ roster_entry.player.nll_team|default:"—" }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Other Teams -->
+  <div class="space-y-6">
+    {% for other_team in other_teams %}
+    <div class="bg-white dark:bg-gray-50 rounded-lg shadow p-4">
+      <h3 class="text-lg font-semibold mb-3">{{ other_team.name }}</h3>
+      <div id="team-{{ other_team.id }}-roster" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+        {% for roster_entry in other_team.roster_entries.all %}
+        <div class="player-card bg-gray-100 border-2 border-gray-300 rounded p-2 cursor-pointer hover:border-green-500 transition-colors"
+             data-player-id="{{ roster_entry.player.id }}"
+             data-team-id="{{ other_team.id }}"
+             onclick="togglePlayerSelection(this, 'their')">
+          <div class="font-semibold text-sm">{{ roster_entry.player.last_name }}, {{ roster_entry.player.first_name }}</div>
+          <div class="text-xs text-gray-600">
+            <span class="inline-block px-1.5 py-0.5 rounded font-semibold
+              {% if roster_entry.player.position == 'O' %}bg-green-100 text-green-800
+              {% elif roster_entry.player.position == 'D' %}bg-orange-100 text-orange-800
+              {% elif roster_entry.player.position == 'T' %}bg-purple-100 text-purple-800
+              {% else %}bg-blue-100 text-blue-800{% endif %}">
+              {{ roster_entry.player.position }}
+            </span>
+            {{ roster_entry.player.nll_team|default:"—" }}
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-gray-500 italic col-span-full">No players on roster</p>
+        {% endfor %}
+      </div>
+      
+      <div class="mt-4 flex justify-end">
+        <button type="button" 
+                onclick="proposeTrade({{ other_team.id }})"
+                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                id="trade-btn-{{ other_team.id }}"
+                disabled>
+          Propose Trade
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+let selectedYourPlayers = new Set();
+let selectedTheirPlayers = new Map(); // Map of team_id -> Set of player_ids
+
+function togglePlayerSelection(element, type) {
+  const playerId = parseInt(element.dataset.playerId);
+  const teamId = parseInt(element.dataset.teamId);
+  
+  if (type === 'your') {
+    if (selectedYourPlayers.has(playerId)) {
+      selectedYourPlayers.delete(playerId);
+      element.classList.remove('border-blue-500', 'bg-blue-50');
+      element.classList.add('border-gray-300', 'bg-gray-100');
+    } else {
+      selectedYourPlayers.add(playerId);
+      element.classList.remove('border-gray-300', 'bg-gray-100');
+      element.classList.add('border-blue-500', 'bg-blue-50');
+    }
+  } else {
+    if (!selectedTheirPlayers.has(teamId)) {
+      selectedTheirPlayers.set(teamId, new Set());
+    }
+    const teamSet = selectedTheirPlayers.get(teamId);
+    
+    if (teamSet.has(playerId)) {
+      teamSet.delete(playerId);
+      element.classList.remove('border-green-500', 'bg-green-50');
+      element.classList.add('border-gray-300', 'bg-gray-100');
+    } else {
+      teamSet.add(playerId);
+      element.classList.remove('border-gray-300', 'bg-gray-100');
+      element.classList.add('border-green-500', 'bg-green-50');
+    }
+  }
+  
+  updateTradeButtons();
+}
+
+function updateTradeButtons() {
+  // Enable/disable trade buttons based on selections
+  selectedTheirPlayers.forEach((playerSet, teamId) => {
+    const btn = document.getElementById(`trade-btn-${teamId}`);
+    if (btn) {
+      const hasYourPlayers = selectedYourPlayers.size > 0;
+      const hasTheirPlayers = playerSet.size > 0;
+      btn.disabled = !(hasYourPlayers && hasTheirPlayers);
+    }
+  });
+}
+
+function proposeTrade(targetTeamId) {
+  const yourPlayers = Array.from(selectedYourPlayers);
+  const theirPlayers = Array.from(selectedTheirPlayers.get(targetTeamId) || []);
+  
+  if (yourPlayers.length === 0 || theirPlayers.length === 0) {
+    alert('Please select at least one player from each team');
+    return;
+  }
+  
+  if (confirm(`Propose trade:\nYou give: ${yourPlayers.length} player(s)\nYou receive: ${theirPlayers.length} player(s)\n\nAre you sure?`)) {
+    // Create form and submit
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "propose_trade" team.id %}';
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+    form.appendChild(csrfInput);
+    
+    // Add target team ID
+    const targetTeamInput = document.createElement('input');
+    targetTeamInput.type = 'hidden';
+    targetTeamInput.name = 'target_team_id';
+    targetTeamInput.value = targetTeamId;
+    form.appendChild(targetTeamInput);
+    
+    // Add your players
+    const yourPlayersInput = document.createElement('input');
+    yourPlayersInput.type = 'hidden';
+    yourPlayersInput.name = 'your_players';
+    yourPlayersInput.value = JSON.stringify(yourPlayers);
+    form.appendChild(yourPlayersInput);
+    
+    // Add their players
+    const theirPlayersInput = document.createElement('input');
+    theirPlayersInput.type = 'hidden';
+    theirPlayersInput.name = 'their_players';
+    theirPlayersInput.value = JSON.stringify(theirPlayers);
+    form.appendChild(theirPlayersInput);
+    
+    // Submit form
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
+{% endblock %}

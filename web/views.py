@@ -6,16 +6,49 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db import models
 
-from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner, League, Roster, PlayerWeekStat, WaiverClaim
+from .models import Player, Team, Week, ChatMessage, FantasyTeamOwner, League, Roster, PlayerWeekStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
 from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 
-def home(request):
-    context = {}
+def post_league_message(league, message_text):
+    """Post a system message to league chat"""
+    ChatMessage.objects.create(
+        league=league,
+        sender=None,  # System message
+        message=message_text,
+        message_type=ChatMessage.MessageType.SYSTEM
+    )
+
+
+@login_required
+def my_team(request):
+    """Redirect to the user's team in the selected league."""
+    selected_league_id = request.session.get('selected_league_id')
     
-    # Get user's team if they're authenticated and have a team
+    if not selected_league_id:
+        # Auto-select league if user has exactly one
+        user_leagues = FantasyTeamOwner.objects.filter(user=request.user).select_related('team__league')
+        if user_leagues.count() == 1:
+            selected_league_id = user_leagues.first().team.league.id
+            request.session['selected_league_id'] = selected_league_id
+        else:
+            # Redirect to league list if user has multiple leagues or no league
+            return redirect('league_list')
+    
+    try:
+        owner = FantasyTeamOwner.objects.select_related('team').get(
+            user=request.user,
+            team__league_id=selected_league_id
+        )
+        return redirect('team_detail', team_id=owner.team.id)
+    except FantasyTeamOwner.DoesNotExist:
+        return redirect('league_list')
+
+
+def home(request):
+    # Redirect to team detail page if user has a selected league
     if request.user.is_authenticated:
         selected_league_id = request.session.get('selected_league_id')
         
@@ -28,185 +61,17 @@ def home(request):
         
         if selected_league_id:
             try:
-                owner = FantasyTeamOwner.objects.select_related('team', 'team__league').get(
+                owner = FantasyTeamOwner.objects.select_related('team').get(
                     user=request.user,
                     team__league_id=selected_league_id
                 )
-                team = owner.team
-                league = team.league  # Get league for scoring settings
-                
-                # Get all available weeks for this league's season
-                league_season = team.league.created_at.year
-                available_weeks = list(Week.objects.filter(
-                    season=league_season
-                ).order_by('week_number'))
-                
-                # Get the most recent week
-                most_recent_week = available_weeks[-1] if available_weeks else None
-                
-                # Add future week placeholders (up to week 21 for NLL season)
-                if most_recent_week:
-                    max_week = most_recent_week.week_number
-                    for future_week_num in range(max_week + 1, 22):
-                        # Create a placeholder dict for future weeks
-                        available_weeks.append({
-                            'week_number': future_week_num,
-                            'season': league_season,
-                            'is_future': True
-                        })
-                
-                # Get selected week from query parameter, default to most recent
-                selected_week_param = request.GET.get('week')
-                selected_week = most_recent_week
-                is_future_week = False
-                if selected_week_param:
-                    try:
-                        week_num = int(selected_week_param)
-                        # Try to find in actual weeks first
-                        selected_week = next((w for w in available_weeks if (w.week_number if hasattr(w, 'week_number') else w['week_number']) == week_num), most_recent_week)
-                        # Check if it's a future week
-                        if isinstance(selected_week, dict):
-                            is_future_week = True
-                    except (ValueError, StopIteration):
-                        pass
-                
-                if not most_recent_week:
-                    # No weeks available yet
-                    context.update({'team': team})
-                else:
-                    # Get the week number we're looking at
-                    selected_week_number = selected_week.week_number if hasattr(selected_week, 'week_number') else selected_week['week_number']
-                    
-                    # Get roster entries for this team for the selected week
-                    # Show players who were on roster during that week
-                    # For future weeks, show current roster (week_dropped is None)
-                    # Handle NULL week_added (legacy data before week tracking)
-                    roster_entries = Roster.objects.filter(
-                        team=team,
-                        league=team.league,
-                    ).filter(
-                        models.Q(week_added__isnull=True) | models.Q(week_added__lte=selected_week_number)
-                    ).filter(
-                        models.Q(week_dropped__isnull=True) |
-                        models.Q(week_dropped__gt=selected_week_number)
-                    ).select_related('player')
-                    
-                    # Build slots structure similar to team_detail
-                    offence_slots = []
-                    defence_slots = []
-                    goalie_slots = []
-                    
-                    # Define fantasy points calculation function
-                    def fantasy_points(stat_obj, player=None):
-                        if stat_obj is None:
-                            return None
-                        # Goalie scoring using league settings
-                        if player and player.position == "G":
-                            return (
-                                stat_obj.wins * float(league.scoring_goalie_wins)
-                                + stat_obj.saves * float(league.scoring_goalie_saves)
-                                + stat_obj.goals_against * float(league.scoring_goalie_goals_against)
-                                + stat_obj.goals * float(league.scoring_goalie_goals)
-                                + stat_obj.assists * float(league.scoring_goalie_assists)
-                            )
-                        # Field player scoring using league settings
-                        return (
-                            stat_obj.goals * float(league.scoring_goals)
-                            + stat_obj.assists * float(league.scoring_assists)
-                            + stat_obj.loose_balls * float(league.scoring_loose_balls)
-                            + stat_obj.caused_turnovers * float(league.scoring_caused_turnovers)
-                            + stat_obj.blocked_shots * float(league.scoring_blocked_shots)
-                            + stat_obj.turnovers * float(league.scoring_turnovers)
-                        )
-                    
-                    for entry in roster_entries:
-                        player = entry.player
-                        
-                        # Get stat for selected week (only if it's not a future week)
-                        stat = None
-                        if not is_future_week:
-                            stat = PlayerWeekStat.objects.filter(
-                                player=player,
-                                week=selected_week
-                            ).first()
-                        
-                        pts = fantasy_points(stat, player)
-                        
-                        slot_data = {
-                            'player': player,
-                            'week_points': pts,
-                            'counts_for_total': False  # Will be set in aggregation
-                        }
-                        
-                        # Assign to appropriate slot group
-                        assigned_pos = player.assigned_side or player.position
-                        if assigned_pos == 'O':
-                            offence_slots.append(slot_data)
-                        elif assigned_pos == 'D':
-                            defence_slots.append(slot_data)
-                        elif assigned_pos == 'G':
-                            goalie_slots.append(slot_data)
-                    
-                    # Pad slots to required counts
-                    while len(offence_slots) < 6:
-                        offence_slots.append(None)
-                    while len(defence_slots) < 6:
-                        defence_slots.append(None)
-                    while len(goalie_slots) < 2:
-                        goalie_slots.append(None)
-                    
-                    # Calculate weekly total: top 3 offense, top 3 defense, top 1 goalie
-                    offense_scores = []
-                    for slot in offence_slots[:6]:
-                        if slot and slot['week_points'] is not None:
-                            offense_scores.append((slot['week_points'], slot))
-                    
-                    defense_scores = []
-                    for slot in defence_slots[:6]:
-                        if slot and slot['week_points'] is not None:
-                            defense_scores.append((slot['week_points'], slot))
-                    
-                    goalie_scores = []
-                    for slot in goalie_slots[:2]:
-                        if slot and slot['week_points'] is not None:
-                            goalie_scores.append((slot['week_points'], slot))
-                    
-                    # Sort by score descending
-                    offense_scores.sort(key=lambda x: x[0], reverse=True)
-                    defense_scores.sort(key=lambda x: x[0], reverse=True)
-                    goalie_scores.sort(key=lambda x: x[0], reverse=True)
-                    
-                    # Mark top scorers
-                    for score, slot in offense_scores[:3]:
-                        slot['counts_for_total'] = True
-                    for score, slot in defense_scores[:3]:
-                        slot['counts_for_total'] = True
-                    for score, slot in goalie_scores[:1]:
-                        slot['counts_for_total'] = True
-                    
-                    # Calculate weekly total
-                    weekly_total = (
-                        sum(x[0] for x in offense_scores[:3]) +
-                        sum(x[0] for x in defense_scores[:3]) +
-                        sum(x[0] for x in goalie_scores[:1])
-                    )
-                    
-                    context.update({
-                        'team': team,
-                        'current_week': selected_week_number,
-                        'selected_week': selected_week,
-                        'available_weeks': available_weeks,
-                        'is_future_week': is_future_week,
-                        'offence_slots': offence_slots[:6],
-                        'defence_slots': defence_slots[:6],
-                        'goalie_slots': goalie_slots[:2],
-                        'weekly_total': weekly_total,
-                    })
-                
+                # Redirect to team detail page
+                return redirect('team_detail', team_id=owner.team.id)
             except FantasyTeamOwner.DoesNotExist:
                 pass
     
-    return render(request, "web/index.html", context)
+    # If not authenticated or no team, show a simple landing page
+    return render(request, "web/index.html", {})
 
 
 def about(request):
@@ -216,6 +81,112 @@ def about(request):
 def team_detail(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     
+    # Get league for scoring settings
+    league = team.league if team.league else League()
+    
+    # Get all available weeks for dropdown - filter by league's season
+    league_season = league.created_at.year if league.created_at else timezone.now().year
+    available_weeks = list(Week.objects.filter(season=league_season).order_by('week_number'))
+    
+    # Add future week placeholders (up to week 20 for NLL season)
+    if available_weeks:
+        max_week = available_weeks[-1].week_number
+        for future_week_num in range(max_week + 1, 21):
+            # Create a placeholder dict for future weeks
+            available_weeks.append({
+                'week_number': future_week_num,
+                'season': league_season,
+                'is_future': True
+            })
+    else:
+        # No weeks exist yet, create placeholders for weeks 1-20
+        for week_num in range(1, 21):
+            available_weeks.append({
+                'week_number': week_num,
+                'season': league_season,
+                'is_future': True
+            })
+    
+    # Find the week we're currently in or just finished
+    # This is the week whose start_date has passed
+    most_recent_started_week = Week.objects.filter(
+        season=league_season,
+        start_date__lte=timezone.now().date()
+    ).order_by('-week_number').first()
+    
+    # Determine which week to display by default and what the "current" context is
+    current_week = most_recent_started_week
+    default_week_num = 1
+    
+    if most_recent_started_week:
+        # Check if this week is still locked (games in progress or waiting for Tuesday unlock)
+        if most_recent_started_week.is_locked():
+            # Week is locked, can't make changes to it
+            # Default to showing next week if it exists, otherwise show locked week
+            next_week_num = most_recent_started_week.week_number + 1
+            next_week_exists = Week.objects.filter(
+                season=league_season,
+                week_number=next_week_num
+            ).exists()
+            
+            if next_week_exists:
+                # Show next week for transactions
+                default_week_num = next_week_num
+            else:
+                # No next week exists yet, show current locked week
+                default_week_num = most_recent_started_week.week_number
+        else:
+            # Week is unlocked (Tuesday after games), this is the active transaction week
+            # But check if there's a newer week that has started
+            newer_week = Week.objects.filter(
+                season=league_season,
+                week_number__gt=most_recent_started_week.week_number,
+                start_date__lte=timezone.now().date()
+            ).order_by('week_number').first()
+            
+            if newer_week:
+                # A newer week has started, use that
+                current_week = newer_week
+                if newer_week.is_locked():
+                    # New week is locked, try next week
+                    next_week_num = newer_week.week_number + 1
+                    if Week.objects.filter(season=league_season, week_number=next_week_num).exists():
+                        default_week_num = next_week_num
+                    else:
+                        default_week_num = newer_week.week_number
+                else:
+                    default_week_num = newer_week.week_number
+            else:
+                # No newer week, current week is open for transactions
+                default_week_num = most_recent_started_week.week_number
+    
+    # Get selected week from query params
+    selected_week_num = request.GET.get('week')
+    if selected_week_num:
+        try:
+            selected_week_num = int(selected_week_num)
+        except (ValueError, TypeError):
+            selected_week_num = default_week_num
+    else:
+        selected_week_num = default_week_num
+    
+    # Get the selected week object to check if it's locked
+    selected_week_obj = Week.objects.filter(
+        season=league_season,
+        week_number=selected_week_num
+    ).first()
+    
+    # Determine if viewing a past/locked week (disable buttons)
+    is_viewing_past_week = False
+    if selected_week_obj and current_week:
+        # A week is locked for changes if:
+        # 1. It's before the current week, OR
+        # 2. It's the current week and is_locked() returns True (games in progress)
+        is_viewing_past_week = (
+            selected_week_num < current_week.week_number or 
+            (selected_week_num == current_week.week_number and selected_week_obj.is_locked())
+        )
+    
     # Check if the current user owns this team
     user_owns_team = False
     if request.user.is_authenticated:
@@ -223,9 +194,6 @@ def team_detail(request, team_id):
             user=request.user,
             team=team
         ).exists()
-
-    # Get league for scoring settings
-    league = team.league if team.league else League()
 
     players_by_position = {"O": [], "D": [], "G": [], "T": []}
     # Best-ball fantasy scoring derived from the raw stat fields
@@ -256,10 +224,13 @@ def team_detail(request, team_id):
     season = recent_week.season if recent_week else None
 
     # Keep players in order of when they were (last) assigned, not alphabetically
-    # Get players through roster entries for this team's league - CURRENT ROSTER ONLY
+    # Get players through roster entries for this team's league
+    # Filter to show only players who were on the roster during the selected week
+    from django.db.models import Q
     roster = team.roster_entries.select_related('player').filter(
+        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num),
         player__active=True,
-        week_dropped__isnull=True  # Only show players currently on the roster
+        week_added__lte=selected_week_num
     ).order_by("player__updated_at", "player__id")
     
     for roster_entry in roster:
@@ -270,6 +241,7 @@ def team_detail(request, team_id):
             latest = max(weekly, key=lambda s: (s.week.season, s.week.week_number))
 
         # build per-week fantasy points for weeks 1..18 for the selected season
+        # Store all weeks for calculation, but we'll filter for display later
         weekly_points = []
         total_points = 0
         if season is not None:
@@ -283,7 +255,7 @@ def team_detail(request, team_id):
         else:
             weekly_points = [None] * 18
 
-        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18}
+        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None}
         pos = getattr(p, "position", None)
         side = getattr(p, "assigned_side", None)
         target = side or ("O" if pos == "T" else pos)
@@ -309,47 +281,74 @@ def team_detail(request, team_id):
 
     # Aggregate weekly totals: top 3 offense, top 3 defense, top 1 goalie
     # Also mark which stats count toward the total
-    weekly_totals = []
-    for week_idx in range(18):
-        # Get all offense scores for this week with slot reference
-        offense_scores = []
-        for slot in offence_slots:
-            if slot and slot.get("weekly_points") and slot["weekly_points"][week_idx] is not None:
-                offense_scores.append((slot["weekly_points"][week_idx], slot))
-        
-        # Get all defense scores for this week with slot reference
-        defense_scores = []
-        for slot in defence_slots:
-            if slot and slot.get("weekly_points") and slot["weekly_points"][week_idx] is not None:
-                defense_scores.append((slot["weekly_points"][week_idx], slot))
-        
-        # Get all goalie scores for this week with slot reference
-        goalie_scores = []
-        for slot in goalie_slots:
-            if slot and slot.get("weekly_points") and slot["weekly_points"][week_idx] is not None:
-                goalie_scores.append((slot["weekly_points"][week_idx], slot))
-        
-        # Sort by score descending
-        offense_scores.sort(key=lambda x: x[0], reverse=True)
-        defense_scores.sort(key=lambda x: x[0], reverse=True)
-        goalie_scores.sort(key=lambda x: x[0], reverse=True)
-        
-        # Mark top 3 offense as counting
-        for score, slot in offense_scores[:3]:
-            slot["counts_for_total"][week_idx] = True
-        
-        # Mark top 3 defense as counting
-        for score, slot in defense_scores[:3]:
-            slot["counts_for_total"][week_idx] = True
-        
-        # Mark top 1 goalie as counting
-        for score, slot in goalie_scores[:1]:
-            slot["counts_for_total"][week_idx] = True
-        
-        week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
-        weekly_totals.append(week_total)
+    # Calculate for the selected week only
+    week_idx = selected_week_num - 1  # Convert to 0-indexed
     
-    overall_total = sum(weekly_totals)
+    # Get all offense scores for this week with slot reference
+    offense_scores = []
+    for slot in offence_slots:
+        if slot and slot.get("weekly_points") and week_idx < len(slot["weekly_points"]) and slot["weekly_points"][week_idx] is not None:
+            offense_scores.append((slot["weekly_points"][week_idx], slot))
+    
+    # Get all defense scores for this week with slot reference
+    defense_scores = []
+    for slot in defence_slots:
+        if slot and slot.get("weekly_points") and week_idx < len(slot["weekly_points"]) and slot["weekly_points"][week_idx] is not None:
+            defense_scores.append((slot["weekly_points"][week_idx], slot))
+    
+    # Get all goalie scores for this week with slot reference
+    goalie_scores = []
+    for slot in goalie_slots:
+        if slot and slot.get("weekly_points") and week_idx < len(slot["weekly_points"]) and slot["weekly_points"][week_idx] is not None:
+            goalie_scores.append((slot["weekly_points"][week_idx], slot))
+    
+    # Sort by score descending
+    offense_scores.sort(key=lambda x: x[0], reverse=True)
+    defense_scores.sort(key=lambda x: x[0], reverse=True)
+    goalie_scores.sort(key=lambda x: x[0], reverse=True)
+    
+    # Mark top 3 offense as counting
+    for score, slot in offense_scores[:3]:
+        slot["counts_for_total"][week_idx] = True
+        slot["selected_week_counts"] = True
+    
+    # Mark top 3 defense as counting
+    for score, slot in defense_scores[:3]:
+        slot["counts_for_total"][week_idx] = True
+        slot["selected_week_counts"] = True
+    
+    # Mark top 1 goalie as counting
+    for score, slot in goalie_scores[:1]:
+        slot["counts_for_total"][week_idx] = True
+        slot["selected_week_counts"] = True
+    
+    # Calculate total for selected week only
+    selected_week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
+    
+    # Calculate overall total across all weeks (for the Total column)
+    overall_total = 0
+    for week_idx_all in range(18):
+        offense_scores_all = []
+        for slot in offence_slots:
+            if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
+                offense_scores_all.append(slot["weekly_points"][week_idx_all])
+        
+        defense_scores_all = []
+        for slot in defence_slots:
+            if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
+                defense_scores_all.append(slot["weekly_points"][week_idx_all])
+        
+        goalie_scores_all = []
+        for slot in goalie_slots:
+            if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
+                goalie_scores_all.append(slot["weekly_points"][week_idx_all])
+        
+        offense_scores_all.sort(reverse=True)
+        defense_scores_all.sort(reverse=True)
+        goalie_scores_all.sort(reverse=True)
+        
+        week_total_all = sum(offense_scores_all[:3]) + sum(defense_scores_all[:3]) + sum(goalie_scores_all[:1])
+        overall_total += week_total_all
 
     # Get all players with their team assignment in this league (if any) - CURRENT ROSTER ONLY
     players_with_teams = []
@@ -365,6 +364,28 @@ def team_detail(request, team_id):
             'team_in_league': roster_entry.team if roster_entry else None
         })
 
+    # Get pending waiver claims for this team
+    pending_waiver_claims = team.waiver_claims.filter(
+        status=WaiverClaim.Status.PENDING
+    ).select_related('player_to_add', 'player_to_drop', 'week').order_by('priority', 'created_at')
+
+    # Get pending and accepted-but-not-executed trades for this team (both proposed and received)
+    pending_trades = Trade.objects.filter(
+        (models.Q(proposing_team=team) | models.Q(receiving_team=team)) &
+        (
+            models.Q(status=Trade.Status.PENDING) |
+            (models.Q(status=Trade.Status.ACCEPTED) & models.Q(executed_at__isnull=True))
+        )
+    ).select_related('proposing_team', 'receiving_team').prefetch_related(
+        'players__player', 'players__from_team'
+    ).order_by('-created_at')
+
+    # Check if league uses waivers
+    use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
+
+    # Calculate total pending changes count
+    pending_changes_count = pending_waiver_claims.count() + pending_trades.count()
+
     return render(
         request,
         "web/team_detail.html",
@@ -374,11 +395,19 @@ def team_detail(request, team_id):
             "offence_slots": offence_slots,
             "defence_slots": defence_slots,
             "goalie_slots": goalie_slots,
-            "week_range": list(range(1, 19)),
-            "weekly_totals": weekly_totals,
+            "week_range": [selected_week_num],  # Only show selected week
+            "selected_week": selected_week_num,
+            "available_weeks": available_weeks,
+            "current_week": current_week.week_number if current_week else 1,
+            "selected_week_total": selected_week_total,
             "overall_total": overall_total,
             "players_for_select": players_with_teams,
             "roster_status": team.can_make_roster_changes(),
+            "is_viewing_past_week": is_viewing_past_week,
+            "pending_waiver_claims": pending_waiver_claims,
+            "pending_trades": pending_trades,
+            "pending_changes_count": pending_changes_count,
+            "use_waivers": use_waivers,
         },
     )
 
@@ -512,15 +541,17 @@ def assign_player(request, team_id):
         return redirect("players")
     
     if action == "add":
-        # Check roster size limit (12 players max)
+        # Check roster size limit
         current_roster_count = Roster.objects.filter(
             team=team,
             league=team.league,
             week_dropped__isnull=True
         ).count()
         
-        if current_roster_count >= 12:
-            messages.error(request, "Roster is full. Maximum 12 players allowed per team.")
+        roster_max = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
+        
+        if current_roster_count >= roster_max:
+            messages.error(request, f"Roster is full. Maximum {roster_max} players allowed per team.")
             return redirect("team_detail", team_id=team.id)
         
         # Validate position matches slot type
@@ -597,10 +628,347 @@ def assign_player(request, team_id):
     return redirect("team_detail", team_id=team.id)
 
 
+@login_required
+def move_transition_player(request, team_id):
+    """Move a Transition player between Offense and Defense slots"""
+    if request.method != 'POST':
+        return redirect("team_detail", team_id=team_id)
+    
+    team = get_object_or_404(Team, id=team_id)
+    
+    # Check if the user owns this team
+    team_owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team=team
+    ).first()
+    
+    if not team_owner:
+        messages.error(request, "You don't have permission to modify this team.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Check if roster changes are allowed
+    can_change, message, locked_until = team.can_make_roster_changes()
+    if not can_change:
+        messages.error(request, f"Roster changes not allowed: {message}")
+        return redirect("team_detail", team_id=team.id)
+    
+    player_id = request.POST.get("player_id")
+    target_side = request.POST.get("target_side")
+    
+    if not player_id or target_side not in ['O', 'D']:
+        messages.error(request, "Invalid request.")
+        return redirect("team_detail", team_id=team.id)
+    
+    try:
+        player = Player.objects.get(id=int(player_id))
+    except Player.DoesNotExist:
+        messages.error(request, "Player not found.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Verify the player is a Transition player
+    if player.position != 'T':
+        messages.error(request, "Only Transition players can be moved between positions.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Verify the player is on the team's roster
+    roster_entry = Roster.objects.filter(
+        player=player,
+        team=team,
+        league=team.league,
+        week_dropped__isnull=True
+    ).first()
+    
+    if not roster_entry:
+        messages.error(request, "Player is not on your roster.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Update the player's assigned_side
+    player.assigned_side = target_side
+    player.save()
+    
+    side_name = "Offense" if target_side == 'O' else "Defense"
+    messages.success(request, f"Moved {player.first_name} {player.last_name} to {side_name}")
+    
+    return redirect("team_detail", team_id=team.id)
+
+
+@login_required
+def trade_center(request, team_id):
+    """Show trade center with other teams and their players"""
+    team = get_object_or_404(Team, id=team_id)
+    league = team.league
+    
+    # Check if the user owns this team
+    team_owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team=team
+    ).first()
+    
+    if not team_owner:
+        messages.error(request, "You don't have permission to access trades for this team.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Get all other teams in the league with their players
+    other_teams = Team.objects.filter(
+        league=league
+    ).exclude(
+        id=team.id
+    ).prefetch_related(
+        models.Prefetch(
+            'roster_entries',
+            queryset=Roster.objects.filter(
+                week_dropped__isnull=True
+            ).select_related('player')
+        )
+    )
+    
+    # Get user's team roster
+    user_roster = Roster.objects.filter(
+        team=team,
+        week_dropped__isnull=True
+    ).select_related('player')
+    
+    context = {
+        'team': team,
+        'league': league,
+        'other_teams': other_teams,
+        'user_roster': user_roster,
+    }
+    
+    return render(request, 'web/trade_center.html', context)
+
+
+@require_POST
+def propose_trade(request, team_id):
+    """Handle trade proposal submission"""
+    team = get_object_or_404(Team, id=team_id)
+    league = team.league
+    
+    # Check if the user owns this team
+    team_owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team=team
+    ).first()
+    
+    if not team_owner:
+        messages.error(request, "You don't have permission to propose trades for this team.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Get the target team
+    target_team_id = request.POST.get('target_team_id')
+    target_team = get_object_or_404(Team, id=target_team_id, league=league)
+    
+    # Get player IDs from the request
+    import json
+    your_player_ids = json.loads(request.POST.get('your_players', '[]'))
+    their_player_ids = json.loads(request.POST.get('their_players', '[]'))
+    
+    # Validate that players exist and are on the correct teams
+    your_players = Player.objects.filter(
+        id__in=your_player_ids,
+        roster_entries__team=team,
+        roster_entries__league=league,
+        roster_entries__week_dropped__isnull=True
+    ).distinct()
+    
+    their_players = Player.objects.filter(
+        id__in=their_player_ids,
+        roster_entries__team=target_team,
+        roster_entries__league=league,
+        roster_entries__week_dropped__isnull=True
+    ).distinct()
+    
+    if your_players.count() != len(your_player_ids) or their_players.count() != len(their_player_ids):
+        messages.error(request, "Invalid player selection. Please try again.")
+        return redirect("trade_center", team_id=team.id)
+    
+    if your_players.count() == 0 or their_players.count() == 0:
+        messages.error(request, "You must select at least one player from each team.")
+        return redirect("trade_center", team_id=team.id)
+    
+    # Create the trade
+    trade = Trade.objects.create(
+        league=league,
+        proposing_team=team,
+        receiving_team=target_team,
+        status=Trade.Status.PENDING
+    )
+    
+    # Add players to the trade
+    for player in your_players:
+        TradePlayer.objects.create(
+            trade=trade,
+            player=player,
+            from_team=team
+        )
+    
+    for player in their_players:
+        TradePlayer.objects.create(
+            trade=trade,
+            player=player,
+            from_team=target_team
+        )
+    
+    messages.success(request, f"Trade proposal sent to {target_team.name}!")
+    return redirect("team_detail", team_id=team.id)
+
+
+def execute_trade(trade):
+    """Execute a trade by swapping players between teams"""
+    from django.utils import timezone
+    
+    # Get current week for the league
+    league_season = trade.league.created_at.year
+    current_week = Week.objects.filter(
+        season=league_season,
+        start_date__lte=timezone.now().date()
+    ).order_by('-week_number').first()
+    
+    if not current_week:
+        return False, "No active week found"
+    
+    # Swap players between teams
+    for trade_player in trade.players.all():
+        player = trade_player.player
+        from_team = trade_player.from_team
+        to_team = trade.receiving_team if from_team == trade.proposing_team else trade.proposing_team
+        
+        # Remove player from original team
+        old_roster = Roster.objects.filter(
+            team=from_team,
+            player=player,
+            league=trade.league,
+            week_dropped__isnull=True
+        ).first()
+        
+        if old_roster:
+            old_roster.week_dropped = current_week
+            old_roster.save()
+        
+        # Add player to new team
+        Roster.objects.create(
+            team=to_team,
+            player=player,
+            league=trade.league,
+            week_assigned=current_week
+        )
+    
+    # Mark trade as executed
+    trade.executed_at = timezone.now()
+    trade.save()
+    
+    # Post notification to league chat
+    proposing_players = trade.players.filter(from_team=trade.proposing_team)
+    receiving_players = trade.players.filter(from_team=trade.receiving_team)
+    
+    proposing_names = ", ".join([f"{p.player.first_name} {p.player.last_name}" for p in proposing_players])
+    receiving_names = ", ".join([f"{p.player.first_name} {p.player.last_name}" for p in receiving_players])
+    
+    message_text = f"🔄 Trade completed! {trade.proposing_team.name} receives ({receiving_names}) and {trade.receiving_team.name} receives ({proposing_names})"
+    post_league_message(trade.league, message_text)
+    
+    return True, "Trade executed successfully"
+
+
+@require_POST
+def accept_trade(request, trade_id):
+    """Accept a trade offer"""
+    trade = get_object_or_404(Trade, id=trade_id)
+    
+    # Check if the user owns the receiving team
+    team_owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team=trade.receiving_team
+    ).first()
+    
+    if not team_owner:
+        messages.error(request, "You don't have permission to accept this trade.")
+        return redirect("team_detail", team_id=request.user.fantasyteamowner_set.first().team.id)
+    
+    if trade.status != Trade.Status.PENDING:
+        messages.error(request, "This trade is no longer pending.")
+        return redirect("team_detail", team_id=trade.receiving_team.id)
+    
+    # Update trade status to accepted
+    trade.status = Trade.Status.ACCEPTED
+    trade.save()
+    
+    # Check if teams are locked
+    can_change, message, unlock_date = trade.receiving_team.can_make_roster_changes()
+    
+    if can_change:
+        # Teams are unlocked, execute trade immediately
+        success, msg = execute_trade(trade)
+        if success:
+            messages.success(request, f"Trade accepted and completed with {trade.proposing_team.name}!")
+        else:
+            messages.error(request, f"Trade accepted but execution failed: {msg}")
+    else:
+        # Teams are locked, defer execution until Tuesday
+        messages.success(request, f"Trade accepted! It will be completed on {unlock_date.strftime('%A, %B %d')} when rosters unlock.")
+    
+    return redirect("team_detail", team_id=trade.receiving_team.id)
+
+
+@require_POST
+def reject_trade(request, trade_id):
+    """Reject a trade offer"""
+    trade = get_object_or_404(Trade, id=trade_id)
+    
+    # Check if the user owns the receiving team
+    team_owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team=trade.receiving_team
+    ).first()
+    
+    if not team_owner:
+        messages.error(request, "You don't have permission to reject this trade.")
+        return redirect("team_detail", team_id=request.user.fantasyteamowner_set.first().team.id)
+    
+    if trade.status != Trade.Status.PENDING:
+        messages.error(request, "This trade is no longer pending.")
+        return redirect("team_detail", team_id=trade.receiving_team.id)
+    
+    trade.status = Trade.Status.REJECTED
+    trade.save()
+    
+    messages.success(request, f"Trade offer from {trade.proposing_team.name} rejected.")
+    return redirect("team_detail", team_id=trade.receiving_team.id)
+
+
+@require_POST
+def cancel_trade(request, trade_id):
+    """Cancel a trade offer (only proposing team can cancel)"""
+    trade = get_object_or_404(Trade, id=trade_id)
+    
+    # Check if the user owns the proposing team
+    team_owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team=trade.proposing_team
+    ).first()
+    
+    if not team_owner:
+        messages.error(request, "You don't have permission to cancel this trade.")
+        return redirect("team_detail", team_id=request.user.fantasyteamowner_set.first().team.id)
+    
+    if trade.status != Trade.Status.PENDING:
+        messages.error(request, "This trade is no longer pending.")
+        return redirect("team_detail", team_id=trade.proposing_team.id)
+    
+    trade.status = Trade.Status.CANCELLED
+    trade.save()
+    
+    messages.success(request, f"Trade offer to {trade.receiving_team.name} cancelled.")
+    return redirect("team_detail", team_id=trade.proposing_team.id)
+
+
 def players(request):
     """Render players list with their latest weekly stats (if any)."""
     # Get position filter
     selected_position = request.GET.get("position", "")
+    
+    # Get search query
+    search_query = request.GET.get("search", "").strip()
     
     # Get user's team and league if authenticated
     user_team = None
@@ -618,6 +986,15 @@ def players(request):
                 user_team = team_owner.team
     
     qs = Player.objects.filter(active=True)
+    
+    # Apply search filter
+    if search_query:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(middle_name__icontains=search_query)
+        )
     
     # Apply position filter if selected
     if selected_position:
@@ -741,10 +1118,14 @@ def players(request):
                     roster_status = "on_other_team"
                     rostered_team = roster_entry.team
 
+        fpts = fantasy_points(stat_for_view, p)
+        ppg = (fpts / games_played) if games_played > 0 else None
+        
         players_with_stats.append({
             "player": p,
             "latest_stat": stat_for_view,
-            "fantasy_points": fantasy_points(stat_for_view, p),
+            "fantasy_points": fpts,
+            "ppg": ppg,
             "games_played": games_played,
             "roster_status": roster_status,
             "rostered_team": rostered_team,
@@ -764,6 +1145,9 @@ def players(request):
             return (gp == 0, -gp, player.last_name, player.first_name)
         if sort_field == "fpts":
             return (fpts is None, -(fpts or 0), player.last_name, player.first_name)
+        if sort_field == "ppg":
+            ppg = item["ppg"]
+            return (ppg is None, -(ppg or 0), player.last_name, player.first_name)
         if sort_field == "goals":
             val = stat.goals if stat else None
             return (val is None, -(val or 0), player.last_name, player.first_name)
@@ -826,6 +1210,8 @@ def players(request):
                 'id': roster_entry.player.id,
                 'first_name': roster_entry.player.first_name,
                 'last_name': roster_entry.player.last_name,
+                'position': roster_entry.player.position,
+                'number': roster_entry.player.number,
             }
             
             # Add to exact position group
@@ -849,6 +1235,9 @@ def players(request):
         # Check if roster changes are allowed
         can_change, _, _ = user_team.can_make_roster_changes()
         roster_can_change = can_change
+        
+        # Check if league uses waivers
+        use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
 
     return render(
         request,
@@ -860,13 +1249,16 @@ def players(request):
             "week_options": week_options,
             "selected_week_num": selected_week_num,
             "selected_position": selected_position,
+            "selected_stat_type": selected_stat_type,
             "sort_field": sort_field,
             "sort_dir": sort_dir,
+            "search_query": search_query,
             "user_team": user_team,
             "user_roster_json": user_roster_json,
             "roster_can_change": roster_can_change,
             "roster_count": roster_count,
             "roster_max": roster_max,
+            "use_waivers": use_waivers if user_team else False,
         },
     )
 
@@ -1793,8 +2185,9 @@ def submit_waiver_claim(request, team_id):
         messages.error(request, "Waivers are not enabled for this league.")
         return redirect('team_detail', team_id=team.id)
     
-    player_id = request.POST.get('player_id')
-    drop_player_id = request.POST.get('drop_player_id')
+    # Accept both 'player_id' and 'player_to_add_id' for compatibility
+    player_id = request.POST.get('player_to_add_id') or request.POST.get('player_id')
+    drop_player_id = request.POST.get('player_to_drop_id') or request.POST.get('drop_player_id')
     
     if not player_id:
         messages.error(request, "No player selected.")
@@ -1923,8 +2316,8 @@ def submit_waiver_claim(request, team_id):
         messages.error(request, "Waiver claims are not enabled for this league.")
         return redirect('team_detail', team_id=team.id)
     
-    # Get player to add
-    player_id = request.POST.get('player_id')
+    # Get player to add - accept both parameter names for compatibility
+    player_id = request.POST.get('player_to_add_id') or request.POST.get('player_id')
     if not player_id:
         messages.error(request, "No player selected.")
         return redirect('team_detail', team_id=team.id)
@@ -1935,8 +2328,8 @@ def submit_waiver_claim(request, team_id):
         messages.error(request, "Player not found.")
         return redirect('team_detail', team_id=team.id)
     
-    # Get player to drop (if any)
-    drop_player_id = request.POST.get('drop_player_id')
+    # Get player to drop (if any) - accept both parameter names
+    drop_player_id = request.POST.get('player_to_drop_id') or request.POST.get('drop_player_id')
     drop_player = None
     if drop_player_id:
         try:
@@ -1995,9 +2388,9 @@ def submit_waiver_claim(request, team_id):
     )
     
     if drop_player:
-        messages.success(request, f"Waiver claim submitted: {player.first_name} {player.last_name} (drop {drop_player.first_name} {drop_player.last_name}). Will process Tuesday at 9 AM.")
+        messages.success(request, f"Waiver claim: {player.first_name} {player.last_name} (drop {drop_player.first_name} {drop_player.last_name})")
     else:
-        messages.success(request, f"Waiver claim submitted: {player.first_name} {player.last_name}. Will process Tuesday at 9 AM.")
+        messages.success(request, f"Waiver claim: {player.first_name} {player.last_name}")
     
     return redirect('team_detail', team_id=team.id)
 
@@ -2024,5 +2417,487 @@ def cancel_waiver_claim(request, claim_id):
     claim.status = WaiverClaim.Status.CANCELLED
     claim.save()
     
-    messages.success(request, f"Cancelled waiver claim for {claim.player_to_add.first_name} {claim.player_to_add.last_name}")
+    messages.success(request, f"Waiver claim cancelled")
     return redirect('team_detail', team_id=claim.team.id)
+
+
+@login_required
+def draft_room(request):
+    """View the draft room for the selected league"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+    
+    league = get_object_or_404(League, id=selected_league_id)
+    
+    # Get or check draft
+    try:
+        draft = Draft.objects.prefetch_related(
+            'draft_positions__team',
+            'picks__team',
+            'picks__player'
+        ).get(league=league)
+    except Draft.DoesNotExist:
+        draft = None
+    
+    # Get user's team in this league
+    try:
+        owner = FantasyTeamOwner.objects.select_related('team').get(
+            user=request.user,
+            team__league=league
+        )
+        user_team = owner.team
+    except FantasyTeamOwner.DoesNotExist:
+        user_team = None
+    
+    # Check if user is commissioner
+    is_commissioner = league.commissioner == request.user
+    
+    # Get all teams in league
+    teams = Team.objects.filter(league=league).select_related('league')
+    team_count = teams.count()
+    league_is_full = team_count == league.max_teams
+    
+    # Get available players (not on any roster in this league and not drafted)
+    drafted_player_ids = []
+    if draft:
+        drafted_player_ids = list(
+            DraftPick.objects.filter(draft=draft, player__isnull=False).values_list('player_id', flat=True)
+        )
+    
+    rostered_player_ids = list(
+        Roster.objects.filter(
+            league=league,
+            week_dropped__isnull=True
+        ).values_list('player_id', flat=True)
+    )
+    
+    excluded_ids = set(drafted_player_ids + rostered_player_ids)
+    
+    # Get sort parameters
+    sort_by = request.GET.get('sort_by', 'prev_year_points')
+    sort_dir = request.GET.get('sort_dir', 'desc')
+    
+    # Map sort fields
+    sort_field_map = {
+        'name': 'last_name',
+        'position': 'position',
+        'nll_team': 'nll_team',
+        'number': 'number',
+        'prev_year_points': 'prev_year_points'
+    }
+    
+    sort_field = sort_field_map.get(sort_by, 'last_name')
+    if sort_dir == 'desc':
+        sort_field = '-' + sort_field
+    
+    from django.db.models import Sum, Q, F, Value, FloatField, DecimalField, Case, When
+    from django.db.models.functions import Coalesce, Cast
+    
+    # Calculate fantasy points based on league scoring settings
+    # For non-goalies: goals, assists, loose balls, caused turnovers, blocked shots, turnovers
+    # For goalies: wins, saves, goals against, goals, assists
+    available_players = Player.objects.exclude(
+        id__in=excluded_ids
+    ).annotate(
+        prev_year_points=Coalesce(
+            Sum(
+                Case(
+                    # For goalies (position G)
+                    When(
+                        position='G',
+                        then=(
+                            F('weekly_stats__wins') * league.scoring_goalie_wins +
+                            F('weekly_stats__saves') * league.scoring_goalie_saves +
+                            F('weekly_stats__goals_against') * league.scoring_goalie_goals_against +
+                            F('weekly_stats__goals') * league.scoring_goalie_goals +
+                            F('weekly_stats__assists') * league.scoring_goalie_assists
+                        )
+                    ),
+                    # For non-goalies
+                    default=(
+                        F('weekly_stats__goals') * league.scoring_goals +
+                        F('weekly_stats__assists') * league.scoring_assists +
+                        F('weekly_stats__loose_balls') * league.scoring_loose_balls +
+                        F('weekly_stats__caused_turnovers') * league.scoring_caused_turnovers +
+                        F('weekly_stats__blocked_shots') * league.scoring_blocked_shots +
+                        F('weekly_stats__turnovers') * league.scoring_turnovers
+                    ),
+                    output_field=FloatField()
+                ),
+                filter=Q(weekly_stats__week__season=2025)
+            ),
+            Value(0.0),
+            output_field=FloatField()
+        )
+    ).order_by(sort_field, 'last_name', 'first_name')
+    
+    # Get current pick team
+    current_team = None
+    is_user_turn = False
+    if draft and draft.is_active:
+        current_team = draft.get_current_team()
+        if current_team and user_team:
+            is_user_turn = current_team.id == user_team.id
+    
+    # Get draft board data
+    draft_board = []
+    if draft:
+        draft_positions = draft.get_draft_order()
+        for round_num in range(1, draft.total_rounds + 1):
+            round_picks = []
+            for position in draft_positions:
+                # Determine pick number based on draft style
+                if draft.draft_style == 'SNAKE':
+                    if round_num % 2 == 1:  # Odd round
+                        pick_in_round = position.position
+                    else:  # Even round
+                        pick_in_round = team_count - position.position + 1
+                else:  # LINEAR
+                    pick_in_round = position.position
+                
+                # Find the pick
+                pick = DraftPick.objects.filter(
+                    draft=draft,
+                    round=round_num,
+                    pick_number=pick_in_round
+                ).select_related('team', 'player').first()
+                
+                round_picks.append({
+                    'team': position.team,
+                    'pick': pick,
+                    'position': pick_in_round,
+                })
+            
+            # Sort picks by position to display top-down consistently
+            round_picks.sort(key=lambda x: x['position'])
+            
+            draft_board.append({
+                'round': round_num,
+                'picks': round_picks
+            })
+    
+    # Get user's draft picks so far
+    user_picks = []
+    if draft and user_team:
+        user_picks = DraftPick.objects.filter(
+            draft=draft,
+            team=user_team,
+            player__isnull=False
+        ).select_related('player').order_by('round', 'pick_number')
+    
+    context = {
+        'league': league,
+        'draft': draft,
+        'user_team': user_team,
+        'is_commissioner': is_commissioner,
+        'teams': teams,
+        'team_count': team_count,
+        'league_is_full': league_is_full,
+        'available_players': available_players,
+        'current_team': current_team,
+        'is_user_turn': is_user_turn,
+        'draft_board': draft_board,
+        'sort_by': sort_by,
+        'sort_dir': sort_dir,
+        'user_picks': user_picks,
+    }
+    
+    return render(request, 'web/draft_room.html', context)
+
+
+@login_required
+@require_POST
+def start_draft(request):
+    """Start a draft for the selected league (commissioner only)"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+    
+    league = get_object_or_404(League, id=selected_league_id)
+    
+    # Check if user is commissioner
+    if league.commissioner != request.user:
+        messages.error(request, "Only the commissioner can start the draft.")
+        return redirect('draft_room')
+    
+    # Check if league is full
+    teams = Team.objects.filter(league=league)
+    team_count = teams.count()
+    if team_count != league.max_teams:
+        messages.error(request, f"League must be full to start draft. Currently {team_count}/{league.max_teams} teams.")
+        return redirect('draft_room')
+    
+    # Check if draft already exists
+    if hasattr(league, 'draft'):
+        messages.error(request, "Draft already exists for this league.")
+        return redirect('draft_room')
+    
+    # Get draft order type and style
+    order_type = request.POST.get('order_type', 'RANDOM')
+    draft_style = request.POST.get('draft_style', 'SNAKE')
+    
+    # For MANUAL order, create draft but don't activate it yet
+    is_active = order_type == 'RANDOM'
+    started_at = timezone.now() if is_active else None
+    
+    # Create draft
+    draft = Draft.objects.create(
+        league=league,
+        is_active=is_active,
+        draft_order_type=order_type,
+        draft_style=draft_style,
+        total_rounds=league.roster_size,
+        started_at=started_at
+    )
+    
+    # Create draft positions
+    teams_list = list(teams)
+    
+    if order_type == 'RANDOM':
+        import random
+        random.shuffle(teams_list)
+    # If MANUAL, use default order (commissioner will reorder in next step)
+    
+    for position, team in enumerate(teams_list, start=1):
+        DraftPosition.objects.create(
+            draft=draft,
+            team=team,
+            position=position
+        )
+    
+    # Create all draft pick slots
+    overall_pick = 1
+    for round_num in range(1, draft.total_rounds + 1):
+        for pick_num in range(1, team_count + 1):
+            # Determine which team picks based on draft style
+            if draft.draft_style == 'SNAKE':
+                if round_num % 2 == 1:  # Odd round
+                    position = pick_num
+                else:  # Even round
+                    position = team_count - pick_num + 1
+            else:  # LINEAR
+                position = pick_num
+            
+            # Find team at this position
+            draft_pos = DraftPosition.objects.get(draft=draft, position=position)
+            
+            DraftPick.objects.create(
+                draft=draft,
+                round=round_num,
+                pick_number=pick_num,
+                overall_pick=overall_pick,
+                team=draft_pos.team
+            )
+            overall_pick += 1
+    
+    if order_type == 'MANUAL':
+        messages.info(request, "Draft created! Please arrange the team order.")
+    else:
+        post_league_message(league, f"🏁 Draft has started! ({draft.get_draft_style_display()})")
+        messages.success(request, "Draft started!")
+    return redirect('draft_room')
+
+
+@login_required
+@require_POST
+def make_draft_pick(request, draft_id):
+    """Make a draft pick"""
+    draft = get_object_or_404(Draft, id=draft_id)
+    
+    # Get user's team
+    try:
+        owner = FantasyTeamOwner.objects.select_related('team').get(
+            user=request.user,
+            team__league=draft.league
+        )
+        user_team = owner.team
+    except FantasyTeamOwner.DoesNotExist:
+        messages.error(request, "You don't have a team in this league.")
+        return redirect('draft_room')
+    
+    # Check if draft is active
+    if not draft.is_active or draft.completed:
+        messages.error(request, "Draft is not currently active.")
+        return redirect('draft_room')
+    
+    # Check if it's user's turn
+    current_team = draft.get_current_team()
+    if not current_team or current_team.id != user_team.id:
+        messages.error(request, "It's not your turn to pick.")
+        return redirect('draft_room')
+    
+    # Get selected player
+    player_id = request.POST.get('player_id')
+    if not player_id:
+        messages.error(request, "Please select a player.")
+        return redirect('draft_room')
+    
+    player = get_object_or_404(Player, id=player_id)
+    
+    # Check if player is already drafted
+    if DraftPick.objects.filter(draft=draft, player=player).exists():
+        messages.error(request, "Player has already been drafted.")
+        return redirect('draft_room')
+    
+    # Check if player is already on a roster
+    if Roster.objects.filter(league=draft.league, player=player, week_dropped__isnull=True).exists():
+        messages.error(request, "Player is already on a roster.")
+        return redirect('draft_room')
+    
+    # Get the current pick
+    current_pick = DraftPick.objects.filter(
+        draft=draft,
+        round=draft.current_round,
+        team=user_team
+    ).first()
+    
+    if not current_pick:
+        messages.error(request, "Could not find current pick.")
+        return redirect('draft_room')
+    
+    # Make the pick
+    current_pick.player = player
+    current_pick.save()
+    
+    # Advance to next pick
+    draft.advance_pick()
+    
+    # If draft is complete, add all players to rosters
+    if draft.completed:
+        all_picks = DraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
+        for pick in all_picks:
+            Roster.objects.create(
+                team=pick.team,
+                player=pick.player,
+                league=draft.league,
+                week_added=1  # Assume draft happens before season
+            )
+        post_league_message(draft.league, f"🎉 Draft completed! All players have been added to rosters.")
+        messages.success(request, f"You selected {player.first_name} {player.last_name}!")
+    else:
+        post_league_message(draft.league, f"📋 {user_team.name} selected {player.first_name} {player.last_name} (Round {draft.current_round})")
+        messages.success(request, f"You selected {player.first_name} {player.last_name}!")
+    
+    return redirect('draft_room')
+
+
+@login_required
+@require_POST
+def set_draft_order(request):
+    """Set manual draft order and optionally activate draft (commissioner only)"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        return JsonResponse({'error': 'No league selected'}, status=400)
+    
+    league = get_object_or_404(League, id=selected_league_id)
+    
+    # Check if user is commissioner
+    if league.commissioner != request.user:
+        return JsonResponse({'error': 'Only commissioner can set draft order'}, status=403)
+    
+    # Get draft (must not be active or completed)
+    try:
+        draft = Draft.objects.get(league=league)
+        if draft.is_active or draft.completed:
+            return JsonResponse({'error': 'Cannot change order of active/completed draft'}, status=400)
+    except Draft.DoesNotExist:
+        return JsonResponse({'error': 'No draft exists'}, status=404)
+    
+    # Get team order from POST data
+    import json
+    team_order = json.loads(request.POST.get('team_order', '[]'))
+    
+    if not team_order:
+        return JsonResponse({'error': 'No team order provided'}, status=400)
+    
+    # Update draft positions
+    DraftPosition.objects.filter(draft=draft).delete()
+    
+    for position, team_id in enumerate(team_order, start=1):
+        team = get_object_or_404(Team, id=team_id, league=league)
+        DraftPosition.objects.create(
+            draft=draft,
+            team=team,
+            position=position
+        )
+    
+    # Recreate all draft pick slots with new order
+    DraftPick.objects.filter(draft=draft).delete()
+    
+    team_count = len(team_order)
+    overall_pick = 1
+    for round_num in range(1, draft.total_rounds + 1):
+        for pick_num in range(1, team_count + 1):
+            # Determine which team picks based on draft style
+            if draft.draft_style == 'SNAKE':
+                if round_num % 2 == 1:  # Odd round
+                    position = pick_num
+                else:  # Even round
+                    position = team_count - pick_num + 1
+            else:  # LINEAR
+                position = pick_num
+            
+            # Find team at this position
+            draft_pos = DraftPosition.objects.get(draft=draft, position=position)
+            
+            DraftPick.objects.create(
+                draft=draft,
+                round=round_num,
+                pick_number=pick_num,
+                overall_pick=overall_pick,
+                team=draft_pos.team
+            )
+            overall_pick += 1
+    
+    # Activate draft if requested
+    activate = request.POST.get('activate', 'false') == 'true'
+    if activate:
+        draft.is_active = True
+        draft.started_at = timezone.now()
+        draft.save()
+        return JsonResponse({'success': True, 'message': 'Draft order set and draft activated!'})
+    
+    return JsonResponse({'success': True, 'message': 'Draft order updated'})
+
+
+@login_required
+@require_POST
+def cancel_draft(request):
+    """Cancel an active draft (commissioner only)"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+    
+    league = get_object_or_404(League, id=selected_league_id)
+    
+    # Check if user is commissioner
+    if league.commissioner != request.user:
+        messages.error(request, "Only the commissioner can cancel the draft.")
+        return redirect('draft_room')
+    
+    # Get draft
+    try:
+        draft = Draft.objects.get(league=league)
+    except Draft.DoesNotExist:
+        messages.error(request, "No draft exists for this league.")
+        return redirect('draft_room')
+    
+    # Check if draft is already completed
+    if draft.completed:
+        messages.error(request, "Cannot cancel a completed draft.")
+        return redirect('draft_room')
+    
+    # Delete the draft (this will cascade delete positions and picks)
+    draft.delete()
+    
+    post_league_message(league, "❌ The draft has been cancelled by the commissioner.")
+    messages.info(request, "Draft cancelled.")
+    return redirect('draft_room')

@@ -26,138 +26,163 @@
           <h3 class="text-xl font-semibold mb-4">Week {{ selected_week.week_number }}</h3>
           
           {% for game in selected_week.games %}
-            <div class="mb-6 border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
-              <div class="grid grid-cols-2 gap-6">
-                {# Home Team #}
-                <div>
-                  <h4 class="text-lg font-bold mb-3">
-                    <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                      {{ game.home.name }}
-                    </a>
-                  </h4>
-                  
-                  {# Offense Section #}
-                  <div class="mb-3">
-                    <h5 class="font-semibold mb-2 text-green-700 text-sm">Offence</h5>
-                    <div class="space-y-1">
-                      {% for slot in game.home_roster.offence_slots %}
-                        {% if slot %}
-                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
-                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
-                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
-                          </div>
-                        {% else %}
-                          <div class="text-xs text-gray-400">Empty slot</div>
-                        {% endif %}
-                      {% endfor %}
-                    </div>
+            <div class="mb-6 border border-gray-300 rounded-lg bg-white shadow-sm overflow-hidden">
+              {# Matchup Header - Always Visible #}
+              <div class="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="toggleMatchup('matchup-{{ forloop.counter }}')">
+                <div class="grid grid-cols-2 gap-6">
+                  {# Home Team Summary #}
+                  <div class="flex justify-between items-center">
+                    <h4 class="text-lg font-bold">
+                      <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
+                        {{ game.home.name }}
+                      </a>
+                    </h4>
+                    <span class="text-xl font-bold {% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">
+                      {{ game.home_total }}
+                    </span>
                   </div>
                   
-                  {# Defence Section #}
-                  <div class="mb-3">
-                    <h5 class="font-semibold mb-2 text-orange-700 text-sm">Defence</h5>
-                    <div class="space-y-1">
-                      {% for slot in game.home_roster.defence_slots %}
-                        {% if slot %}
-                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
-                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
-                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
-                          </div>
-                        {% else %}
-                          <div class="text-xs text-gray-400">Empty slot</div>
-                        {% endif %}
-                      {% endfor %}
-                    </div>
-                  </div>
-                  
-                  {# Goalie Section #}
-                  <div class="mb-3">
-                    <h5 class="font-semibold mb-2 text-purple-700 text-sm">Goalie</h5>
-                    <div class="space-y-1">
-                      {% for slot in game.home_roster.goalie_slots %}
-                        {% if slot %}
-                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
-                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
-                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
-                          </div>
-                        {% else %}
-                          <div class="text-xs text-gray-400">Empty slot</div>
-                        {% endif %}
-                      {% endfor %}
-                    </div>
-                  </div>
-                  
-                  <div class="border-t border-gray-300 pt-2 mt-2">
-                    <div class="flex justify-between text-sm font-bold">
-                      <span>Total:</span>
-                      <span class="{% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">{{ game.home_total }} — {{ game.home_result }}</span>
-                    </div>
+                  {# Away Team Summary #}
+                  <div class="flex justify-between items-center">
+                    <h4 class="text-lg font-bold">
+                      <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
+                        {{ game.away.name }}
+                      </a>
+                    </h4>
+                    <span class="text-xl font-bold {% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">
+                      {{ game.away_total }}
+                    </span>
                   </div>
                 </div>
                 
-                {# Away Team #}
-                <div>
-                  <h4 class="text-lg font-bold mb-3">
-                    <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                      {{ game.away.name }}
-                    </a>
-                  </h4>
-                  
-                  {# Offense Section #}
-                  <div class="mb-3">
-                    <h5 class="font-semibold mb-2 text-green-700 text-sm">Offence</h5>
-                    <div class="space-y-1">
-                      {% for slot in game.away_roster.offence_slots %}
-                        {% if slot %}
-                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
-                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
-                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
-                          </div>
-                        {% else %}
-                          <div class="text-xs text-gray-400">Empty slot</div>
-                        {% endif %}
-                      {% endfor %}
+                {# Expand/Collapse Indicator #}
+                <div class="text-center mt-2 text-gray-500 text-sm">
+                  <span id="matchup-{{ forloop.counter }}-indicator">▼ Click to view rosters</span>
+                </div>
+              </div>
+              
+              {# Matchup Details - Initially Hidden #}
+              <div id="matchup-{{ forloop.counter }}" class="hidden border-t border-gray-300">
+                <div class="grid grid-cols-2 gap-6 p-4">
+                  {# Home Team Details #}
+                  <div>
+                    {# Offense Section #}
+                    <div class="mb-3">
+                      <h5 class="font-semibold mb-2 text-green-700 text-sm">Offence</h5>
+                      <div class="space-y-1">
+                        {% for slot in game.home_roster.offence_slots %}
+                          {% if slot %}
+                            <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
+                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                            </div>
+                          {% else %}
+                            <div class="text-xs text-gray-400">Empty slot</div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                    
+                    {# Defence Section #}
+                    <div class="mb-3">
+                      <h5 class="font-semibold mb-2 text-orange-700 text-sm">Defence</h5>
+                      <div class="space-y-1">
+                        {% for slot in game.home_roster.defence_slots %}
+                          {% if slot %}
+                            <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
+                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                            </div>
+                          {% else %}
+                            <div class="text-xs text-gray-400">Empty slot</div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                    
+                    {# Goalie Section #}
+                    <div class="mb-3">
+                      <h5 class="font-semibold mb-2 text-purple-700 text-sm">Goalie</h5>
+                      <div class="space-y-1">
+                        {% for slot in game.home_roster.goalie_slots %}
+                          {% if slot %}
+                            <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
+                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                            </div>
+                          {% else %}
+                            <div class="text-xs text-gray-400">Empty slot</div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                    
+                    <div class="border-t border-gray-300 pt-2 mt-2">
+                      <div class="flex justify-between text-sm font-bold">
+                        <span>Total:</span>
+                        <span class="{% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">{{ game.home_total }} — {{ game.home_result }}</span>
+                      </div>
                     </div>
                   </div>
                   
-                  {# Defence Section #}
-                  <div class="mb-3">
-                    <h5 class="font-semibold mb-2 text-orange-700 text-sm">Defence</h5>
-                    <div class="space-y-1">
-                      {% for slot in game.away_roster.defence_slots %}
-                        {% if slot %}
-                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
-                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
-                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
-                          </div>
-                        {% else %}
-                          <div class="text-xs text-gray-400">Empty slot</div>
-                        {% endif %}
-                      {% endfor %}
+                  {# Away Team Details #}
+                  <div>
+                    {# Offense Section #}
+                    <div class="mb-3">
+                      <h5 class="font-semibold mb-2 text-green-700 text-sm">Offence</h5>
+                      <div class="space-y-1">
+                        {% for slot in game.away_roster.offence_slots %}
+                          {% if slot %}
+                            <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
+                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                            </div>
+                          {% else %}
+                            <div class="text-xs text-gray-400">Empty slot</div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
                     </div>
-                  </div>
-                  
-                  {# Goalie Section #}
-                  <div class="mb-3">
-                    <h5 class="font-semibold mb-2 text-purple-700 text-sm">Goalie</h5>
-                    <div class="space-y-1">
-                      {% for slot in game.away_roster.goalie_slots %}
-                        {% if slot %}
-                          <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
-                            <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
-                            <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
-                          </div>
-                        {% else %}
-                          <div class="text-xs text-gray-400">Empty slot</div>
-                        {% endif %}
-                      {% endfor %}
+                    
+                    {# Defence Section #}
+                    <div class="mb-3">
+                      <h5 class="font-semibold mb-2 text-orange-700 text-sm">Defence</h5>
+                      <div class="space-y-1">
+                        {% for slot in game.away_roster.defence_slots %}
+                          {% if slot %}
+                            <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
+                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                            </div>
+                          {% else %}
+                            <div class="text-xs text-gray-400">Empty slot</div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div class="border-t border-gray-300 pt-2 mt-2">
-                    <div class="flex justify-between text-sm font-bold">
-                      <span>Total:</span>
-                      <span class="{% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">{{ game.away_total }} — {{ game.away_result }}</span>
+                    
+                    {# Goalie Section #}
+                    <div class="mb-3">
+                      <h5 class="font-semibold mb-2 text-purple-700 text-sm">Goalie</h5>
+                      <div class="space-y-1">
+                        {% for slot in game.away_roster.goalie_slots %}
+                          {% if slot %}
+                            <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
+                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
+                            </div>
+                          {% else %}
+                            <div class="text-xs text-gray-400">Empty slot</div>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                    
+                    <div class="border-t border-gray-300 pt-2 mt-2">
+                      <div class="flex justify-between text-sm font-bold">
+                        <span>Total:</span>
+                        <span class="{% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">{{ game.away_total }} — {{ game.away_result }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -165,6 +190,21 @@
             </div>
           {% endfor %}
         </section>
+        
+        <script>
+          function toggleMatchup(id) {
+            const details = document.getElementById(id);
+            const indicator = document.getElementById(id + '-indicator');
+            
+            if (details.classList.contains('hidden')) {
+              details.classList.remove('hidden');
+              indicator.textContent = '▲ Click to hide rosters';
+            } else {
+              details.classList.add('hidden');
+              indicator.textContent = '▼ Click to view rosters';
+            }
+          }
+        </script>
       {% else %}
         <p class="text-gray-600 italic">No matchups found for the selected week.</p>
       {% endif %}
