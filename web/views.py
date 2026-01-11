@@ -364,27 +364,27 @@ def team_detail(request, team_id):
             'team_in_league': roster_entry.team if roster_entry else None
         })
 
-    # Get pending waiver claims for this team
-    pending_waiver_claims = team.waiver_claims.filter(
-        status=WaiverClaim.Status.PENDING
-    ).select_related('player_to_add', 'player_to_drop', 'week').order_by('priority', 'created_at')
 
-    # Get pending and accepted-but-not-executed trades for this team (both proposed and received)
-    pending_trades = Trade.objects.filter(
-        (models.Q(proposing_team=team) | models.Q(receiving_team=team)) &
-        (
-            models.Q(status=Trade.Status.PENDING) |
-            (models.Q(status=Trade.Status.ACCEPTED) & models.Q(executed_at__isnull=True))
-        )
-    ).select_related('proposing_team', 'receiving_team').prefetch_related(
-        'players__player', 'players__from_team'
-    ).order_by('-created_at')
-
-    # Check if league uses waivers
+    # Only show pending waivers/trades to the team owner
+    if user_owns_team:
+        pending_waiver_claims = team.waiver_claims.filter(
+            status=WaiverClaim.Status.PENDING
+        ).select_related('player_to_add', 'player_to_drop', 'week').order_by('priority', 'created_at')
+        pending_trades = Trade.objects.filter(
+            (models.Q(proposing_team=team) | models.Q(receiving_team=team)) &
+            (
+                models.Q(status=Trade.Status.PENDING) |
+                (models.Q(status=Trade.Status.ACCEPTED) & models.Q(executed_at__isnull=True))
+            )
+        ).select_related('proposing_team', 'receiving_team').prefetch_related(
+            'players__player', 'players__from_team'
+        ).order_by('-created_at')
+        pending_changes_count = pending_waiver_claims.count() + pending_trades.count()
+    else:
+        pending_waiver_claims = []
+        pending_trades = []
+        pending_changes_count = 0
     use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
-
-    # Calculate total pending changes count
-    pending_changes_count = pending_waiver_claims.count() + pending_trades.count()
 
     return render(
         request,
@@ -1263,7 +1263,7 @@ def players(request):
     )
 
 
-def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4):
+def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="fixed"):
     """Build 18-week regular season schedule + playoff bracket.
     
     Args:
@@ -1313,6 +1313,9 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4):
     
     schedule = regular_season[:18]  # Ensure exactly 18 weeks
     
+    # Always use 3 weeks for 6-team playoffs (with byes for 1/2 seeds)
+    if playoff_teams == 6:
+        playoff_weeks = 3
     # Add playoff weeks if configured
     if playoff_weeks > 0 and playoff_teams >= 2:
         # Generate playoff bracket based on seeding
@@ -1336,11 +1339,19 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4):
                 ('playoff', 4, 5, 'Quarterfinal'),
             ])
             if playoff_weeks >= 2:
-                # Semifinals: 1vW(3v6), 2vW(4v5)
-                schedule.append([
-                    ('playoff', 1, 'W1', 'Semifinal'),
-                    ('playoff', 2, 'W2', 'Semifinal'),
-                ])
+                if playoff_reseed == "reseed":
+                    # Semifinals: 1 seed plays lowest remaining, 2 seed plays other
+                    # Use special placeholders for bracket logic
+                    schedule.append([
+                        ('playoff', 1, 'LOWEST_W', 'Semifinal'),
+                        ('playoff', 2, 'OTHER_W', 'Semifinal'),
+                    ])
+                else:
+                    # Semifinals: 1vW(3v6), 2vW(4v5) (fixed)
+                    schedule.append([
+                        ('playoff', 1, 'W1', 'Semifinal'),
+                        ('playoff', 2, 'W2', 'Semifinal'),
+                    ])
             if playoff_weeks >= 3:
                 # Finals
                 schedule.append([
@@ -1382,7 +1393,7 @@ def schedule(request):
     
     league = teams[0].league
     team_ids = [t.id for t in teams]
-    weeks = _build_schedule(team_ids, league.playoff_weeks, league.playoff_teams)
+    weeks = _build_schedule(team_ids, league.playoff_weeks, league.playoff_teams, getattr(league, 'playoff_reseed', 'fixed'))
 
     # map ids back to team objects for display
     id_to_team = {t.id: t for t in teams}
@@ -1457,7 +1468,7 @@ def matchups(request):
     # Get league to access playoff settings
     if teams:
         league = teams[0].league
-        all_weeks = _build_schedule(team_ids, league.playoff_weeks, league.playoff_teams)
+        all_weeks = _build_schedule(team_ids, league.playoff_weeks, league.playoff_teams, getattr(league, 'playoff_reseed', 'fixed'))
     else:
         league = League()  # Default scoring
         all_weeks = _build_schedule(team_ids)
@@ -2121,10 +2132,16 @@ def league_settings(request, league_id):
         if not is_commissioner:
             messages.error(request, "Only the league commissioner can edit settings.")
             return redirect("league_settings", league_id=league.id)
-        
         form = LeagueSettingsForm(request.POST, instance=league)
         if form.is_valid():
-            form.save()
+            league_obj = form.save(commit=False)
+            # Force correct playoff weeks for 4 or 6 playoff teams
+            if int(form.cleaned_data.get('playoff_teams', 0)) == 6:
+                league_obj.playoff_weeks = 3
+            elif int(form.cleaned_data.get('playoff_teams', 0)) == 4:
+                league_obj.playoff_weeks = 2
+            league_obj.save()
+            form.save_m2m() if hasattr(form, 'save_m2m') else None
             messages.success(request, "League settings updated successfully!")
             return redirect("league_detail", league_id=league.id)
     else:

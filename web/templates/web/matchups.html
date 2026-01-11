@@ -31,25 +31,25 @@
               <div class="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="toggleMatchup('matchup-{{ forloop.counter }}')">
                 <div class="grid grid-cols-2 gap-6">
                   {# Home Team Summary #}
-                  <div class="flex justify-between items-center">
-                    <h4 class="text-lg font-bold">
+                  <div class="flex flex-col items-start">
+                    <h4 class="text-lg font-bold mb-0">
                       <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
                         {{ game.home.name }}
                       </a>
                     </h4>
-                    <span class="text-xl font-bold {% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">
+                    <span class="text-xl font-bold mt-1 {% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">
                       {{ game.home_total }}
                     </span>
                   </div>
                   
                   {# Away Team Summary #}
-                  <div class="flex justify-between items-center">
-                    <h4 class="text-lg font-bold">
+                  <div class="flex flex-col items-start">
+                    <h4 class="text-lg font-bold mb-0">
                       <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
                         {{ game.away.name }}
                       </a>
                     </h4>
-                    <span class="text-xl font-bold {% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">
+                    <span class="text-xl font-bold mt-1 {% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">
                       {{ game.away_total }}
                     </span>
                   </div>

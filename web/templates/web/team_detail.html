@@ -140,9 +140,9 @@
                         {% if user_owns_team %}
                           <form method="post" action="{% url 'cancel_waiver_claim' claim.id %}" class="ml-4">
                             {% csrf_token %}
-                            <button type="submit" 
+                            <button type="button" 
                                     class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
-                                    onclick="return confirm('Cancel this waiver claim?');">
+                                    onclick="showConfirmModal('Cancel this waiver claim?', () => this.closest('form').submit());">
                               Cancel
                             </button>
                           </form>
@@ -233,15 +233,15 @@
                               {# User received this trade - show accept/reject buttons #}
                               <form method="post" action="{% url 'accept_trade' trade.id %}">
                                 {% csrf_token %}
-                                <button type="submit" class="px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-colors"
-                                        onclick="return confirm('Accept this trade?');">
+                                <button type="button" class="px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-colors"
+                                        onclick="showConfirmModal('Accept this trade?', () => this.closest('form').submit());">
                                   Accept
                                 </button>
                               </form>
                               <form method="post" action="{% url 'reject_trade' trade.id %}">
                                 {% csrf_token %}
-                                <button type="submit" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
-                                        onclick="return confirm('Reject this trade?');">
+                                <button type="button" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
+                                        onclick="showConfirmModal('Reject this trade?', () => this.closest('form').submit());">
                                   Reject
                                 </button>
                               </form>
@@ -249,8 +249,8 @@
                               {# User proposed this trade - show cancel button #}
                               <form method="post" action="{% url 'cancel_trade' trade.id %}">
                                 {% csrf_token %}
-                                <button type="submit" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
-                                        onclick="return confirm('Cancel this trade offer?');">
+                                <button type="button" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
+                                        onclick="showConfirmModal('Cancel this trade offer?', () => this.closest('form').submit());">
                                   Cancel
                                 </button>
                               </form>
@@ -602,7 +602,7 @@
         return;
       }
       
-      if (confirm('Submit a waiver claim for this player? The claim will process on Tuesday at 9 AM.')) {
+      showConfirmModal('Submit a waiver claim for this player? The claim will process on Tuesday at 9 AM.', function() {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/teams/{{ team.id }}/waiver-claim/';
@@ -622,6 +622,43 @@
         
         document.body.appendChild(form);
         form.submit();
-      }
+      });
     }
-  </script>{% endblock %}
+  </script>
+
+<!-- Reusable Confirmation Modal -->
+<div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center" style="pointer-events:none;">
+  <div class="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-auto flex flex-col items-center" style="pointer-events:auto;">
+    <h3 class="text-lg font-semibold mb-2 text-gray-800">Confirm Action</h3>
+    <p id="confirmModalMessage" class="mb-4 text-gray-700"></p>
+    <div class="flex space-x-4">
+      <button id="confirmModalConfirmBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Confirm</button>
+      <button id="confirmModalCancelBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+    </div>
+  </div>
+</div>
+<script>
+// Reusable confirmation modal logic
+function showConfirmModal(message, onConfirm) {
+  const modal = document.getElementById('confirmModal');
+  const msg = document.getElementById('confirmModalMessage');
+  const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+  const cancelBtn = document.getElementById('confirmModalCancelBtn');
+  msg.textContent = message;
+  modal.classList.remove('hidden');
+  modal.style.pointerEvents = 'auto';
+  // Remove previous listeners
+  confirmBtn.onclick = null;
+  cancelBtn.onclick = null;
+  confirmBtn.onclick = function() {
+    modal.classList.add('hidden');
+    modal.style.pointerEvents = 'none';
+    if (onConfirm) onConfirm();
+  };
+  cancelBtn.onclick = function() {
+    modal.classList.add('hidden');
+    modal.style.pointerEvents = 'none';
+  };
+}
+</script>
+{% endblock %}

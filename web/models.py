@@ -53,6 +53,18 @@ class League(models.Model):
         default=False,
         help_text="Enable waiver claims that process when rosters unlock on Tuesday"
     )
+
+    # Playoff reseed option for 6-team playoffs
+    PLAYOFF_RESEED_CHOICES = [
+        ("fixed", "1 seed plays winner of 3 vs 6"),
+        ("reseed", "1 seed plays lowest remaining seed")
+    ]
+    playoff_reseed = models.CharField(
+        max_length=10,
+        choices=PLAYOFF_RESEED_CHOICES,
+        default="fixed",
+        help_text="Semifinal matchup: 1 seed plays winner of 3 vs 6 (fixed) or lowest remaining seed (reseed)"
+    )
     
     # Custom Scoring Settings
     scoring_goals = models.DecimalField(

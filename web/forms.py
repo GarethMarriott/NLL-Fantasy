@@ -81,7 +81,7 @@ class LeagueSettingsForm(forms.ModelForm):
         model = League
         fields = [
             'name', 'description', 'max_teams', 'is_public', 'roster_size', 
-            'playoff_weeks', 'playoff_teams', 'use_waivers',
+            'playoff_teams', 'playoff_reseed', 'use_waivers',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
             'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers',
             'scoring_goalie_wins', 'scoring_goalie_saves', 'scoring_goalie_goals_against',
@@ -99,13 +99,14 @@ class LeagueSettingsForm(forms.ModelForm):
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'is_public': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
-            'playoff_weeks': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 4}),
+            # playoff_weeks widget will be set dynamically in __init__
             'playoff_teams': forms.Select(choices=[
                 (2, '2 teams'),
                 (4, '4 teams'),
                 (6, '6 teams'),
                 (8, '8 teams'),
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'playoff_reseed': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'use_waivers': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'scoring_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
@@ -119,3 +120,9 @@ class LeagueSettingsForm(forms.ModelForm):
             'scoring_goalie_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove playoff_weeks from form fields entirely
+        if 'playoff_weeks' in self.fields:
+            self.fields.pop('playoff_weeks')

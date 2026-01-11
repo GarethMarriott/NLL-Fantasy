@@ -1,3 +1,14 @@
+<!-- Trade Confirmation Modal (moved to top for z-index and pointer-events fix) -->
+<div id="tradeConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center" style="pointer-events:none;">
+  <div class="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-auto flex flex-col items-center" style="pointer-events:auto;">
+    <h3 class="text-lg font-semibold mb-2 text-gray-800">Confirm Trade Proposal</h3>
+    <p class="mb-4 text-gray-700">You give: <span id="tradeConfirmGive" class="font-bold"></span> player(s)<br>You receive: <span id="tradeConfirmReceive" class="font-bold"></span> player(s)</p>
+    <div class="flex space-x-4">
+      <button id="tradeConfirmBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Confirm</button>
+      <button id="tradeCancelBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+    </div>
+  </div>
+</div>
 {% extends "web/base.html" %}
 {% block title %}Trade Center — {{ team.name }} — NLL Fantasy{% endblock %}
 {% block content %}
@@ -139,44 +150,60 @@ function proposeTrade(targetTeamId) {
     return;
   }
   
-  if (confirm(`Propose trade:\nYou give: ${yourPlayers.length} player(s)\nYou receive: ${theirPlayers.length} player(s)\n\nAre you sure?`)) {
+  // Show custom modal for trade confirmation
+  const modal = document.getElementById('tradeConfirmModal');
+  document.getElementById('tradeConfirmGive').textContent = yourPlayers.length;
+  document.getElementById('tradeConfirmReceive').textContent = theirPlayers.length;
+  modal.classList.remove('hidden');
+  modal.style.pointerEvents = 'auto';
+
+  // Set up confirm button handler
+  const confirmBtn = document.getElementById('tradeConfirmBtn');
+  const cancelBtn = document.getElementById('tradeCancelBtn');
+
+  // Remove previous listeners
+  confirmBtn.onclick = null;
+  cancelBtn.onclick = null;
+
+  confirmBtn.onclick = function() {
+    modal.classList.add('hidden');
+    modal.style.pointerEvents = 'none';
     // Create form and submit
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '{% url "propose_trade" team.id %}';
-    
     // Add CSRF token
     const csrfInput = document.createElement('input');
     csrfInput.type = 'hidden';
     csrfInput.name = 'csrfmiddlewaretoken';
     csrfInput.value = '{{ csrf_token }}';
     form.appendChild(csrfInput);
-    
     // Add target team ID
     const targetTeamInput = document.createElement('input');
     targetTeamInput.type = 'hidden';
     targetTeamInput.name = 'target_team_id';
     targetTeamInput.value = targetTeamId;
     form.appendChild(targetTeamInput);
-    
     // Add your players
     const yourPlayersInput = document.createElement('input');
     yourPlayersInput.type = 'hidden';
     yourPlayersInput.name = 'your_players';
     yourPlayersInput.value = JSON.stringify(yourPlayers);
     form.appendChild(yourPlayersInput);
-    
     // Add their players
     const theirPlayersInput = document.createElement('input');
     theirPlayersInput.type = 'hidden';
     theirPlayersInput.name = 'their_players';
     theirPlayersInput.value = JSON.stringify(theirPlayers);
     form.appendChild(theirPlayersInput);
-    
     // Submit form
     document.body.appendChild(form);
     form.submit();
-  }
+  };
+  cancelBtn.onclick = function() {
+    modal.classList.add('hidden');
+    modal.style.pointerEvents = 'none';
+  };
 }
 </script>
 {% endblock %}
