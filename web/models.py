@@ -394,6 +394,17 @@ class Week(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     
+    # Roster lock/unlock times (Pacific Time)
+    # Rosters lock Friday 5pm PT, unlock Monday 9am PT
+    roster_lock_time = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When rosters lock (typically Friday 5pm PT)"
+    )
+    roster_unlock_time = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When rosters unlock (typically Monday 9am PT)"
+    )
+    
     is_playoff = models.BooleanField(
         default=False,
         help_text="True if this week contains NLL playoff games (not fantasy playoffs)"
@@ -423,19 +434,25 @@ class Week(models.Model):
         Returns True if roster transactions are locked for this week.
         
         Lock rules:
-        - A week is LOCKED once its start_date has arrived (games are/will be happening)
-        - A week is UNLOCKED only if its start_date is still in the future (hasn't started yet)
-        - Waivers and trades from a completed week are applied to the NEXT week's roster
+        - A week is LOCKED between roster_lock_time (Fri 5pm PT) and roster_unlock_time (Mon 9am PT)
+        - A week is UNLOCKED between roster_unlock_time (Mon 9am PT) and roster_lock_time (Fri 5pm PT)
+        - Waivers and trades execute during unlock windows
         """
         from django.utils import timezone
         
         now = timezone.now()
         
-        # If the week has started, it's locked (no roster changes allowed)
-        if self.start_date <= now.date():
+        # If lock/unlock times aren't set, fall back to old behavior (start_date based)
+        if not self.roster_lock_time or not self.roster_unlock_time:
+            if self.start_date <= now.date():
+                return True
+            return False
+        
+        # Week is locked if we're between lock_time and unlock_time
+        if self.roster_lock_time <= now <= self.roster_unlock_time:
             return True
         
-        # If the week hasn't started yet, it's unlocked (can make roster changes)
+        # Week is unlocked if we're between unlock_time and next lock_time
         return False
 
 

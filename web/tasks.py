@@ -215,3 +215,158 @@ def archive_old_leagues():
     except Exception as e:
         logger.error(f"League archival task failed: {str(e)}")
         raise
+
+
+@shared_task(name='lock_rosters_for_current_week')
+def lock_rosters_for_current_week():
+    """
+    Lock rosters for the current week (Friday 5pm PT).
+    Called automatically at Friday 5pm PT via Celery Beat schedule.
+    Rosters remain locked until Monday 9am PT.
+    """
+    from web.models import Week
+    
+    now = timezone.now()
+    
+    try:
+        # Find weeks where lock_time has just passed (within last hour)
+        weeks = Week.objects.filter(
+            roster_lock_time__lte=now,
+            roster_lock_time__gte=now - timedelta(hours=1)
+        )
+        
+        for week in weeks:
+            logger.info(f"Locking rosters for Week {week.week_number}, Season {week.season}")
+            # The is_locked() method now handles the logic based on roster_lock_time
+        
+        return f"Successfully locked rosters for {weeks.count()} weeks"
+    
+    except Exception as e:
+        logger.error(f"Error locking rosters: {str(e)}")
+        raise
+
+
+@shared_task(name='unlock_rosters_and_process_transactions')
+def unlock_rosters_and_process_transactions():
+    """
+    Unlock rosters (Monday 9am PT) and execute pending waivers/trades.
+    Called automatically at Monday 9am PT via Celery Beat schedule.
+    """
+    from web.models import Week, WaiverClaim, Trade, League
+    
+    now = timezone.now()
+    
+    try:
+        # Find weeks where unlock_time has just passed
+        weeks = Week.objects.filter(
+            roster_unlock_time__lte=now,
+            roster_unlock_time__gte=now - timedelta(hours=1)
+        )
+        
+        for week in weeks:
+            logger.info(f"Unlocking rosters for Week {week.week_number}, Season {week.season}")
+            
+            # Process pending waivers for this week
+            process_waivers_for_week(week)
+            
+            # Process pending trades for this week
+            process_trades_for_week(week)
+            
+            # Update league current_week to next week
+            update_current_week_for_season(week.season)
+        
+        return f"Successfully unlocked rosters and processed transactions for {weeks.count()} weeks"
+    
+    except Exception as e:
+        logger.error(f"Error unlocking rosters and processing transactions: {str(e)}")
+        raise
+
+
+def process_waivers_for_week(week):
+    """
+    Execute all pending waiver claims for a given week.
+    Process in priority order (highest priority first).
+    """
+    from web.models import WaiverClaim, Roster
+    
+    try:
+        pending_waivers = WaiverClaim.objects.filter(
+            week=week,
+            status='pending'
+        ).order_by('priority')
+        
+        for waiver in pending_waivers:
+            try:
+                # Execute the waiver claim
+                waiver.status = 'executed'
+                waiver.executed_at = timezone.now()
+                waiver.save()
+                
+                # Update the roster
+                Roster.objects.filter(
+                    team=waiver.team,
+                    week=week
+                ).update(player=waiver.player)
+                
+                logger.info(f"Executed waiver: {waiver.team} claims {waiver.player}")
+                
+            except Exception as e:
+                logger.error(f"Error executing waiver {waiver.id}: {str(e)}")
+                waiver.status = 'failed'
+                waiver.save()
+    
+    except Exception as e:
+        logger.error(f"Error processing waivers for week {week.week_number}: {str(e)}")
+
+
+def process_trades_for_week(week):
+    """
+    Execute all pending trades for a given week.
+    """
+    from web.models import Trade
+    
+    try:
+        pending_trades = Trade.objects.filter(
+            week=week,
+            status='pending'
+        )
+        
+        for trade in pending_trades:
+            try:
+                # Execute the trade
+                trade.execute()
+                logger.info(f"Executed trade between {trade.team_a} and {trade.team_b}")
+                
+            except Exception as e:
+                logger.error(f"Error executing trade {trade.id}: {str(e)}")
+    
+    except Exception as e:
+        logger.error(f"Error processing trades for week {week.week_number}: {str(e)}")
+
+
+def update_current_week_for_season(season):
+    """
+    Update all leagues' current_week to the next unlocked week.
+    Called when Monday 9am PT rosters unlock.
+    """
+    from web.models import League
+    from datetime import timedelta
+    
+    try:
+        leagues = League.objects.filter(created_at__year=season)
+        
+        for league in leagues:
+            # Find the next unlocked week (most recent with unlock_time passed)
+            now = timezone.now()
+            next_week = Week.objects.filter(
+                season=season,
+                roster_unlock_time__lte=now
+            ).order_by('-week_number').first()
+            
+            if next_week:
+                league.current_week = next_week
+                league.save()
+                logger.info(f"Updated {league.name} current week to Week {next_week.week_number}")
+    
+    except Exception as e:
+        logger.error(f"Error updating current week for season {season}: {str(e)}")
