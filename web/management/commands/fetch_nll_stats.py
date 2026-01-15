@@ -14,7 +14,7 @@ import zipfile
 from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from web.models import Player, Week, PlayerWeekStat, Team
+from web.models import Player, Week, Game, PlayerGameStat, Team
 
 
 class Command(BaseCommand):
@@ -218,10 +218,7 @@ class Command(BaseCommand):
                 elif week.is_playoff != is_playoff_week:
                     self.stdout.write(f'Updated Week {week_number} playoff status{playoff_indicator}')
 
-        # Group stats by player and week to accumulate multiple games
-        stats_by_player_week = {}
-        
-        # Process each game
+        # Process each game and create per-game stats
         for game in games:
             game_id = game.get('id')
             week_number = game.get('week', 1)
@@ -230,31 +227,51 @@ class Command(BaseCommand):
             # Offset playoff week numbers to match what we stored
             if is_playoff:
                 week_number = max_regular_week + week_number
-            game_date = game.get('dt')
+            game_date_str = game.get('dt')
             
             # Skip if filtering by week and this isn't it
             if week_filter and week_number != week_filter:
                 continue
 
-            # Get Week object
+            # Get Week object and create Game object
             if not dry_run:
                 week = weeks_created.get(week_number)
                 if not week:
                     continue
+                
+                # Parse game date
+                try:
+                    game_date = datetime.strptime(game_date_str, '%b %d, %Y %H:%M:%S').date()
+                except (ValueError, TypeError):
+                    game_date = week.start_date
+                
+                # Create or get Game for this specific game
+                home_team = game.get('home', 'TBA')
+                away_team = game.get('away', 'TBA')
+                game_obj, _ = Game.objects.get_or_create(
+                    week=week,
+                    nll_game_id=str(game_id),
+                    defaults={
+                        'date': game_date,
+                        'home_team': home_team,
+                        'away_team': away_team,
+                    }
+                )
             else:
                 week = None
+                game_obj = None
 
             # Get stats for this game
-            game_stats = stats_by_game.get(game_id, [])
+            game_stats_list = stats_by_game.get(game_id, [])
             
-            if not game_stats:
+            if not game_stats_list:
                 continue
 
             # Determine winning team (for goalie wins)
             winner_team_id = game.get('winner')
             
-            # Process each player's stats for this game
-            for stat in game_stats:
+            # Process each player's stats for this specific game
+            for stat in game_stats_list:
                 # Use root_player_id to look up player info
                 root_player_id = stat.get('root_player_id')
                 player_data = players_by_id.get(root_player_id)
@@ -278,64 +295,36 @@ class Command(BaseCommand):
                     stats_skipped += 1
                     continue
 
-                # Create key for player-week combination
-                key = (player.id if player else root_player_id, week_number)
+                if not dry_run and not game_obj:
+                    stats_skipped += 1
+                    continue
                 
-                # Initialize accumulator if first time seeing this player-week
-                if key not in stats_by_player_week:
-                    stats_by_player_week[key] = {
-                        'player': player,
-                        'week': week,
-                        'week_number': week_number,
-                        'games_played': 0,
-                        'goals': 0,
-                        'assists': 0,
-                        'loose_balls': 0,
-                        'turnovers': 0,
-                        'caused_turnovers': 0,
-                        'blocked_shots': 0,
-                        'wins': 0,
-                        'saves': 0,
-                        'goals_against': 0,
+                # Create PlayerGameStat for this specific game
+                if not dry_run:
+                    stat_data = {
+                        'goals': stat.get('goals', 0) or 0,
+                        'assists': stat.get('assists', 0) or 0,
+                        'loose_balls': stat.get('lb', 0) or 0,
+                        'turnovers': stat.get('turnovers', 0) or 0,
+                        'caused_turnovers': stat.get('cto', 0) or 0,
+                        'blocked_shots': stat.get('blocked', 0) or 0,
+                        'wins': stat.get('win', 0) or 0,
+                        'saves': stat.get('sv', 0) or 0,
+                        'goals_against': stat.get('ga', 0) or 0,
                     }
-                
-                # Accumulate stats
-                acc = stats_by_player_week[key]
-                acc['games_played'] += 1
-                acc['goals'] += stat.get('goals', 0) or 0
-                acc['assists'] += stat.get('assists', 0) or 0
-                acc['loose_balls'] += stat.get('lb', 0) or 0
-                acc['turnovers'] += stat.get('turnovers', 0) or 0
-                acc['caused_turnovers'] += stat.get('cto', 0) or 0
-                acc['blocked_shots'] += stat.get('blocked', 0) or 0
-                acc['wins'] += stat.get('win', 0) or 0
-                acc['saves'] += stat.get('sv', 0) or 0
-                acc['goals_against'] += stat.get('ga', 0) or 0
-
-        # Now save all accumulated stats
-        for key, acc in stats_by_player_week.items():
-            player = acc['player']
-            week = acc['week']
-            
-            if not player or (not dry_run and not week):
-                stats_skipped += 1
-                continue
-            
-            # Determine if this is a goalie
-            is_goalie = player.position == 'G'
-            
-            # Save stats based on position
-            if is_goalie:
-                result = self.save_goalie_stat_accumulated(player, week, acc, dry_run)
-            else:
-                result = self.save_field_player_stat_accumulated(player, week, acc, dry_run)
-            
-            if result == 'created':
-                stats_created += 1
-            elif result == 'updated':
-                stats_updated += 1
-            elif result == 'skipped':
-                stats_skipped += 1
+                    
+                    game_stat_obj, created = PlayerGameStat.objects.update_or_create(
+                        player=player,
+                        game=game_obj,
+                        defaults=stat_data
+                    )
+                    
+                    if created:
+                        stats_created += 1
+                    else:
+                        stats_updated += 1
+                else:
+                    stats_created += 1
 
         return {
             'created': stats_created,
@@ -387,6 +376,26 @@ class Command(BaseCommand):
             
             if team_name and player.nll_team != team_name:
                 player.nll_team = team_name
+                needs_update = True
+            
+            # Update biography fields from player_data
+            if player_data.get('shoots') and player.shoots != player_data.get('shoots'):
+                player.shoots = player_data.get('shoots')
+                needs_update = True
+            if player_data.get('height') and player.height != player_data.get('height'):
+                player.height = player_data.get('height')
+                needs_update = True
+            if player_data.get('weight') and player.weight != player_data.get('weight'):
+                player.weight = player_data.get('weight')
+                needs_update = True
+            if player_data.get('hometown') and player.hometown != player_data.get('hometown'):
+                player.hometown = player_data.get('hometown')
+                needs_update = True
+            if player_data.get('draft_year') and player.draft_year != player_data.get('draft_year'):
+                player.draft_year = player_data.get('draft_year')
+                needs_update = True
+            if player_data.get('birthdate') and player.birthdate != player_data.get('birthdate'):
+                player.birthdate = player_data.get('birthdate')
                 needs_update = True
             
             if needs_update and not dry_run:
@@ -478,7 +487,13 @@ class Command(BaseCommand):
                     position=position,
                     external_id=external_id,
                     number=jersey_number,
-                    nll_team=team_name
+                    nll_team=team_name,
+                    shoots=player_data.get('shoots'),
+                    height=player_data.get('height'),
+                    weight=player_data.get('weight'),
+                    hometown=player_data.get('hometown'),
+                    draft_year=player_data.get('draft_year'),
+                    birthdate=player_data.get('birthdate')
                 )
                 
                 num_str = f" #{jersey_number}" if jersey_number is not None else ""
@@ -511,95 +526,4 @@ class Command(BaseCommand):
                     last_name__iexact=last_name
                 ).first()
 
-    def save_field_player_stat_accumulated(self, player, week, acc, dry_run):
-        """Save or update accumulated field player stats"""
-        goals = acc['goals']
-        assists = acc['assists']
-        loose_balls = acc['loose_balls']
-        turnovers = acc['turnovers']
-        caused_turnovers = acc['caused_turnovers']
-        blocked_shots = acc['blocked_shots']
-        games_played = acc['games_played']
-        
-        if dry_run:
-            gp_str = f" ({games_played} games)" if games_played > 1 else ""
-            self.stdout.write(
-                f'    [DRY RUN] {player.first_name} {player.last_name}: '
-                f'{goals}G, {assists}A, {loose_balls}LB{gp_str}'
-            )
-            return 'created'
 
-        # Create or update stat
-        stat_obj, created = PlayerWeekStat.objects.update_or_create(
-            player=player,
-            week=week,
-            defaults={
-                'goals': goals,
-                'assists': assists,
-                'points': goals + assists,
-                'loose_balls': loose_balls,
-                'turnovers': turnovers,
-                'caused_turnovers': caused_turnovers,
-                'blocked_shots': blocked_shots,
-                'games_played': games_played,
-            }
-        )
-        
-        gp_str = f" ({games_played} games)" if games_played > 1 else ""
-        if created:
-            self.stdout.write(
-                f'    + {player.first_name} {player.last_name}: '
-                f'{goals}G, {assists}A, {loose_balls}LB{gp_str}'
-            )
-            return 'created'
-        else:
-            self.stdout.write(
-                f'    * {player.first_name} {player.last_name}: '
-                f'{goals}G, {assists}A, {loose_balls}LB{gp_str} (updated)'
-            )
-            return 'updated'
-
-    def save_goalie_stat_accumulated(self, player, week, acc, dry_run):
-        """Save or update accumulated goalie stats"""
-        wins = acc['wins']
-        saves = acc['saves']
-        goals_against = acc['goals_against']
-        goals = acc['goals']
-        assists = acc['assists']
-        games_played = acc['games_played']
-        
-        if dry_run:
-            gp_str = f" ({games_played} games)" if games_played > 1 else ""
-            self.stdout.write(
-                f'    [DRY RUN] {player.first_name} {player.last_name} (G): '
-                f'{wins}W, {saves}SV, {goals_against}GA, {goals}G, {assists}A{gp_str}'
-            )
-            return 'created'
-
-        # Create or update stat
-        stat_obj, created = PlayerWeekStat.objects.update_or_create(
-            player=player,
-            week=week,
-            defaults={
-                'wins': wins,
-                'saves': saves,
-                'goals_against': goals_against,
-                'goals': goals,
-                'assists': assists,
-                'games_played': games_played,
-            }
-        )
-        
-        gp_str = f" ({games_played} games)" if games_played > 1 else ""
-        if created:
-            self.stdout.write(
-                f'    + {player.first_name} {player.last_name} (G): '
-                f'{wins}W, {saves}SV, {goals_against}GA, {goals}G, {assists}A{gp_str}'
-            )
-            return 'created'
-        else:
-            self.stdout.write(
-                f'    * {player.first_name} {player.last_name} (G): '
-                f'{wins}W, {saves}SV, {goals_against}GA, {goals}G, {assists}A{gp_str} (updated)'
-            )
-            return 'updated'

@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from decouple import config as env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,12 +26,12 @@ ROOT_URLCONF = "config.urls"
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-kl)ulr+m0roanuqp6e)6=f1h+d+jo%#%m9vhz@l_ihsh#6o0dz'
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-kl)ulr+m0roanuqp6e)6=f1h+d+jo%#%m9vhz@l_ihsh#6o0dz')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Application definition
 
@@ -40,18 +42,27 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
+    'django_extensions',
+    'silk',
     "web",
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Add Django-Silk only if explicitly enabled (opt-in for profiling)
+if env('ENABLE_SILK_PROFILING', default=False, cast=bool):
+    MIDDLEWARE.append('silk.middleware.SilkyMiddleware')
 
 ROOT_URLCONF = 'config.urls'
 
@@ -107,6 +118,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Use Argon2 for password hashing (more secure than default PBKDF2)
+# Requires: pip install argon2-cffi
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -124,6 +142,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# WhiteNoise compression
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 
@@ -131,3 +153,68 @@ TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+# Message storage using session instead of database
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+# ===== EMAIL CONFIGURATION =====
+# For development, use console backend (prints emails to terminal)
+# For production, set EMAIL_BACKEND in .env to anymail.backends.sendgrid.EmailBackend
+EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+ANYMAIL = {
+    'SENDGRID_API_KEY': env('SENDGRID_API_KEY', default=''),
+}
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@nllFantasy.com')
+SERVER_EMAIL = env('SERVER_EMAIL', default='server@nllFantasy.com')
+
+# ===== CELERY CONFIGURATION =====
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# ===== CACHE CONFIGURATION =====
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+    }
+}
+
+# ===== CORS CONFIGURATION =====
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:8000', 'http://127.0.0.1:3000', 'http://127.0.0.1:8000']
+else:
+    CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS', default='http://localhost:3000', cast=lambda v: [s.strip() for s in v.split(',')])
+
+# ===== SENTRY CONFIGURATION (Error Tracking) =====
+# Only initialize Sentry if DSN is provided (production use)
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+
+SENTRY_DSN = env('SENTRY_DSN', default='')
+if SENTRY_DSN:  # Only enable if DSN is configured
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+        ],
+        traces_sample_rate=0.1 if not DEBUG else 0,  # No sampling in development
+        send_default_pii=False,
+        environment=env('ENVIRONMENT', default='development'),
+    )
+
+# ===== DJANGO-SILK PROFILING CONFIGURATION =====
+# Only profile if explicitly enabled via environment variable
+ENABLE_SILK_PROFILING = env('ENABLE_SILK_PROFILING', default=False, cast=bool)
+if ENABLE_SILK_PROFILING:
+    SILKY_PYTHON_PROFILER = True
+    SILKY_PYTHON_PROFILER_RESULT_PATH = BASE_DIR / 'silk_profile_results'
+    SILKY_IGNORE_PATHS = ['/admin/', '/silk/']  # Don't profile these paths
+else:
+    SILKY_PYTHON_PROFILER = False

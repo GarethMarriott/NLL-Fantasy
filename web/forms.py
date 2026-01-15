@@ -81,7 +81,9 @@ class LeagueSettingsForm(forms.ModelForm):
         model = League
         fields = [
             'name', 'description', 'max_teams', 'is_public', 'roster_size', 
+            'roster_forwards', 'roster_defense', 'roster_goalies',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
+            'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
             'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers',
             'scoring_goalie_wins', 'scoring_goalie_saves', 'scoring_goalie_goals_against',
@@ -99,7 +101,9 @@ class LeagueSettingsForm(forms.ModelForm):
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'is_public': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
-            # playoff_weeks widget will be set dynamically in __init__
+            'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
+            'roster_defense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
+            'roster_goalies': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'playoff_teams': forms.Select(choices=[
                 (2, '2 teams'),
                 (4, '4 teams'),
@@ -108,6 +112,7 @@ class LeagueSettingsForm(forms.ModelForm):
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'playoff_reseed': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'use_waivers': forms.CheckboxInput(attrs={'class': 'rounded'}),
+            'multigame_scoring': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'scoring_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_loose_balls': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
@@ -119,6 +124,9 @@ class LeagueSettingsForm(forms.ModelForm):
             'scoring_goalie_goals_against': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+        }
+        help_texts = {
+            'multigame_scoring': "If a player plays multiple games in a week, use their highest single-game score (default) or the average of their games.",
         }
 
     def __init__(self, *args, **kwargs):

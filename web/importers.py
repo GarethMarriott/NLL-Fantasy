@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.dateparse import parse_date
 
-from web.models import Player, Week, PlayerWeekStat, ImportRun
+from web.models import Player, Week, Game, PlayerGameStat, ImportRun
 from web.models import Team
 
 
@@ -31,6 +31,9 @@ REQUIRED_COLUMNS = [
     "week_number",
     "start_date",
     "end_date",
+    "game_date",
+    "home_team",
+    "away_team",
 ]
 
 
@@ -78,6 +81,7 @@ def import_weekly_stats_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]
     # Cache for speed
     week_cache: Dict[tuple[int, int], Week] = {}
     player_cache: Dict[str, Player] = {}
+    game_cache: Dict[tuple[int, str, str, str], Game] = {}
 
     # Open uploaded file
     import_run.uploaded_file.open("rb")
@@ -122,10 +126,6 @@ def import_weekly_stats_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]
                 f"Got {start_date_str!r}, {end_date_str!r}"
             )
 
-        # --- Stats ---
-        stat_defaults: Dict[str, Any] = {}
-        for field in INT_FIELDS:
-            stat_defaults[field] = _to_int(row.get(field, ""), field, line_no)
 
         # --- Upsert Week ---
         wk_key = (season, week_number)
@@ -182,10 +182,33 @@ def import_weekly_stats_csv(import_run: ImportRun) -> Tuple[str, Dict[str, int]]
                 player.save(update_fields=["first_name", "last_name", "number", "position", "updated_at"])
                 counters["players_updated"] += 1
 
-        # --- Upsert Weekly Stats ---
-        stat_obj, created = PlayerWeekStat.objects.update_or_create(
+        # --- Upsert Game ---
+        game_date_str = _required(row, "game_date", line_no)
+        home_team = _required(row, "home_team", line_no)
+        away_team = _required(row, "away_team", line_no)
+        game_date = parse_date(game_date_str)
+        if not game_date:
+            raise ValidationError(f"Line {line_no}: invalid game_date (expected YYYY-MM-DD). Got {game_date_str!r}")
+        game_key = (week.id, game_date_str, home_team, away_team)
+        game = game_cache.get(game_key)
+        if game is None:
+            game, _ = Game.objects.get_or_create(
+                week=week,
+                date=game_date,
+                home_team=home_team,
+                away_team=away_team,
+            )
+            game_cache[game_key] = game
+
+        # --- Stats ---
+        stat_defaults: Dict[str, Any] = {}
+        for field in INT_FIELDS:
+            stat_defaults[field] = _to_int(row.get(field, ""), field, line_no)
+
+        # --- Upsert PlayerGameStat ---
+        stat_obj, created = PlayerGameStat.objects.update_or_create(
             player=player,
-            week=week,
+            game=game,
             defaults=stat_defaults,
         )
         if created:

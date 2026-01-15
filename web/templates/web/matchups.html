@@ -73,7 +73,7 @@
                         {% for slot in game.home_roster.offence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -90,7 +90,7 @@
                         {% for slot in game.home_roster.defence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -107,7 +107,7 @@
                         {% for slot in game.home_roster.goalie_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -134,7 +134,7 @@
                         {% for slot in game.away_roster.offence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -151,7 +151,7 @@
                         {% for slot in game.away_roster.defence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -168,7 +168,7 @@
                         {% for slot in game.away_roster.goalie_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span>{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -204,7 +204,168 @@
               indicator.textContent = '▼ Click to view rosters';
             }
           }
+
+          function getPositionColor(position) {
+            switch(position) {
+              case 'O':
+                return 'bg-green-100 text-green-800';
+              case 'D':
+                return 'bg-orange-100 text-orange-800';
+              case 'G':
+                return 'bg-blue-100 text-blue-800';
+              case 'T':
+                return 'bg-purple-100 text-purple-800';
+              default:
+                return 'bg-gray-100 text-gray-800';
+            }
+          }
+
+          function showPlayerModal(playerId, playerName) {
+            // Fetch player data from AJAX endpoint
+            fetch(`/players/${playerId}/modal/`)
+              .then(response => {
+                if (!response.ok) throw new Error('Failed to load player data');
+                return response.json();
+              })
+              .then(data => {
+                // Populate player bio
+                document.getElementById('playerModalTitle').textContent = data.player.name;
+                document.getElementById('playerNumber').textContent = data.player.number || '-';
+                document.getElementById('playerPosition').textContent = data.player.position || '-';
+                document.getElementById('playerNLLTeam').textContent = data.player.nll_team || '-';
+                document.getElementById('playerShoots').textContent = data.player.shoots || '-';
+                document.getElementById('playerHeight').textContent = data.player.height || '-';
+                document.getElementById('playerWeight').textContent = data.player.weight ? `${data.player.weight} lbs` : '-';
+                document.getElementById('playerHometown').textContent = data.player.hometown || '-';
+                document.getElementById('playerDraftYear').textContent = data.player.draft_year || '-';
+                document.getElementById('playerBirthdate').textContent = data.player.birthdate || '-';
+                
+                // Apply position color to header
+                const positionLetter = data.player.position ? data.player.position.charAt(0).toUpperCase() : '';
+                const headerElement = document.getElementById('playerModalHeader');
+                headerElement.className = `${getPositionColor(positionLetter)} px-6 py-4 flex justify-between items-center`;
+                
+                // Populate week stats
+                const container = document.getElementById('weekStatsContainer');
+                container.innerHTML = '';
+                
+                if (data.week_stats && data.week_stats.length > 0) {
+                  data.week_stats.forEach(week => {
+                    const weekDiv = document.createElement('div');
+                    weekDiv.className = 'bg-gray-50 rounded p-4 border border-gray-200';
+                    
+                    let statsHTML = `<div class="flex justify-between items-center mb-2"><h4 class="font-semibold text-gray-800">${week.week} (${week.games_count} game${week.games_count !== 1 ? 's' : ''})</h4><span class="text-lg font-bold text-blue-600">${week.fantasy_points} pts</span></div>`;
+                    statsHTML += '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">';
+                    
+                    // Show different stats based on position (infer from content)
+                    if (week.wins > 0 || week.saves > 0) {
+                      // Goalie stats
+                      statsHTML += `<div><span class="font-semibold">W:</span> ${week.wins}</div>`;
+                      statsHTML += `<div><span class="font-semibold">SV:</span> ${week.saves}</div>`;
+                      statsHTML += `<div><span class="font-semibold">GA:</span> ${week.goals_against}</div>`;
+                      statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
+                      statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
+                    } else {
+                      // Field player stats
+                      statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
+                      statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
+                      statsHTML += `<div><span class="font-semibold">LB:</span> ${week.loose_balls}</div>`;
+                      statsHTML += `<div><span class="font-semibold">CT:</span> ${week.caused_turnovers}</div>`;
+                      statsHTML += `<div><span class="font-semibold">BS:</span> ${week.blocked_shots}</div>`;
+                      statsHTML += `<div><span class="font-semibold">TO:</span> ${week.turnovers}</div>`;
+                    }
+                    
+                    statsHTML += '</div>';
+                    weekDiv.innerHTML = statsHTML;
+                    container.appendChild(weekDiv);
+                  });
+                } else {
+                  container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';
+                }
+                
+                // Show modal
+                document.getElementById('playerModal').classList.remove('hidden');
+                document.getElementById('playerModal').classList.add('flex');
+              })
+              .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to load player details');
+              });
+          }
+          
+          function closePlayerModal(event) {
+            if (event && event.target.id === 'playerModal') {
+              document.getElementById('playerModal').classList.add('hidden');
+              document.getElementById('playerModal').classList.remove('flex');
+            } else if (!event) {
+              document.getElementById('playerModal').classList.add('hidden');
+              document.getElementById('playerModal').classList.remove('flex');
+            }
+          }
         </script>
+
+        <!-- Player Detail Modal -->
+        <div id="playerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 overflow-y-auto" onclick="closePlayerModal(event)">
+          <div class="bg-white rounded-lg overflow-hidden max-w-2xl w-full mx-4 my-8" onclick="event.stopPropagation()">
+            <!-- Header with position color -->
+            <div id="playerModalHeader" class="bg-gray-100 px-6 py-4 flex justify-between items-center">
+              <h2 class="text-2xl font-semibold" id="playerModalTitle"></h2>
+              <button onclick="closePlayerModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            
+            <div class="p-6">
+              <!-- Player Bio Section -->
+              <div id="playerBioSection" class="mb-6 pb-6 border-b border-gray-300">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span class="font-semibold text-gray-600">Number:</span>
+                    <div id="playerNumber">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Position:</span>
+                    <div id="playerPosition">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">NLL Team:</span>
+                    <div id="playerNLLTeam">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Shoots:</span>
+                    <div id="playerShoots">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Height:</span>
+                    <div id="playerHeight">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Weight:</span>
+                    <div id="playerWeight">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Hometown:</span>
+                    <div id="playerHometown">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Draft Year:</span>
+                    <div id="playerDraftYear">-</div>
+                  </div>
+                  <div>
+                    <span class="font-semibold text-gray-600">Birthdate:</span>
+                    <div id="playerBirthdate">-</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Stats by Week Section -->
+              <div id="statsSection">
+                <h3 class="text-lg font-semibold mb-4">Stats by Week</h3>
+                <div id="weekStatsContainer" class="space-y-4 max-h-96 overflow-y-auto">
+                  <!-- Will be populated by JavaScript -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       {% else %}
         <p class="text-gray-600 italic">No matchups found for the selected week.</p>
       {% endif %}

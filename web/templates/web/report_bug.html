@@ -1,0 +1,115 @@
+{% extends 'web/base.html' %}
+{% load static %}
+
+{% block title %}Report a Bug{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="fas fa-bug"></i> Report a Bug</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Found an issue? Help us improve by reporting it. The more details you provide, the faster we can fix it!
+                    </p>
+                    
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">
+                                <strong>Bug Title *</strong>
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.title.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">{{ form.title.help_text }}</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                <strong>Description *</strong>
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.description.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">{{ form.description.help_text }}</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.priority.id_for_label }}" class="form-label">
+                                <strong>Priority</strong>
+                            </label>
+                            {{ form.priority }}
+                            <small class="form-text text-muted">How critical is this issue?</small>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h6 class="mb-3">Additional Information (Optional)</h6>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.page_url.id_for_label }}" class="form-label">
+                                Page URL
+                            </label>
+                            {{ form.page_url }}
+                            <small class="form-text text-muted">{{ form.page_url.help_text }}</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.browser_info.id_for_label }}" class="form-label">
+                                Browser/Device Info
+                            </label>
+                            {{ form.browser_info }}
+                            <small class="form-text text-muted">{{ form.browser_info.help_text }}</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.error_message.id_for_label }}" class="form-label">
+                                Error Message
+                            </label>
+                            {{ form.error_message }}
+                            <small class="form-text text-muted">{{ form.error_message.help_text }}</small>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-danger btn-lg w-100">
+                                <i class="fas fa-paper-plane"></i> Submit Bug Report
+                            </button>
+                            <a href="{% url 'bug_list' %}" class="btn btn-outline-secondary btn-lg w-100 mt-2">
+                                View All Bugs
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-fill some information
+document.addEventListener('DOMContentLoaded', function() {
+    // Try to set the page URL
+    const urlField = document.getElementById('{{ form.page_url.id_for_label }}');
+    if (urlField && !urlField.value) {
+        urlField.value = window.location.href;
+    }
+    
+    // Try to set browser info
+    const browserField = document.getElementById('{{ form.browser_info.id_for_label }}');
+    if (browserField && !browserField.value) {
+        browserField.value = navigator.userAgent.substring(0, 100);
+    }
+});
+</script>
+{% endblock %}

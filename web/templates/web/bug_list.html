@@ -1,0 +1,147 @@
+{% extends 'web/base.html' %}
+{% load static %}
+
+{% block title %}Bug Reports{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3><i class="fas fa-bug"></i> Bug Reports</h3>
+                <a href="{% url 'report_bug' %}" class="btn btn-danger">
+                    <i class="fas fa-plus"></i> Report New Bug
+                </a>
+            </div>
+            
+            <!-- Filter Form -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-filter"></i> Filter Bugs</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            {{ filter_form.status }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ filter_form.priority }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ filter_form.search }}
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Bug List -->
+            {% if bugs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Title</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Reporter</th>
+                                <th>Created</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bug in bugs %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ bug.title|truncatewords:8 }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-
+                                            {% if bug.priority == 'critical' %}danger
+                                            {% elif bug.priority == 'high' %}warning text-dark
+                                            {% elif bug.priority == 'medium' %}info
+                                            {% else %}secondary
+                                            {% endif %}">
+                                            {{ bug.get_priority_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-
+                                            {% if bug.status == 'new' %}danger
+                                            {% elif bug.status == 'acknowledged' %}warning text-dark
+                                            {% elif bug.status == 'in_progress' %}info
+                                            {% elif bug.status == 'resolved' %}success
+                                            {% else %}secondary
+                                            {% endif %}">
+                                            {{ bug.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if bug.reporter %}
+                                            <small>{{ bug.reporter.username }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Anonymous</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ bug.created_at|date:"M d, Y" }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'bug_detail' bug.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1">First</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+                
+                <div class="text-center text-muted mt-3">
+                    <small>Showing {{ bugs|length }} of {{ total_bugs }} bugs</small>
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle"></i> No bugs found matching your criteria.
+                    <a href="{% url 'report_bug' %}" class="alert-link">Report one now</a> if you found an issue!
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

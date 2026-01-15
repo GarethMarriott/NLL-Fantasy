@@ -1,10 +1,11 @@
 from django.urls import path
 from .views import (
-    home, about, players, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
+    home, about, players, player_detail_modal, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft
 )
+from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
 urlpatterns = [
     path("", home, name="home"),
@@ -21,6 +22,7 @@ urlpatterns = [
     path("teams/<int:team_id>/waiver-claim/", submit_waiver_claim, name="submit_waiver_claim"),
     path("waiver-claims/<int:claim_id>/cancel/", cancel_waiver_claim, name="cancel_waiver_claim"),
     path("players/", players, name="players"),
+    path("players/<int:player_id>/modal/", player_detail_modal, name="player_detail_modal"),
     path("schedule/", schedule, name="schedule"),
     path("matchups/", matchups, name="matchups"),
     path("standings/", standings, name="standings"),
@@ -50,4 +52,12 @@ urlpatterns = [
     path("draft/cancel/", cancel_draft, name="cancel_draft"),
     path("draft/<int:draft_id>/pick/", make_draft_pick, name="make_draft_pick"),
     path("draft/set-order/", set_draft_order, name="set_draft_order"),
+    
+    # Bug Reporting
+    path("bugs/report/", report_bug, name="report_bug"),
+    path("bugs/", bug_list, name="bug_list"),
+    path("bugs/<int:bug_id>/", bug_detail, name="bug_detail"),
+    path("bugs/<int:bug_id>/status/", update_bug_status, name="update_bug_status"),
+    path("bugs/<int:bug_id>/note/", add_bug_note, name="add_bug_note"),
+    path("api/bugs/report/", bug_report_api, name="bug_report_api"),
 ]

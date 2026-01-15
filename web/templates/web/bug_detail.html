@@ -1,0 +1,234 @@
+{% extends 'web/base.html' %}
+{% load static %}
+
+{% block title %}Bug: {{ bug.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">{{ bug.title }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <strong>Priority:</strong>
+                            <span class="badge bg-
+                                {% if bug.priority == 'critical' %}danger
+                                {% elif bug.priority == 'high' %}warning text-dark
+                                {% elif bug.priority == 'medium' %}info
+                                {% else %}secondary
+                                {% endif %}">
+                                {{ bug.get_priority_display }}
+                            </span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong>
+                            <span class="badge bg-
+                                {% if bug.status == 'new' %}danger
+                                {% elif bug.status == 'acknowledged' %}warning text-dark
+                                {% elif bug.status == 'in_progress' %}info
+                                {% elif bug.status == 'resolved' %}success
+                                {% else %}secondary
+                                {% endif %}">
+                                {{ bug.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4 pb-4 border-bottom">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>Reporter:</strong> 
+                                {% if bug.reporter %}
+                                    {{ bug.reporter.get_full_name|default:bug.reporter.username }}
+                                {% else %}
+                                    Anonymous
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>Reported:</strong> {{ bug.created_at|date:"M d, Y H:i" }}
+                            </small>
+                        </div>
+                        {% if bug.resolved_at %}
+                            <div class="col-12 mt-2">
+                                <small class="text-success">
+                                    <strong>Resolved:</strong> {{ bug.resolved_at|date:"M d, Y H:i" }}
+                                </small>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <h6 class="mb-3">Description</h6>
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            {{ bug.description|linebreaks }}
+                        </div>
+                    </div>
+                    
+                    {% if bug.page_url or bug.browser_info or bug.error_message %}
+                        <h6 class="mb-3">Technical Details</h6>
+                        <div class="card bg-light mb-4">
+                            <div class="card-body">
+                                {% if bug.page_url %}
+                                    <p class="mb-2">
+                                        <strong>Page URL:</strong><br>
+                                        <code>{{ bug.page_url }}</code>
+                                    </p>
+                                {% endif %}
+                                
+                                {% if bug.browser_info %}
+                                    <p class="mb-2">
+                                        <strong>Browser/Device:</strong><br>
+                                        <code>{{ bug.browser_info }}</code>
+                                    </p>
+                                {% endif %}
+                                
+                                {% if bug.error_message %}
+                                    <p class="mb-0">
+                                        <strong>Error Message:</strong><br>
+                                        <pre><code>{{ bug.error_message }}</code></pre>
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Quick Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Info</h6>
+                </div>
+                <div class="card-body small">
+                    <p class="mb-2">
+                        <strong>Bug ID:</strong><br>
+                        #{{ bug.id }}
+                    </p>
+                    <p class="mb-2">
+                        <strong>Created:</strong><br>
+                        {{ bug.created_at|date:"M d, Y H:i" }}
+                    </p>
+                    <p class="mb-2">
+                        <strong>Last Updated:</strong><br>
+                        {{ bug.updated_at|date:"M d, Y H:i" }}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Admin Section -->
+            {% if user.is_staff %}
+                <div class="card mb-4 border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="fas fa-tools"></i> Admin</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Update Status</strong></label>
+                            <select class="form-select form-select-sm" id="status-select">
+                                <option value="">-- Select Status --</option>
+                                {% for value, label in bug.STATUS_CHOICES %}
+                                    <option value="{{ value }}" {% if bug.status == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-sm btn-primary w-100 mt-2" id="update-status-btn">
+                                <i class="fas fa-save"></i> Update
+                            </button>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h6>Admin Notes</h6>
+                        <textarea id="note-input" class="form-control form-control-sm mb-2" 
+                                  rows="3" placeholder="Add internal notes..."></textarea>
+                        <button class="btn btn-sm btn-info w-100" id="add-note-btn">
+                            <i class="fas fa-plus"></i> Add Note
+                        </button>
+                        
+                        {% if bug.admin_notes %}
+                            <div class="mt-3">
+                                <h6>Notes History</h6>
+                                <div class="bg-light p-3" style="border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                                    <pre style="white-space: pre-wrap; word-break: break-word; margin: 0;">{{ bug.admin_notes }}</pre>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Back Button -->
+            <a href="{% url 'bug_list' %}" class="btn btn-outline-secondary w-100">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Update Status
+    document.getElementById('update-status-btn').addEventListener('click', function() {
+        const status = document.getElementById('status-select').value;
+        if (!status) {
+            alert('Please select a status');
+            return;
+        }
+        
+        fetch('{% url "update_bug_status" bug.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'status=' + status
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Status updated to: ' + data.new_status);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    });
+    
+    // Add Note
+    document.getElementById('add-note-btn').addEventListener('click', function() {
+        const note = document.getElementById('note-input').value;
+        if (!note.trim()) {
+            alert('Please enter a note');
+            return;
+        }
+        
+        fetch('{% url "add_bug_note" bug.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'note=' + encodeURIComponent(note)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Note added successfully');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

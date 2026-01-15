@@ -6,7 +6,18 @@ import string
 
 
 class League(models.Model):
+        # Multi-game week scoring method
     """Fantasy league that contains multiple teams"""
+    MULTIGAME_SCORING_CHOICES = [
+        ("highest", "Use highest single-game score (default)"),
+        ("average", "Use average of all games that week"),
+    ]
+    multigame_scoring = models.CharField(
+        max_length=10,
+        choices=MULTIGAME_SCORING_CHOICES,
+        default="highest",
+        help_text="If a player plays multiple games in a week, use their highest single-game score or the average of their games."
+    )
     name = models.CharField(max_length=100)
     unique_id = models.CharField(
         max_length=8,
@@ -34,9 +45,24 @@ class League(models.Model):
         help_text="Whether the league is publicly visible and joinable"
     )
     roster_size = models.PositiveSmallIntegerField(
-        default=12,
+        default=14,
         validators=[MinValueValidator(6), MaxValueValidator(20)],
         help_text="Maximum number of players per team"
+    )
+    roster_forwards = models.PositiveSmallIntegerField(
+        default=6,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of forward (O) roster spots"
+    )
+    roster_defense = models.PositiveSmallIntegerField(
+        default=6,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of defense (D) roster spots"
+    )
+    roster_goalies = models.PositiveSmallIntegerField(
+        default=2,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of goalie (G) roster spots"
     )
     playoff_weeks = models.PositiveSmallIntegerField(
         default=2,
@@ -94,19 +120,19 @@ class League(models.Model):
     
     # Goalie Scoring
     scoring_goalie_wins = models.DecimalField(
-        max_digits=5, decimal_places=2, default=5.00,
+        max_digits=5, decimal_places=2, default=4.00,
         help_text="Points per goalie win"
     )
     scoring_goalie_saves = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0.75,
+        max_digits=5, decimal_places=2, default=1.00,
         help_text="Points per save"
     )
     scoring_goalie_goals_against = models.DecimalField(
-        max_digits=5, decimal_places=2, default=-1.00,
+        max_digits=5, decimal_places=2, default=-1.25,
         help_text="Points per goal against (typically negative)"
     )
     scoring_goalie_goals = models.DecimalField(
-        max_digits=5, decimal_places=2, default=4.00,
+        max_digits=5, decimal_places=2, default=5.00,
         help_text="Points per goalie goal"
     )
     scoring_goalie_assists = models.DecimalField(
@@ -183,27 +209,28 @@ class Team(models.Model):
         league_season = self.league.created_at.year
         now = timezone.now().date()
         
-        # Find the week that contains today or is upcoming
-        current_week = Week.objects.filter(
+        # Find the next week that hasn't started yet (future weeks are editable)
+        next_week = Week.objects.filter(
             season=league_season,
-            start_date__lte=now
-        ).order_by('-week_number').first()
+            start_date__gt=now
+        ).order_by('week_number').first()
         
-        if not current_week:
-            # No week has started yet, allow changes
-            return True, "Season hasn't started", None
-        
-        if current_week.is_locked():
-            # Calculate unlock date
-            unlock_date = current_week.end_date
-            days_until_tuesday = (1 - unlock_date.weekday()) % 7
-            if days_until_tuesday == 0:
-                days_until_tuesday = 7
-            unlock_date = unlock_date + timezone.timedelta(days=days_until_tuesday)
+        if not next_week:
+            # No future weeks available - all weeks have started
+            # Find the most recent week for reference
+            most_recent = Week.objects.filter(
+                season=league_season,
+                start_date__lte=now
+            ).order_by('-week_number').first()
             
-            return False, f"Rosters locked until Tuesday, {unlock_date.strftime('%B %d')}", unlock_date
+            if most_recent:
+                next_week_num = most_recent.week_number + 1
+                return False, f"Season schedule complete. Roster changes for Week {next_week_num} not available.", None
+            else:
+                return False, "No weeks found for this season", None
         
-        return True, "Roster changes allowed", None
+        # There is a future week available for changes
+        return True, f"Rosters unlocked for Week {next_week.week_number}", None
 
 
 class Roster(models.Model):
@@ -300,6 +327,47 @@ class Player(models.Model):
         help_text="Unique ID from your source data (recommended for imports).",
     )
 
+    # Player biography fields
+    shoots = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Handedness (Right/Left) or throws/catches hand"
+    )
+    height = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Height (e.g., '6\\'2\\\"')"
+    )
+    weight = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Weight in pounds"
+    )
+    hometown = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Player's hometown"
+    )
+    draft_year = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Year player was drafted into NLL"
+    )
+    draft_team = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="NLL team that drafted the player"
+    )
+    birthdate = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Player's date of birth"
+    )
+
     active = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -343,6 +411,7 @@ class Week(models.Model):
         indexes = [
             models.Index(fields=["season", "week_number"]),
             models.Index(fields=["start_date", "end_date"]),
+            models.Index(fields=["season", "start_date"]),
         ]
         ordering = ["-season", "week_number"]
 
@@ -354,44 +423,45 @@ class Week(models.Model):
         Returns True if roster transactions are locked for this week.
         
         Lock rules:
-        - Locked from start_date at 5:00 PM (Friday) until Tuesday at 9:00 AM after end_date
-        - Unlocked on Tuesdays at 9 AM after games end, ready for next week's transactions
+        - A week is LOCKED once its start_date has arrived (games are/will be happening)
+        - A week is UNLOCKED only if its start_date is still in the future (hasn't started yet)
+        - Waivers and trades from a completed week are applied to the NEXT week's roster
         """
         from django.utils import timezone
-        from datetime import time
         
         now = timezone.now()
         
-        # Create datetime for start_date at 5:00 PM (Friday)
-        start_datetime = timezone.make_aware(
-            timezone.datetime.combine(self.start_date, time(17, 0))  # 5:00 PM
-        )
+        # If the week has started, it's locked (no roster changes allowed)
+        if self.start_date <= now.date():
+            return True
         
-        # If we're before the week starts, it's unlocked
-        if now < start_datetime:
-            return False
-        
-        # Calculate the Tuesday after the week ends (unlock day) at 9:00 AM
-        unlock_date = self.end_date
-        days_until_tuesday = (1 - unlock_date.weekday()) % 7  # Tuesday is weekday 1
-        if days_until_tuesday == 0:
-            days_until_tuesday = 7  # If end_date is Tuesday, wait until next Tuesday
-        unlock_date = unlock_date + timezone.timedelta(days=days_until_tuesday)
-        
-        # Create datetime for Tuesday at 9:00 AM in the current timezone
-        unlock_datetime = timezone.make_aware(
-            timezone.datetime.combine(unlock_date, time(9, 0))
-        )
-        
-        # Locked if we're between start and unlock datetime
-        return start_datetime <= now < unlock_datetime
+        # If the week hasn't started yet, it's unlocked (can make roster changes)
+        return False
 
 
-class PlayerWeekStat(models.Model):
-    player = models.ForeignKey(
-        Player, on_delete=models.CASCADE, related_name="weekly_stats"
-    )
-    week = models.ForeignKey(Week, on_delete=models.CASCADE, related_name="player_stats")
+
+# New Game model
+class Game(models.Model):
+    week = models.ForeignKey('Week', on_delete=models.CASCADE, related_name='games')
+    date = models.DateField()
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    location = models.CharField(max_length=100, blank=True)
+    nll_game_id = models.CharField(max_length=32, blank=True, null=True, help_text="External NLL game ID if available")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["date", "home_team", "away_team"]
+
+    def __str__(self):
+        return f"{self.date}: {self.home_team} vs {self.away_team}"
+
+
+# Updated PlayerWeekStat to PlayerGameStat
+class PlayerGameStat(models.Model):
+    player = models.ForeignKey('Player', on_delete=models.CASCADE, related_name="game_stats")
+    game = models.ForeignKey('Game', on_delete=models.CASCADE, related_name="player_stats")
 
     goals = models.PositiveSmallIntegerField(default=0)
     assists = models.PositiveSmallIntegerField(default=0)
@@ -407,25 +477,23 @@ class PlayerWeekStat(models.Model):
     saves = models.PositiveSmallIntegerField(default=0, help_text="Goalie saves")
     goals_against = models.PositiveSmallIntegerField(default=0, help_text="Goals allowed by goalie")
 
-    games_played = models.PositiveSmallIntegerField(default=1, help_text="Number of games played this week")
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["player", "week"], name="uniq_player_week_stat"
+                fields=["player", "game"], name="uniq_player_game_stat"
             ),
         ]
         indexes = [
-            models.Index(fields=["week", "player"]),
-            models.Index(fields=["player", "week"]),
+            models.Index(fields=["game", "player"]),
+            models.Index(fields=["player", "game"]),
         ]
-        ordering = ["week__season", "week__week_number", "player__last_name"]
+        ordering = ["game__date", "player__last_name"]
 
     def __str__(self) -> str:
-        return f"{self.player} - {self.week}"
+        return f"{self.player} - {self.game}"
 
 
 class ImportRun(models.Model):
@@ -886,3 +954,99 @@ class TradePlayer(models.Model):
     
     def __str__(self) -> str:
         return f"{self.player.get_full_name()} from {self.from_team.name}"
+
+
+class BugReport(models.Model):
+    """User-submitted bug reports for tracking and monitoring application issues"""
+    
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('acknowledged', 'Acknowledged'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('wontfix', 'Won\'t Fix'),
+    ]
+    
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+    
+    # User who reported the bug
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bug_reports'
+    )
+    
+    # Bug details
+    title = models.CharField(
+        max_length=200,
+        help_text="Brief summary of the issue"
+    )
+    description = models.TextField(
+        help_text="Detailed description of the bug, steps to reproduce, etc."
+    )
+    
+    # Severity and tracking
+    priority = models.CharField(
+        max_length=10,
+        choices=PRIORITY_CHOICES,
+        default='medium'
+    )
+    status = models.CharField(
+        max_length=15,
+        choices=STATUS_CHOICES,
+        default='new'
+    )
+    
+    # Context information
+    page_url = models.URLField(
+        blank=True,
+        help_text="URL where the bug occurred"
+    )
+    browser_info = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Browser and OS information"
+    )
+    error_message = models.TextField(
+        blank=True,
+        help_text="Any error messages displayed"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the bug was resolved"
+    )
+    
+    # Admin notes
+    admin_notes = models.TextField(
+        blank=True,
+        help_text="Internal notes from developers/admins"
+    )
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['priority', 'status']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"[{self.get_priority_display()}] {self.title}"
+    
+    def mark_resolved(self):
+        """Mark bug as resolved with timestamp"""
+        from django.utils import timezone
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.save()

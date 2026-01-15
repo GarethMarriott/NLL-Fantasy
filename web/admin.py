@@ -4,38 +4,15 @@ from django.urls import path
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from .models import Player, Week, PlayerWeekStat
+from .models import Player, Week, Game, PlayerGameStat
 from .models import ImportRun
-from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster, WaiverClaim, Draft, DraftPosition, DraftPick
+from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster, WaiverClaim, Draft, DraftPosition, DraftPick, BugReport
 from .forms import ImportWeeklyStatsForm, ImportTeamsForm
 from .importers import import_weekly_stats_csv, import_teams_csv
 from django.contrib import admin
 from .admin_site import FantasyAdminSite
 
 admin_site = FantasyAdminSite(name="fantasy_admin")
-
-class PlayerWeekStatInline(admin.TabularInline):
-    model = PlayerWeekStat
-    extra = 0
-    autocomplete_fields = ["week"]
-    fields = (
-        "week",
-        "goals",
-        "assists",
-        "points",
-        "loose_balls",
-        "turnovers",
-        "caused_turnovers",
-        "blocked_shots",
-        "games_played",
-        "wins",
-        "saves",
-        "goals_against",
-        "updated_at",
-    )
-    readonly_fields = ("updated_at",)
-    ordering = ("week__season", "week__week_number")
-
 
 
 @admin.register(Player, site=admin_site)
@@ -44,15 +21,16 @@ class PlayerAdmin(admin.ModelAdmin):
     list_filter = ("position", "active")
     search_fields = ("first_name", "last_name", "external_id")
     ordering = ("last_name", "first_name")
-    inlines = [PlayerWeekStatInline]
 
 
-class PlayerWeekStatWeekInline(admin.TabularInline):
-    model = PlayerWeekStat
+class PlayerGameStatInline(admin.TabularInline):
+    model = PlayerGameStat
     extra = 0
-    autocomplete_fields = ["player"]
-    fields = (
+@admin.register(PlayerGameStat, site=admin_site)
+class PlayerGameStatAdmin(admin.ModelAdmin):
+    list_display = (
         "player",
+        "game",
         "goals",
         "assists",
         "points",
@@ -60,14 +38,14 @@ class PlayerWeekStatWeekInline(admin.TabularInline):
         "turnovers",
         "caused_turnovers",
         "blocked_shots",
-        "games_played",
         "wins",
         "saves",
         "goals_against",
         "updated_at",
     )
-    readonly_fields = ("updated_at",)
-    ordering = ("player__last_name", "player__first_name")
+    search_fields = ("player__last_name", "player__first_name", "game__week__season", "game__week__week_number")
+    list_filter = ("game__week__season", "game__week__week_number", "player__position")
+    ordering = ("-game__week__season", "-game__week__week_number", "player__last_name")
 
 
 @admin.register(Week, site=admin_site)
@@ -76,32 +54,14 @@ class WeekAdmin(admin.ModelAdmin):
     list_filter = ("season",)
     search_fields = ("season", "week_number")
     ordering = ("-season", "week_number")
-    inlines = [PlayerWeekStatWeekInline]
 
 
-
-@admin.register(PlayerWeekStat, site=admin_site)
-class PlayerWeekStatAdmin(admin.ModelAdmin):
-    list_display = (
-        "player",
-        "week",
-        "goals",
-        "assists",
-        "points",
-        "loose_balls",
-        "turnovers",
-        "caused_turnovers",
-        "blocked_shots",
-        "games_played",
-        "wins",
-        "saves",
-        "goals_against",
-        "updated_at",
-    )
-    list_filter = ("week__season", "week__week_number", "player__position")
-    search_fields = ("player__first_name", "player__last_name", "player__external_id")
-    autocomplete_fields = ("player", "week")
-    ordering = ("-week__season", "-week__week_number", "player__last_name", "player__first_name")
+@admin.register(Game, site=admin_site)
+class GameAdmin(admin.ModelAdmin):
+    list_display = ("week", "date", "home_team", "away_team", "location")
+    list_filter = ("week__season", "date")
+    search_fields = ("home_team", "away_team", "location")
+    ordering = ("-date", "home_team")
 
 
 @admin.register(ImportRun, site=admin_site)
@@ -361,8 +321,33 @@ class LeagueAdmin(admin.ModelAdmin):
     list_display = ("name", "commissioner", "team_count", "max_teams", "is_active", "created_at")
     list_filter = ("is_active", "created_at")
     search_fields = ("name", "commissioner__username")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "unique_id")
     ordering = ("-created_at",)
+    
+    fieldsets = (
+        ("Basic Info", {
+            'fields': ('name', 'commissioner', 'description', 'unique_id', 'is_public', 'is_active')
+        }),
+        ("Team Settings", {
+            'fields': ('max_teams', 'roster_size')
+        }),
+        ("Playoff Settings", {
+            'fields': ('playoff_weeks', 'playoff_teams', 'playoff_reseed')
+        }),
+        ("Scoring Settings", {
+            'fields': ('scoring_goals', 'scoring_assists', 'scoring_loose_balls', 'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers', 'scoring_goalie_wins', 'scoring_goalie_saves', 'scoring_goalie_goals_against', 'scoring_goalie_goals', 'scoring_goalie_assists')
+        }),
+        ("Multi-Game Week Scoring", {
+            'fields': ('multigame_scoring',)
+        }),
+        ("Waiver Settings", {
+            'fields': ('use_waivers',)
+        }),
+        ("Timestamps", {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
     
     def team_count(self, obj):
         return obj.teams.count()
@@ -458,3 +443,28 @@ class DraftPickAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('draft', 'team', 'player')
+
+
+@admin.register(BugReport, site=admin_site)
+class BugReportAdmin(admin.ModelAdmin):
+    list_display = ("title", "status", "priority", "reporter", "created_at")
+    list_filter = ("status", "priority", "created_at")
+    search_fields = ("title", "description", "page_url", "reporter__username")
+    readonly_fields = ("created_at", "updated_at", "browser_info", "error_message")
+    fieldsets = (
+        ("Report Details", {
+            "fields": ("title", "description", "priority", "status", "reporter", "page_url")
+        }),
+        ("Technical Information", {
+            "fields": ("browser_info", "error_message"),
+            "classes": ("collapse",)
+        }),
+        ("Admin Notes", {
+            "fields": ("admin_notes",)
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        }),
+    )
+    ordering = ("-created_at",)

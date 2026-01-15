@@ -21,6 +21,14 @@
     </p>
 
     <form method="post" class="space-y-6">
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+              <label class="block text-sm font-medium mb-2">Multi-Game Week Scoring</label>
+              {{ form.multigame_scoring }}
+              <p class="text-xs text-gray-500 mt-1">If a player plays multiple games in a week, use their highest single-game score (default) or the average of their games.</p>
+              {% if form.multigame_scoring.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ form.multigame_scoring.errors.0 }}</p>
+              {% endif %}
+            </div>
       {% csrf_token %}
       
       {# General Settings #}
@@ -69,10 +77,50 @@
               <p class="text-red-500 text-xs mt-1">{{ form.playoff_teams.errors.0 }}</p>
             {% endif %}
           </div>
+        </div>
 
-          <div>
-            <label class="block text-sm font-medium mb-2">Playoff Weeks</label>
-            {% if form.initial.playoff_teams|stringformat:'s' == '6' %}
+        <div class="mt-6 pt-6 border-t border-gray-200">
+          <h4 class="text-sm font-semibold mb-4 text-gray-800">Roster Spot Allocation</h4>
+          <p class="text-xs text-gray-600 mb-4">Distribute the {{ form.instance.roster_size|default:14 }} total roster spots by position</p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Forwards (O)</label>
+              {{ form.roster_forwards }}
+              {% if form.roster_forwards.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ form.roster_forwards.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-2">Defense (D)</label>
+              {{ form.roster_defense }}
+              {% if form.roster_defense.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ form.roster_defense.errors.0 }}</p>
+              {% endif %}
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-2">Goalies (G)</label>
+              {{ form.roster_goalies }}
+              {% if form.roster_goalies.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ form.roster_goalies.errors.0 }}</p>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p class="text-xs text-blue-700">
+              <span class="font-semibold">Total:</span> 
+              <span id="rosterTotal">{{ form.instance.roster_forwards|default:6 }}+{{ form.instance.roster_defense|default:6 }}+{{ form.instance.roster_goalies|default:2 }}</span> = 
+              <span id="rosterSum">{{ form.instance.roster_forwards|add:form.instance.roster_defense|add:form.instance.roster_goalies|default:14 }}</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <label class="block text-sm font-medium mb-2">Playoff Weeks</label>
+          {% if form.initial.playoff_teams|stringformat:'s' == '6' %}
               <span class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">3</span>
               <p class="text-xs text-gray-500 mt-1">(3 weeks for 6-team playoff: QF, SF, Final)</p>
             {% elif form.initial.playoff_teams|stringformat:'s' == '4' %}
@@ -82,7 +130,6 @@
               <span class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">Set by system</span>
             {% endif %}
           </div>
-        </div>
 
         <div class="mt-4">
           <label class="block text-sm font-medium mb-2">6-Team Playoff Semifinal Matchup</label>
@@ -231,6 +278,57 @@
       </div>
     </form>
   </div>
+  
+  <script>
+    function updateRosterTotal() {
+      const forwards = parseInt(document.querySelector('input[name="roster_forwards"]').value) || 0;
+      const defense = parseInt(document.querySelector('input[name="roster_defense"]').value) || 0;
+      const goalies = parseInt(document.querySelector('input[name="roster_goalies"]').value) || 0;
+      const total = forwards + defense + goalies;
+      
+      document.getElementById('rosterTotal').textContent = forwards + '+' + defense + '+' + goalies;
+      document.getElementById('rosterSum').textContent = total;
+      
+      // Update color based on match with roster_size
+      const rosterSize = parseInt(document.querySelector('input[name="roster_size"]').value) || 12;
+      const statusDiv = document.querySelector('#rosterSum').closest('.bg-blue-50');
+      
+      if (statusDiv) {
+        if (total === rosterSize) {
+          statusDiv.classList.remove('bg-yellow-50', 'border-yellow-200');
+          statusDiv.classList.add('bg-green-50', 'border-green-200');
+          statusDiv.querySelector('p').classList.remove('text-yellow-700');
+          statusDiv.querySelector('p').classList.add('text-green-700');
+        } else {
+          statusDiv.classList.remove('bg-green-50', 'border-green-200');
+          statusDiv.classList.add('bg-yellow-50', 'border-yellow-200');
+          statusDiv.querySelector('p').classList.remove('text-green-700');
+          statusDiv.querySelector('p').classList.add('text-yellow-700');
+        }
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      const forwardsInput = document.querySelector('input[name="roster_forwards"]');
+      const defenseInput = document.querySelector('input[name="roster_defense"]');
+      const goaliesInput = document.querySelector('input[name="roster_goalies"]');
+      
+      if (forwardsInput) {
+        forwardsInput.addEventListener('change', updateRosterTotal);
+        forwardsInput.addEventListener('input', updateRosterTotal);
+      }
+      if (defenseInput) {
+        defenseInput.addEventListener('change', updateRosterTotal);
+        defenseInput.addEventListener('input', updateRosterTotal);
+      }
+      if (goaliesInput) {
+        goaliesInput.addEventListener('change', updateRosterTotal);
+        goaliesInput.addEventListener('input', updateRosterTotal);
+      }
+      
+      updateRosterTotal();
+    });
+  </script>
   
   {% if not is_commissioner %}
   <script>
