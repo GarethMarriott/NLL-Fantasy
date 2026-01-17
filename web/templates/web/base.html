@@ -20,18 +20,18 @@
         </button>
         
         <div class="flex items-center justify-center pl-12 lg:pl-0">
-        <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}text-gray-800 dark:text-gray-200 border-b-2 border-blue-500{% else %}border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">{% if user_has_league %}team{% else %}home{% endif %}</a>
+        <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">{% if user_has_league %}team{% else %}home{% endif %}</a>
         
-        <a href="{% url 'players' %}" class="{% if request.resolver_match.url_name == 'players' %}text-gray-800 dark:text-gray-200 border-b-2 border-blue-500{% else %}border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">players</a>
+        <a href="{% url 'players' %}" class="{% if request.resolver_match.url_name == 'players' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">players</a>
         
         {% if user_has_league %}
-          <a href="{% url 'matchups' %}" class="{% if request.resolver_match.url_name == 'matchups' %}text-gray-800 dark:text-gray-200 border-b-2 border-blue-500{% else %}border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">matchups</a>
+          <a href="{% url 'matchups' %}" class="{% if request.resolver_match.url_name == 'matchups' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">matchups</a>
           
-          <a href="{% url 'standings' %}" class="{% if request.resolver_match.url_name == 'standings' %}text-gray-800 dark:text-gray-200 border-b-2 border-blue-500{% else %}border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">standings</a>
+          <a href="{% url 'standings' %}" class="{% if request.resolver_match.url_name == 'standings' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">standings</a>
         {% endif %}
         
         {% if not user.is_authenticated %}
-          <a href="{% url 'login' %}" class="{% if request.resolver_match.url_name == 'login' %}text-gray-800 dark:text-gray-200 border-b-2 border-blue-500{% else %}border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">login</a>
+          <a href="{% url 'login' %}" class="{% if request.resolver_match.url_name == 'login' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">login</a>
         {% endif %}
         </div>
       </div>
