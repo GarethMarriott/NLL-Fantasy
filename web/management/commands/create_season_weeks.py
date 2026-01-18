@@ -67,9 +67,10 @@ class Command(BaseCommand):
             friday = week_start + timedelta(days=4)  # Friday is 4 days after Monday
             lock_time_pt = pt.localize(datetime.combine(friday, datetime.min.time().replace(hour=17, minute=0)))
             
-            # Monday of NEXT week at 9am PT (roster unlock)
-            next_monday = week_start + timedelta(days=7)
-            unlock_time_pt = pt.localize(datetime.combine(next_monday, datetime.min.time().replace(hour=9, minute=0)))
+            # Monday of current week at 9am PT (roster unlock)
+            # Since weeks are Friday-Saturday, Monday of that week is 3 days later
+            monday_of_this_week = week_start + timedelta(days=3)
+            unlock_time_pt = pt.localize(datetime.combine(monday_of_this_week, datetime.min.time().replace(hour=9, minute=0)))
             unlock_time_utc = unlock_time_pt.astimezone(pytz.UTC)
             
             # Create week first if it doesn't exist

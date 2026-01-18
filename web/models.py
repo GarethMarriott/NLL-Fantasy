@@ -402,7 +402,7 @@ class Week(models.Model):
     )
     roster_unlock_time = models.DateTimeField(
         null=True, blank=True,
-        help_text="When rosters unlock (Monday 9am PT - only unlocked until first game)"
+        help_text="When rosters unlock (Monday 9am PT of same week - only unlocked until first game)"
     )
     
     is_playoff = models.BooleanField(
