@@ -12,8 +12,10 @@ import json
 import io
 import zipfile
 from datetime import datetime, timedelta
+import pytz
 from django.core.management.base import BaseCommand
 from django.db import transaction, models
+from django.utils.timezone import make_aware
 from web.models import Player, Week, Game, PlayerGameStat, Team
 
 
@@ -584,6 +586,9 @@ class Command(BaseCommand):
         
         # Create or update weeks from schedule
         if not dry_run:
+            pt_tz = pytz.timezone('US/Pacific')
+            now = datetime.now(pt_tz)
+            
             for week_number in sorted(schedule_by_week.keys()):
                 week_data = schedule_by_week[week_number]
                 game_dates = week_data['dates']
@@ -597,6 +602,23 @@ class Command(BaseCommand):
                     start_date = datetime(season_filter, 1, 1).date()
                     end_date = start_date + timedelta(days=6)
                 
+                # Calculate lock/unlock times
+                # Lock time: first game of the week at 7 PM PT (or if game has time, use that)
+                lock_time_pt = None
+                if game_dates:
+                    # Use 7 PM PT as lock time on the first game day
+                    first_game_day = min(game_dates)
+                    lock_time_pt = pt_tz.localize(datetime.combine(first_game_day, datetime.min.time())).replace(hour=19, minute=0)
+                
+                # Unlock time: next Monday at 9 AM PT (universal for all weeks)
+                # Calculate the next Monday from today
+                today = now.date()
+                days_until_monday = (7 - today.weekday()) % 7  # 0=Mon, 6=Sun
+                if days_until_monday == 0:  # Today is Monday
+                    days_until_monday = 7  # Next Monday
+                next_monday = today + timedelta(days=days_until_monday)
+                unlock_time_pt = pt_tz.localize(datetime.combine(next_monday, datetime.min.time())).replace(hour=9, minute=0)
+                
                 # Get or create week
                 week, created = Week.objects.get_or_create(
                     season=season_filter,
@@ -604,9 +626,18 @@ class Command(BaseCommand):
                     defaults={
                         'start_date': start_date,
                         'end_date': end_date,
-                        'is_playoff': is_playoff
+                        'is_playoff': is_playoff,
+                        'roster_lock_time': lock_time_pt,
+                        'roster_unlock_time': unlock_time_pt
                     }
                 )
+                
+                # Update lock/unlock times if they were None
+                if not created and (week.roster_lock_time is None or week.roster_unlock_time is None):
+                    week.roster_lock_time = lock_time_pt
+                    week.roster_unlock_time = unlock_time_pt
+                    week.save()
+                    self.stdout.write(f'  * Updated Week {week_number} lock times')
                 
                 if created:
                     playoff_str = " (PLAYOFF)" if is_playoff else ""
