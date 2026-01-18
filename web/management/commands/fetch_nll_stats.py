@@ -13,7 +13,7 @@ import io
 import zipfile
 from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import transaction, models
 from web.models import Player, Week, Game, PlayerGameStat, Team
 
 
@@ -63,7 +63,7 @@ class Command(BaseCommand):
 
             # Read the necessary JSON files
             data = {}
-            required_files = ['games.json', 'player_seasons.json', 'players.json', 'teams.json', 'game_scoring.json', 'jerseynumbers.json']
+            required_files = ['games.json', 'player_seasons.json', 'players.json', 'teams.json', 'game_scoring.json', 'jerseynumbers.json', 'schedule.json']
             
             for filename in zip_file.namelist():
                 if filename in required_files:
@@ -82,8 +82,14 @@ class Command(BaseCommand):
             # Process the stats
             stats_result = self.process_stats(data, season, week_filter, dry_run)
             
+            # Process schedule (upcoming games)
+            schedule_result = self.process_schedule(data, season, week_filter, dry_run)
+            
             self.stdout.write(self.style.SUCCESS(
-                f'\nCompleted! Created: {stats_result["created"]}, Updated: {stats_result["updated"]}, Skipped: {stats_result["skipped"]}'
+                f'\nStats - Created: {stats_result["created"]}, Updated: {stats_result["updated"]}, Skipped: {stats_result["skipped"]}'
+            ))
+            self.stdout.write(self.style.SUCCESS(
+                f'Schedule - Created: {schedule_result["created"]}, Updated: {schedule_result["updated"]}'
             ))
 
         except requests.RequestException as e:
@@ -526,4 +532,158 @@ class Command(BaseCommand):
                     last_name__iexact=last_name
                 ).first()
 
+    def process_schedule(self, data, season_filter, week_filter, dry_run):
+        """Process schedule.json to create future game entries"""
+        games_created = 0
+        games_updated = 0
+        
+        schedule_data = data.get('schedule', [])
+        
+        if not schedule_data:
+            self.stdout.write(self.style.WARNING('No schedule data found'))
+            return {'created': 0, 'updated': 0}
+        
+        self.stdout.write(f'\nProcessing {len(schedule_data)} scheduled games from {season_filter} season...')
+        
+        # Group schedule by week
+        schedule_by_week = {}
+        for game in schedule_data:
+            if game.get('season') != season_filter:
+                continue
+            
+            week_number = game.get('week', 1)
+            is_playoff = game.get('playoffs', False)
+            
+            # Offset playoff week numbers to match the main games processing
+            if is_playoff:
+                # First, find max regular week from existing weeks
+                max_regular_week = Week.objects.filter(
+                    season=season_filter,
+                    is_playoff=False
+                ).aggregate(models.Max('week_number'))['week_number__max'] or 0
+                week_number = max_regular_week + week_number
+            
+            if week_number not in schedule_by_week:
+                schedule_by_week[week_number] = []
+            schedule_by_week[week_number].append(game)
+        
+        # Create or update weeks from schedule
+        if not dry_run:
+            for week_number, week_games in schedule_by_week.items():
+                # Parse game dates to find start and end of week
+                game_dates = []
+                is_playoff_week = False
+                
+                for game in week_games:
+                    date_str = game.get('date') or game.get('dt')
+                    if date_str:
+                        try:
+                            # Try different date formats
+                            for fmt in ('%b %d, %Y', '%Y-%m-%d', '%m/%d/%Y'):
+                                try:
+                                    game_date = datetime.strptime(date_str, fmt).date()
+                                    game_dates.append(game_date)
+                                    break
+                                except ValueError:
+                                    continue
+                        except Exception:
+                            pass
+                    
+                    if game.get('playoffs') == True:
+                        is_playoff_week = True
+                
+                if game_dates:
+                    start_date = min(game_dates)
+                    end_date = max(game_dates)
+                else:
+                    # Fallback if no dates found
+                    start_date = datetime(season_filter, 1, 1).date()
+                    end_date = start_date + timedelta(days=7)
+                
+                # Get or create week
+                week, created = Week.objects.get_or_create(
+                    season=season_filter,
+                    week_number=week_number,
+                    defaults={
+                        'start_date': start_date,
+                        'end_date': end_date,
+                        'is_playoff': is_playoff_week
+                    }
+                )
+                
+                if created:
+                    self.stdout.write(f'  + Created Week {week_number}: {start_date} to {end_date}')
+        
+        # Create or update games from schedule
+        for game in schedule_data:
+            if game.get('season') != season_filter:
+                continue
+            
+            week_number = game.get('week', 1)
+            is_playoff = game.get('playoffs', False)
+            
+            # Apply same offset to playoff weeks
+            if is_playoff:
+                max_regular_week = Week.objects.filter(
+                    season=season_filter,
+                    is_playoff=False
+                ).aggregate(models.Max('week_number'))['week_number__max'] or 0
+                week_number = max_regular_week + week_number
+            
+            # Skip if filtering by week
+            if week_filter and week_number != week_filter:
+                continue
+            
+            game_id = game.get('id')
+            date_str = game.get('date') or game.get('dt')
+            home_team = game.get('home', 'TBA')
+            away_team = game.get('away', 'TBA')
+            
+            if not dry_run:
+                # Get week
+                try:
+                    week = Week.objects.get(season=season_filter, week_number=week_number)
+                except Week.DoesNotExist:
+                    continue
+                
+                # Parse game date
+                try:
+                    game_date = None
+                    for fmt in ('%b %d, %Y', '%Y-%m-%d', '%m/%d/%Y'):
+                        try:
+                            game_date = datetime.strptime(date_str, fmt).date()
+                            break
+                        except ValueError:
+                            continue
+                    if not game_date:
+                        game_date = week.start_date
+                except (ValueError, TypeError):
+                    game_date = week.start_date
+                
+                # Create or update game
+                game_obj, created = Game.objects.update_or_create(
+                    week=week,
+                    nll_game_id=str(game_id) if game_id else None,
+                    defaults={
+                        'date': game_date,
+                        'home_team': home_team,
+                        'away_team': away_team,
+                    }
+                )
+                
+                if created:
+                    games_created += 1
+                    self.stdout.write(f'  + Created game: {away_team} @ {home_team} on {game_date}')
+                else:
+                    # Only count as updated if something actually changed
+                    if (game_obj.date != game_date or 
+                        game_obj.home_team != home_team or 
+                        game_obj.away_team != away_team):
+                        games_updated += 1
+                        self.stdout.write(f'  ~ Updated game: {away_team} @ {home_team} on {game_date}')
+            else:
+                games_created += 1
+                self.stdout.write(f'  [DRY RUN] Would create game: {away_team} @ {home_team}')
+        
+        return {'created': games_created, 'updated': games_updated}
 
