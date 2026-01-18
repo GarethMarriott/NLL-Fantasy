@@ -3,7 +3,8 @@ from .views import (
     home, about, players, player_detail_modal, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
-    submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft
+    submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft,
+    nll_schedule
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
@@ -24,6 +25,7 @@ urlpatterns = [
     path("players/", players, name="players"),
     path("players/<int:player_id>/modal/", player_detail_modal, name="player_detail_modal"),
     path("schedule/", schedule, name="schedule"),
+    path("nll-schedule/", nll_schedule, name="nll_schedule"),
     path("matchups/", matchups, name="matchups"),
     path("standings/", standings, name="standings"),
     

@@ -220,8 +220,8 @@ def archive_old_leagues():
 @shared_task(name='lock_rosters_for_current_week')
 def lock_rosters_for_current_week():
     """
-    Lock rosters for the current week (Friday 5pm PT).
-    Called automatically at Friday 5pm PT via Celery Beat schedule.
+    Lock rosters for the current week (at first game time).
+    Called automatically when rosters lock time arrives via Celery Beat schedule.
     Rosters remain locked until Monday 9am PT.
     """
     from web.models import Week
@@ -370,3 +370,30 @@ def update_current_week_for_season(season):
     
     except Exception as e:
         logger.error(f"Error updating current week for season {season}: {str(e)}")
+
+
+@shared_task
+def fetch_nll_stats_task():
+    """
+    Fetch NLL player stats for the current season.
+    
+    Called by Celery Beat every Friday, Saturday, and Sunday at 11 PM PT
+    to capture stats from recently completed games.
+    """
+    from django.core.management import call_command
+    
+    try:
+        # Get current season (year)
+        current_year = timezone.now().year
+        
+        logger.info(f"Starting NLL stats fetch for season {current_year}")
+        
+        # Call the fetch_nll_stats management command
+        call_command('fetch_nll_stats', current_year)
+        
+        logger.info(f"Successfully fetched NLL stats for season {current_year}")
+        
+    except Exception as e:
+        logger.error(f"Error fetching NLL stats: {str(e)}")
+        raise
+

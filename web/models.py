@@ -394,15 +394,15 @@ class Week(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     
-    # Roster lock/unlock times (Pacific Time)
-    # Rosters lock Friday 5pm PT, unlock Monday 9am PT
+    # Roster lock/unlock times
+    # Rosters lock permanently at first game time, unlock only during Mon 9am to first game window
     roster_lock_time = models.DateTimeField(
         null=True, blank=True,
-        help_text="When rosters lock (typically Friday 5pm PT)"
+        help_text="When rosters PERMANENTLY lock (time of first game - locked forever after this)"
     )
     roster_unlock_time = models.DateTimeField(
         null=True, blank=True,
-        help_text="When rosters unlock (typically Monday 9am PT)"
+        help_text="When rosters unlock (Monday 9am PT - only unlocked until first game)"
     )
     
     is_playoff = models.BooleanField(
@@ -434,9 +434,10 @@ class Week(models.Model):
         Returns True if roster transactions are locked for this week.
         
         Lock rules:
-        - A week is LOCKED between roster_lock_time (Fri 5pm PT) and roster_unlock_time (Mon 9am PT)
-        - A week is UNLOCKED between roster_unlock_time (Mon 9am PT) and roster_lock_time (Fri 5pm PT)
-        - Waivers and trades execute during unlock windows
+        - A week is PERMANENTLY LOCKED once its roster_lock_time (first game) passes
+        - A week is UNLOCKED only between roster_unlock_time (Mon 9am PT) and its roster_lock_time (first game)
+        - Once a week's lock_time passes, it never unlocks (completed/in-progress weeks stay locked)
+        - Only the upcoming week can be edited during its unlock window
         """
         from django.utils import timezone
         
@@ -448,12 +449,16 @@ class Week(models.Model):
                 return True
             return False
         
-        # Week is locked if we're between lock_time and unlock_time
-        if self.roster_lock_time <= now <= self.roster_unlock_time:
+        # Once a week's lock_time passes (first game happens), it stays locked permanently
+        if now >= self.roster_lock_time:
             return True
         
-        # Week is unlocked if we're between unlock_time and next lock_time
-        return False
+        # Before lock_time: week is unlocked only during the unlock window (Mon 9am to first game)
+        if self.roster_unlock_time <= now < self.roster_lock_time:
+            return False
+        
+        # Before unlock_time: week is locked (future week hasn't opened yet)
+        return True
 
 
 

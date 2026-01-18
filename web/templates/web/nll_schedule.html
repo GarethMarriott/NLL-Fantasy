@@ -1,0 +1,108 @@
+{% extends "web/base.html" %}
+{% block title %}NLL Schedule — NLL Fantasy{% endblock %}
+{% block content %}
+<div class="container mx-auto p-6">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-4xl font-bold">NLL Schedule</h1>
+    
+    {% if available_seasons %}
+    <div class="flex items-center gap-2">
+      <label for="season-select" class="text-sm font-semibold">Season:</label>
+      <select id="season-select" class="px-3 py-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+        {% for s in available_seasons %}
+          <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if schedule_weeks %}
+    <div class="space-y-6">
+      {% for week in schedule_weeks %}
+        <div class="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+          <!-- Week Header -->
+          <div class="bg-blue-50 dark:bg-blue-900 p-4 border-b border-gray-300 dark:border-gray-600">
+            <h2 class="text-2xl font-bold text-blue-900 dark:text-blue-100">
+              Week {{ week.week_number }}
+              {% if week.is_playoff %}
+                <span class="text-sm font-semibold text-red-600 dark:text-red-400 ml-2">(PLAYOFFS)</span>
+              {% endif %}
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+              {{ week.start_date|date:"M d, Y" }} — {{ week.end_date|date:"M d, Y" }}
+            </p>
+          </div>
+
+          <!-- Games Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="bg-gray-100 dark:bg-gray-800">
+                  <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Matchup</th>
+                  <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 w-24">Date</th>
+                  <th class="px-6 py-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 w-24">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for game in week.games %}
+                  <tr class="bg-white dark:bg-gray-800">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center justify-between">
+                        <span class="font-semibold text-black dark:text-white text-right flex-1">
+                          {{ game.away_team }}
+                        </span>
+                        <span class="mx-3 text-gray-500 dark:text-gray-400">@</span>
+                        <span class="font-semibold text-black dark:text-white flex-1">
+                          {{ game.home_team }}
+                        </span>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-400">
+                      {% if game.date %}
+                        {{ game.date|date:"M d" }}
+                      {% else %}
+                        TBA
+                      {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      {% if game.is_completed %}
+                        <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          Final
+                        </span>
+                      {% else %}
+                        <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                          Upcoming
+                        </span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="3" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      No games scheduled for this week
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
+      <p class="text-yellow-800 dark:text-yellow-200">
+        No schedule data available. Run <code class="bg-yellow-100 dark:bg-yellow-800 px-2 py-1 rounded">python manage.py fetch_nll_stats --season {{ season }}</code> to import the schedule.
+      </p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  document.getElementById('season-select')?.addEventListener('change', function(e) {
+    const season = e.target.value;
+    window.location.href = `{% url 'nll_schedule' %}?season=${season}`;
+  });
+</script>
+{% endblock %}

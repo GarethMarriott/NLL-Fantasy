@@ -5,6 +5,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.db import models
+from django.db.models import Q
+import pytz
 
 from .models import Player, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
 from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm
@@ -159,6 +161,7 @@ def team_detail(request, team_id):
     all_weeks_for_season = Week.objects.filter(season=league_season).order_by('week_number')
     
     current_date = timezone.now().date()
+    current_time = timezone.now()
     
     # Get the first week that hasn't started yet (start_date is in the future)
     # This is the only week where roster changes are allowed
@@ -170,8 +173,25 @@ def team_detail(request, team_id):
     
     # Determine default week to display
     if current_week:
-        # Show the next unlocked week for roster changes
-        default_week_num = current_week.week_number
+        # Check if it's Monday 9am PT or later - if so, switch to upcoming week
+        # to give users time to make roster changes before games start
+        try:
+            pt = pytz.timezone('US/Pacific')
+            current_time_pt = current_time.astimezone(pt)
+            is_monday_after_9am = (current_time_pt.weekday() == 0 and current_time_pt.hour >= 9)
+            
+            if is_monday_after_9am:
+                # Try to get next week
+                next_week = Week.objects.filter(
+                    season=league_season,
+                    week_number__gt=current_week.week_number
+                ).order_by('week_number').first()
+                default_week_num = next_week.week_number if next_week else current_week.week_number
+            else:
+                default_week_num = current_week.week_number
+        except Exception:
+            # Fallback if timezone conversion fails
+            default_week_num = current_week.week_number
     else:
         # No future weeks - this shouldn't happen during the season
         # Fall back to the most recent week
@@ -292,7 +312,57 @@ def team_detail(request, team_id):
             if pts is not None:
                 total_points += pts
 
-        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None}
+        # Get opponent for the selected week
+        opponent = "BYE"
+        if p.nll_team:
+            # Map team names to team IDs
+            team_name_to_id = {
+                "Vancouver Warriors": "867",
+                "San Diego Seals": "868",
+                "Colorado Mammoth": "870",
+                "Calgary Roughnecks": "874",
+                "Saskatchewan Rush": "879",
+                "Philadelphia Wings": "880",
+                "Buffalo Bandits": "888",
+                "Georgia Swarm": "890",
+                "Panther City Lacrosse Club": "910",
+                "Toronto Rock": "896",
+                "Halifax Thunderbirds": "912",
+                "Chesapeake Bayhawks": "915",
+                "New York Riptide": "917",
+                "Vermont Venom": "918",
+            }
+            player_team_id = team_name_to_id.get(p.nll_team)
+            if player_team_id:
+                # Find the game for this week
+                game = Game.objects.filter(
+                    week__week_number=selected_week_num,
+                    week__season=league_season
+                ).filter(
+                    Q(home_team=player_team_id) | Q(away_team=player_team_id)
+                ).first()
+                if game:
+                    # Map IDs back to team names
+                    team_id_to_name = {
+                        "867": "Vancouver Warriors",
+                        "868": "San Diego Seals",
+                        "870": "Colorado Mammoth",
+                        "874": "Calgary Roughnecks",
+                        "879": "Saskatchewan Rush",
+                        "880": "Philadelphia Wings",
+                        "888": "Buffalo Bandits",
+                        "890": "Georgia Swarm",
+                        "910": "Panther City Lacrosse Club",
+                        "896": "Toronto Rock",
+                        "912": "Halifax Thunderbirds",
+                        "915": "Chesapeake Bayhawks",
+                        "917": "New York Riptide",
+                        "918": "Vermont Venom",
+                    }
+                    opponent = f"{team_id_to_name.get(game.home_team, game.home_team)} @ {team_id_to_name.get(game.away_team, game.away_team)}"
+        
+        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
+
         pos = getattr(p, "position", None)
         side = getattr(p, "assigned_side", None)
         target = side or ("O" if pos == "T" else pos)
@@ -435,6 +505,7 @@ def team_detail(request, team_id):
             "goalie_slots": goalie_slots,
             "week_range": [selected_week_num],  # Only show selected week
             "selected_week": selected_week_num,
+            "selected_week_obj": selected_week_obj,
             "available_weeks": available_weeks,
             "current_week": current_week.week_number if current_week else 1,
             "selected_week_total": selected_week_total,
@@ -762,6 +833,60 @@ def move_transition_player(request, team_id):
     return redirect("team_detail", team_id=team.id)
 
 
+def get_player_upcoming_schedule(player, num_weeks=10):
+    """
+    Get the upcoming schedule for a player.
+    
+    Returns a list of tuples (week_number, game_count, nll_team_list) for upcoming weeks.
+    If a player has no games that week, game_count will be 0 (bye week).
+    """
+    from django.utils import timezone
+    
+    today = timezone.now().date()
+    schedule = []
+    
+    try:
+        # Get upcoming weeks
+        weeks = Week.objects.filter(
+            start_date__gte=today
+        ).order_by('week_number')[:num_weeks]
+        
+        for week in weeks:
+            # Get games for this week where the player's NLL team plays
+            if player.nll_team:
+                games = Game.objects.filter(
+                    Q(week=week) &
+                    (Q(home_team=player.nll_team) | Q(away_team=player.nll_team))
+                )
+                game_count = games.count()
+                
+                # Collect opponent teams
+                opponent_teams = set()
+                for game in games:
+                    if game.home_team == player.nll_team:
+                        opponent_teams.add(game.away_team)
+                    else:
+                        opponent_teams.add(game.home_team)
+                
+                schedule.append({
+                    'week_number': week.week_number,
+                    'game_count': game_count,
+                    'opponents': list(opponent_teams) if opponent_teams else []
+                })
+            else:
+                # Player has no NLL team assigned
+                schedule.append({
+                    'week_number': week.week_number,
+                    'game_count': 0,
+                    'opponents': []
+                })
+    except Exception:
+        # If there's any error, return empty schedule
+        pass
+    
+    return schedule
+
+
 @login_required
 def trade_center(request, team_id):
     """Show trade center with other teams and their players"""
@@ -797,6 +922,14 @@ def trade_center(request, team_id):
         team=team,
         week_dropped__isnull=True
     ).select_related('player')
+    
+    # Add schedule data to each player in all rosters
+    for roster_entry in user_roster:
+        roster_entry.player.upcoming_schedule = get_player_upcoming_schedule(roster_entry.player, num_weeks=5)
+    
+    for other_team in other_teams:
+        for roster_entry in other_team.roster_entries.all():
+            roster_entry.player.upcoming_schedule = get_player_upcoming_schedule(roster_entry.player, num_weeks=5)
     
     context = {
         'team': team,
@@ -1503,6 +1636,34 @@ def player_detail_modal(request, player_id):
     except Player.DoesNotExist:
         return JsonResponse({'error': 'Player not found'}, status=404)
     
+    # NLL team name to ID mapping - based on actual games in the database
+    # Updated to match player team names with their game IDs
+    team_name_to_id = {
+        "Vancouver Warriors": "867",
+        "San Diego Seals": "868",
+        "Colorado Mammoth": "870",
+        "Calgary Roughnecks": "874",
+        "Saskatchewan Rush": "879",
+        "Philadelphia Wings": "880",
+        "Buffalo Bandits": "888",
+        "Georgia Swarm": "890",
+        "Panther City Lacrosse Club": "910",
+        "Toronto Rock": "896",
+        "Halifax Thunderbirds": "912",
+        "Chesapeake Bayhawks": "915",
+        "Ottawa Black Bears": "917",
+        "Vermont Venom": "918",
+        # Teams without games in current schedule (these won't have upcoming weeks)
+        "Albany FireWolves": "899",
+        "Las Vegas Desert Dogs": None,
+        "Oshawa FireWolves": None,
+        "New York Riptide": None,
+        "Rochester Knighthawks": None,
+    }
+    
+    # Reverse mapping for ID to name (only for teams that have games)
+    team_id_to_name = {v: k for k, v in team_name_to_id.items() if v is not None}
+    
     # Get player's game stats grouped by week
     from django.db.models import Sum
     
@@ -1589,6 +1750,40 @@ def player_detail_modal(request, player_id):
         }
         week_stats.append(agg_stat)
     
+    # Add upcoming weeks (no stats yet)
+    today = timezone.now().date()
+    upcoming_weeks = Week.objects.filter(
+        start_date__gte=today,
+        season=2026
+    ).order_by('week_number')
+    
+    # Get player's team ID
+    player_team_id = team_name_to_id.get(player.nll_team, None)
+    
+    for week in upcoming_weeks:
+        week_key = f"Week {week.week_number} (S{week.season})"
+        # Check if this week already has stats
+        if not any(ws['week'] == week_key for ws in week_stats):
+            # Get upcoming games for this player's team
+            upcoming_games = []
+            if player_team_id:
+                games = Game.objects.filter(
+                    Q(week=week) &
+                    (Q(home_team=player_team_id) | Q(away_team=player_team_id))
+                )
+                upcoming_games = [{
+                    'date': game.date.strftime('%Y-%m-%d'),
+                    'opponent': f"{team_id_to_name.get(game.home_team, game.home_team)} vs {team_id_to_name.get(game.away_team, game.away_team)}",
+                } for game in games]
+            
+            agg_stat = {
+                'week': week_key,
+                'games_count': len(upcoming_games),
+                'is_upcoming': True,
+                'games': upcoming_games
+            }
+            week_stats.append(agg_stat)
+    
     # Build response data
     data = {
         'player': {
@@ -1607,6 +1802,140 @@ def player_detail_modal(request, player_id):
     }
     
     return JsonResponse(data)
+
+
+def nll_schedule(request):
+    """Display all NLL weeks and games (both completed and upcoming)"""
+    season = request.GET.get('season', 2026)
+    
+    try:
+        season = int(season)
+    except (ValueError, TypeError):
+        season = 2026
+    
+    # NLL team ID to name mapping
+    nll_teams = {
+        867: "Vancouver Warriors",
+        868: "San Diego Seals",
+        869: "Vancouver Ravens",
+        870: "Colorado Mammoth",
+        871: "Arizona Sting",
+        872: "Anaheim Storm",
+        873: "Ottawa Rebel",
+        874: "Calgary Roughnecks",
+        875: "Montreal Express",
+        876: "New Jersey Storm",
+        877: "San Jose Stealth",
+        878: "Minnesota Swarm",
+        879: "Saskatchewan Rush",
+        880: "Philadelphia Wings",
+        881: "New Jersey Saints",
+        882: "Baltimore Thunder",
+        883: "Washington Wave",
+        884: "Detroit Turbos",
+        885: "Philadelphia Wings[1]",
+        886: "New England Blazers",
+        887: "New York Saints",
+        888: "Buffalo Bandits",
+        889: "Pittsburgh Bulls",
+        890: "Georgia Swarm",
+        891: "New England Black Wolves",
+        892: "Rochester Knighthawks[1]",
+        893: "Boston Blazers",
+        894: "Ontario Raiders",
+        895: "Charlotte Cobras",
+        896: "Toronto Rock",
+        897: "Syracuse Smash",
+        898: "Pittsburgh Crossefire",
+        899: "Albany Attack",
+        900: "Columbus Landsharks",
+        901: "Washington Power",
+        902: "Portland Lumberjax",
+        903: "Edmonton Rush",
+        904: "Vancouver Stealth",
+        905: "Boston Blazers[1]",
+        906: "Washington Stealth",
+        907: "Orlando Titans",
+        908: "New York Titans",
+        909: "Chicago Shamrox",
+        910: "Rochester Knighthawks",
+        911: "New York Riptide",
+        912: "Halifax Thunderbirds",
+        913: "Panther City Lacrosse Club",
+        914: "Albany FireWolves",
+        915: "Las Vegas Desert Dogs",
+        917: "Ottawa Black Bears",
+        918: "Oshawa FireWolves",
+    }
+    
+    # Get all weeks for this season, ordered by week number
+    weeks = Week.objects.filter(season=season).prefetch_related('games').order_by('week_number')
+    
+    if not weeks.exists():
+        return render(request, "web/nll_schedule.html", {
+            "schedule_weeks": [],
+            "season": season,
+            "available_seasons": []
+        })
+    
+    # Build schedule data
+    schedule_weeks = []
+    for week in weeks:
+        games = week.games.all().order_by('date')
+        
+        week_games = []
+        for game in games:
+            home_name = game.home_team
+            away_name = game.away_team
+            
+            # Try to convert team IDs to names
+            if game.home_team and game.away_team:
+                try:
+                    home_id = int(game.home_team)
+                    home_name = nll_teams.get(home_id, game.home_team)
+                except (ValueError, TypeError):
+                    pass
+                
+                try:
+                    away_id = int(game.away_team)
+                    away_name = nll_teams.get(away_id, game.away_team)
+                except (ValueError, TypeError):
+                    pass
+            
+            game_dict = {
+                "id": game.id,
+                "date": game.date,
+                "home_team": home_name,
+                "away_team": away_name,
+                "nll_game_id": game.nll_game_id,
+                # Check if game has stats (completed) vs upcoming
+                "is_completed": game.player_stats.exists()
+            }
+            week_games.append(game_dict)
+        
+        week_data = {
+            "week_number": week.week_number,
+            "start_date": week.start_date,
+            "end_date": week.end_date,
+            "is_playoff": week.is_playoff,
+            "games": week_games
+        }
+        schedule_weeks.append(week_data)
+    
+    # Get available seasons from database
+    available_seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
+    
+    # DEBUG: Log the first game's team data
+    if schedule_weeks and schedule_weeks[0]['games']:
+        first_game = schedule_weeks[0]['games'][0]
+        import sys
+        print(f"DEBUG: First game - away: {repr(first_game['away_team'])}, home: {repr(first_game['home_team'])}", file=sys.stderr)
+    
+    return render(request, "web/nll_schedule.html", {
+        "schedule_weeks": schedule_weeks,
+        "season": season,
+        "available_seasons": available_seasons
+    })
 
 
 def schedule(request):

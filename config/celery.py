@@ -23,6 +23,18 @@ app.conf.beat_schedule = {
         'task': 'web.tasks.unlock_rosters_and_process_transactions',
         'schedule': crontab(day_of_week='mon', hour=16, minute=0),  # Monday 9am PT = Monday 4pm UTC (since PT is UTC-7/8)
     },
+    'fetch-stats-friday-night': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='fri', hour=6, minute=0),  # Friday 11 PM PT = Saturday 6 AM UTC
+    },
+    'fetch-stats-saturday-night': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='sat', hour=6, minute=0),  # Saturday 11 PM PT = Sunday 6 AM UTC
+    },
+    'fetch-stats-sunday-night': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='sun', hour=6, minute=0),  # Sunday 11 PM PT = Monday 6 AM UTC
+    },
     'process-waivers-daily': {
         'task': 'web.tasks.process_waivers',
         'schedule': crontab(hour=23, minute=0),  # Every day at 11 PM
