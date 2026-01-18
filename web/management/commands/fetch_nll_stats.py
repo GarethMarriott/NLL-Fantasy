@@ -656,9 +656,19 @@ class Command(BaseCommand):
                 continue
             
             game_id = game.get('id')
+            if not game_id:
+                continue
+                
             date_str = game.get('date') or game.get('dt')
             home_team = game.get('home', 'TBA')
             away_team = game.get('away', 'TBA')
+            
+            # Create a unique key to avoid duplicates
+            game_key = str(game_id)
+            
+            if game_key in seen_games:
+                continue
+            seen_games.add(game_key)
             
             # Parse game date
             game_date = None
@@ -679,13 +689,6 @@ class Command(BaseCommand):
             except (ValueError, TypeError, AttributeError):
                 pass
             
-            # Create a unique key to avoid duplicates
-            game_key = (week_number, home_team, away_team, str(game_date))
-            
-            if game_key in seen_games:
-                continue
-            seen_games.add(game_key)
-            
             if not dry_run:
                 # Get week
                 try:
@@ -697,14 +700,14 @@ class Command(BaseCommand):
                 if not game_date:
                     game_date = week.start_date
                 
-                # Create or update game
+                # Create or update game using nll_game_id as primary key
                 game_obj, created = Game.objects.update_or_create(
-                    week=week,
-                    home_team=home_team,
-                    away_team=away_team,
-                    date=game_date,
+                    nll_game_id=str(game_id),
                     defaults={
-                        'nll_game_id': str(game_id) if game_id else None,
+                        'week': week,
+                        'home_team': home_team,
+                        'away_team': away_team,
+                        'date': game_date,
                     }
                 )
                 
