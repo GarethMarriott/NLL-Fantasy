@@ -2844,9 +2844,9 @@ def submit_waiver_claim(request, team_id):
     )
     
     if drop_player:
-        messages.success(request, f"Waiver claim submitted: {player.first_name} {player.last_name} (dropping {drop_player.first_name} {drop_player.last_name}). Will process on Tuesday 9 AM.")
+        messages.success(request, f"Waiver claim submitted: {player.first_name} {player.last_name} (dropping {drop_player.first_name} {drop_player.last_name}). Will process on Monday 9 AM.")
     else:
-        messages.success(request, f"Waiver claim submitted: {player.first_name} {player.last_name}. Will process on Tuesday 9 AM.")
+        messages.success(request, f"Waiver claim submitted: {player.first_name} {player.last_name}. Will process on Monday 9 AM.")
     
     return redirect('players')
 

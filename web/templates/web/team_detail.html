@@ -106,7 +106,7 @@
                   </svg>
                   Pending Waivers ({{ pending_waiver_claims|length }})
                 </h4>
-                <p class="text-xs text-yellow-800 mb-3">These claims will process on Tuesday at 9 AM based on waiver priority.</p>
+                <p class="text-xs text-yellow-800 mb-3">These claims will process on Monday at 9 AM based on waiver priority.</p>
                 <div class="space-y-2">
                   {% for claim in pending_waiver_claims %}
                     <div class="bg-white rounded-md p-3 border border-yellow-200">
@@ -715,7 +715,7 @@
         return;
       }
       
-      showConfirmModal('Submit a waiver claim for this player? The claim will process on Tuesday at 9 AM.', function() {
+      showConfirmModal('Submit a waiver claim for this player? The claim will process on Monday at 9 AM.', function() {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/teams/{{ team.id }}/waiver-claim/';
