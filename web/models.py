@@ -475,6 +475,16 @@ class Game(models.Model):
 
     class Meta:
         ordering = ["date", "home_team", "away_team"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['date', 'home_team', 'away_team'],
+                name='unique_game_per_date'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['date', 'week']),
+            models.Index(fields=['nll_game_id']),
+        ]
 
     def __str__(self):
         return f"{self.date}: {self.home_team} vs {self.away_team}"

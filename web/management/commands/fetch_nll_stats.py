@@ -701,14 +701,15 @@ class Command(BaseCommand):
                 if not game_date:
                     game_date = week.start_date
                 
-                # Create or update game using nll_game_id as primary key
+                # Create or update game using date/home/away as primary key (more reliable than nll_game_id)
+                # This prevents duplicate games even if the API returns the same game with different IDs
                 game_obj, created = Game.objects.update_or_create(
-                    nll_game_id=str(game_id),
+                    date=game_date,
+                    home_team=home_team,
+                    away_team=away_team,
                     defaults={
                         'week': week,
-                        'home_team': home_team,
-                        'away_team': away_team,
-                        'date': game_date,
+                        'nll_game_id': str(game_id) if game_id else None,
                     }
                 )
                 
@@ -717,6 +718,10 @@ class Command(BaseCommand):
                     self.stdout.write(f'  + Created game: {away_team} @ {home_team} on {game_date}')
                 else:
                     games_updated += 1
+                    # Update nll_game_id if it wasn't set
+                    if not game_obj.nll_game_id and game_id:
+                        game_obj.nll_game_id = str(game_id)
+                        game_obj.save()
             else:
                 games_created += 1
                 self.stdout.write(f'  [DRY RUN] Would create game: {away_team} @ {home_team} on {game_date}')
