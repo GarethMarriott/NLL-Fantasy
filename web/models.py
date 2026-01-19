@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 import secrets
 import string
+import pytz
 
 
 class League(models.Model):
@@ -195,9 +196,11 @@ class Team(models.Model):
             return f"{self.name} ({self.league.name})"
         return self.name
     
-    def can_make_roster_changes(self):
+    def can_make_roster_changes(self, week=None):
         """
         Check if this team can currently make roster changes.
+        If week is provided, checks if that specific week is unlocked.
+        If week is not provided, finds the next unlocked week.
         Returns (can_change: bool, message: str, locked_until: date or None)
         """
         from django.utils import timezone
@@ -205,32 +208,29 @@ class Team(models.Model):
         if not self.league:
             return True, "No league restrictions", None
         
-        # Get the current week for this league's season
         league_season = self.league.created_at.year
-        now = timezone.now().date()
         
-        # Find the next week that hasn't started yet (future weeks are editable)
-        next_week = Week.objects.filter(
-            season=league_season,
-            start_date__gt=now
-        ).order_by('week_number').first()
-        
-        if not next_week:
-            # No future weeks available - all weeks have started
-            # Find the most recent week for reference
-            most_recent = Week.objects.filter(
-                season=league_season,
-                start_date__lte=now
-            ).order_by('-week_number').first()
-            
-            if most_recent:
-                next_week_num = most_recent.week_number + 1
-                return False, f"Season schedule complete. Roster changes for Week {next_week_num} not available.", None
+        # If a specific week was provided, check if it's locked
+        if week:
+            if week.is_locked():
+                lock_time = week.roster_lock_time
+                if lock_time:
+                    lock_time_pt = lock_time.astimezone(pytz.timezone('US/Pacific'))
+                    return False, f"Week {week.week_number} is locked until after {lock_time_pt.strftime('%b %d at %I:%M %p %Z')}", None
+                else:
+                    return False, f"Week {week.week_number} is locked", None
             else:
-                return False, "No weeks found for this season", None
+                return True, f"Week {week.week_number} is unlocked", None
         
-        # There is a future week available for changes
-        return True, f"Rosters unlocked for Week {next_week.week_number}", None
+        # No specific week provided - find the next unlocked week
+        all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
+        
+        for w in all_weeks:
+            if not w.is_locked():
+                return True, f"Rosters unlocked for Week {w.week_number}", None
+        
+        # No unlocked weeks found
+        return False, "All weeks are currently locked", None
 
 
 class Roster(models.Model):

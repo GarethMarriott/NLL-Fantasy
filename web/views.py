@@ -539,8 +539,24 @@ def assign_player(request, team_id):
         messages.error(request, "You don't have permission to modify this team.")
         return redirect("team_detail", team_id=team.id)
     
-    # Check if roster changes are allowed
-    can_change, message, locked_until = team.can_make_roster_changes()
+    # Check if roster changes are allowed - find the next unlocked week
+    league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
+    
+    # Find the next unlocked week based on lock/unlock times
+    next_unlocked_week = None
+    all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
+    for w in all_weeks:
+        if not w.is_locked():
+            next_unlocked_week = w
+            break
+    
+    if not next_unlocked_week:
+        # No unlocked weeks available
+        messages.error(request, "All weeks are currently locked. No roster changes allowed.")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Verify changes are allowed for this week
+    can_change, message, locked_until = team.can_make_roster_changes(next_unlocked_week)
     if not can_change:
         messages.error(request, f"Roster changes not allowed: {message}")
         return redirect("team_detail", team_id=team.id)
@@ -555,25 +571,7 @@ def assign_player(request, team_id):
     except Player.DoesNotExist:
         return redirect("team_detail", team_id=team.id)
 
-    # Determine week number for roster changes - should be the next unlocked week
-    # This is the only week where roster changes are allowed
-    league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
-    current_date = timezone.now().date()
-    
-    next_unlocked_week = Week.objects.filter(
-        season=league_season,
-        start_date__gt=current_date
-    ).order_by('week_number').first()
-    
-    if next_unlocked_week:
-        next_week_number = next_unlocked_week.week_number
-    else:
-        # No future weeks - fall back to most recent week
-        most_recent = Week.objects.filter(
-            season=league_season,
-            start_date__lte=current_date
-        ).order_by('-week_number').first()
-        next_week_number = most_recent.week_number + 1 if most_recent else 1
+    next_week_number = next_unlocked_week.week_number
 
     slot_group = request.POST.get("slot_group")
     
