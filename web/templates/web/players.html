@@ -734,6 +734,26 @@
           } else {
             container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';
           }
+          
+          // Show modal
+          document.getElementById('playerModal').classList.remove('hidden');
+          document.getElementById('playerModal').classList.add('flex');
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Failed to load player details');
+        });
+    }
+
+    function closePlayerModal(event) {
+      if (event && event.target.id === 'playerModal') {
+        document.getElementById('playerModal').classList.add('hidden');
+        document.getElementById('playerModal').classList.remove('flex');
+      } else if (!event) {
+        document.getElementById('playerModal').classList.add('hidden');
+        document.getElementById('playerModal').classList.remove('flex');
+      }
+    }
   </script>
   {% endif %}
 {% endblock %}
