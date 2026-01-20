@@ -549,6 +549,7 @@
   </script>
 
   <!-- Player Detail Modal -->
+  <!-- Player Detail Modal -->
   <div id="playerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 overflow-y-auto" onclick="closePlayerModal(event)">
     <div class="bg-white rounded-lg overflow-hidden max-w-2xl w-full mx-4 my-8" onclick="event.stopPropagation()">
       <!-- Header with position color -->
@@ -558,20 +559,40 @@
       </div>
       
       <div class="p-6">
+        <!-- NLL Team & Schedule Section (Prominent for mobile) -->
+        <div class="mb-6 pb-6 border-b border-gray-300">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span class="font-semibold text-gray-600 block text-sm">NLL Team:</span>
+              <div id="playerNLLTeam" class="text-lg font-semibold">-</div>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-600 block text-sm">Position:</span>
+              <div id="playerPosition" class="text-lg font-semibold">-</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Stats Summary Section -->
+        <div class="mb-6 pb-6 border-b border-gray-300">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span class="font-semibold text-gray-600 block text-sm">Total Points:</span>
+              <div id="playerTotalPoints" class="text-lg font-semibold text-blue-600">-</div>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-600 block text-sm">Points Per Game:</span>
+              <div id="playerPointsPerGame" class="text-lg font-semibold text-blue-600">-</div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Player Bio Section -->
         <div id="playerBioSection" class="mb-6 pb-6 border-b border-gray-300">
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 text-sm">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             <div>
               <span class="font-semibold text-gray-600">Number:</span>
               <div id="playerNumber">-</div>
-            </div>
-            <div>
-              <span class="font-semibold text-gray-600">Position:</span>
-              <div id="playerPosition">-</div>
-            </div>
-            <div>
-              <span class="font-semibold text-gray-600">NLL Team:</span>
-              <div id="playerNLLTeam">-</div>
             </div>
             <div>
               <span class="font-semibold text-gray-600">Shoots:</span>
@@ -590,27 +611,19 @@
               <div id="playerHometown">-</div>
             </div>
             <div>
-              <span class="font-semibold text-gray-600">Draft Year:</span>
-              <div id="playerDraftYear">-</div>
-            </div>
-            <div>
               <span class="font-semibold text-gray-600">Birthdate:</span>
               <div id="playerBirthdate">-</div>
             </div>
+            <div>
+              <span class="font-semibold text-gray-600">Draft Year:</span>
+              <div id="playerDraftYear">-</div>
+            </div>
           </div>
         </div>
         
-        <!-- Upcoming Schedule Section -->
-        <div id="scheduleSection" class="mb-6 pb-6 border-b border-gray-300">
-          <h3 class="text-lg font-semibold mb-3">Upcoming Schedule</h3>
-          <div id="scheduleContainer" class="space-y-2">
-            <!-- Will be populated by JavaScript -->
-          </div>
-        </div>
-        
-        <!-- Stats by Week Section -->
+        <!-- Stats & Schedule Section -->
         <div id="statsSection">
-          <h3 class="text-lg font-semibold mb-4">Stats by Week</h3>
+          <h3 class="text-lg font-semibold mb-4">Stats & Schedule</h3>
           <div id="weekStatsContainer" class="space-y-4 max-h-96 overflow-y-auto">
             <!-- Will be populated by JavaScript -->
           </div>
@@ -621,18 +634,13 @@
 
   <script>
     function getPositionColor(position) {
-      switch(position) {
-        case 'O':
-          return 'bg-green-100 text-green-800';
-        case 'D':
-          return 'bg-orange-100 text-orange-800';
-        case 'G':
-          return 'bg-blue-100 text-blue-800';
-        case 'T':
-          return 'bg-purple-100 text-purple-800';
-        default:
-          return 'bg-gray-100 text-gray-800';
-      }
+      const colors = {
+        'O': 'bg-green-300',
+        'D': 'bg-orange-300',
+        'T': 'bg-purple-300',
+        'G': 'bg-blue-300'
+      };
+      return colors[position] || 'bg-gray-300';
     }
 
     function showPlayerModal(playerId, playerName) {
@@ -655,16 +663,22 @@
           document.getElementById('playerDraftYear').textContent = data.player.draft_year || '-';
           document.getElementById('playerBirthdate').textContent = data.player.birthdate || '-';
           
+          // Populate stats summary
+          const totalPoints = data.player.total_fantasy_points || 0;
+          const gamesPlayed = data.player.games_played || 0;
+          const pointsPerGame = gamesPlayed > 0 ? (totalPoints / gamesPlayed).toFixed(2) : 0;
+          
+          document.getElementById('playerTotalPoints').textContent = totalPoints;
+          document.getElementById('playerPointsPerGame').textContent = pointsPerGame;
+          
           // Apply position color to header
           const positionLetter = data.player.position ? data.player.position.charAt(0).toUpperCase() : '';
           const headerElement = document.getElementById('playerModalHeader');
           headerElement.className = `${getPositionColor(positionLetter)} px-6 py-4 flex justify-between items-center`;
           
-          // Populate week stats (including upcoming weeks)
+          // Populate week stats and upcoming schedule
           const container = document.getElementById('weekStatsContainer');
-          const scheduleContainer = document.getElementById('scheduleContainer');
           container.innerHTML = '';
-          scheduleContainer.innerHTML = '';
           
           if (data.week_stats && data.week_stats.length > 0) {
             data.week_stats.forEach(week => {
@@ -689,7 +703,6 @@
                   scheduleHTML += '</div>';
                 }
                 weekDiv.innerHTML = scheduleHTML;
-                scheduleContainer.appendChild(weekDiv);
               } else {
                 // Past week - show stats
                 let statsHTML = `<div class="flex justify-between items-center mb-2"><h4 class="font-semibold text-gray-800">${week.week} (${week.games_count} game${week.games_count !== 1 ? 's' : ''})</h4><span class="text-lg font-bold text-blue-600">${week.fantasy_points} pts</span></div>`;
@@ -715,8 +728,8 @@
                 
                 statsHTML += '</div>';
                 weekDiv.innerHTML = statsHTML;
-                container.appendChild(weekDiv);
               }
+              container.appendChild(weekDiv);
             });
           } else {
             container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';
@@ -731,7 +744,7 @@
           alert('Failed to load player details');
         });
     }
-    
+
     function closePlayerModal(event) {
       if (event && event.target.id === 'playerModal') {
         document.getElementById('playerModal').classList.add('hidden');
