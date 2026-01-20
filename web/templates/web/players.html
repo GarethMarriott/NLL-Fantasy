@@ -551,7 +551,7 @@
   <!-- Player Detail Modal -->
   <!-- Player Detail Modal -->
   <div id="playerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 overflow-y-auto" onclick="closePlayerModal(event)">
-    <div class="bg-white rounded-lg overflow-hidden max-w-2xl w-full mx-4 my-8" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-lg overflow-hidden max-w-lg w-full mx-4 my-8" onclick="event.stopPropagation()">
       <!-- Header with position color -->
       <div id="playerModalHeader" class="bg-gray-100 px-6 py-4 flex justify-between items-center">
         <h2 class="text-2xl font-semibold" id="playerModalTitle"></h2>
@@ -663,9 +663,17 @@
           document.getElementById('playerDraftYear').textContent = data.player.draft_year || '-';
           document.getElementById('playerBirthdate').textContent = data.player.birthdate || '-';
           
-          // Populate stats summary
-          const totalPoints = data.player.total_fantasy_points || 0;
-          const gamesPlayed = data.player.games_played || 0;
+          // Calculate stats summary from week_stats
+          let totalPoints = 0;
+          let gamesPlayed = 0;
+          if (data.week_stats && data.week_stats.length > 0) {
+            data.week_stats.forEach(week => {
+              if (!week.is_upcoming) {
+                totalPoints += week.fantasy_points || 0;
+                gamesPlayed += week.games_count || 0;
+              }
+            });
+          }
           const pointsPerGame = gamesPlayed > 0 ? (totalPoints / gamesPlayed).toFixed(2) : 0;
           
           document.getElementById('playerTotalPoints').textContent = totalPoints;
