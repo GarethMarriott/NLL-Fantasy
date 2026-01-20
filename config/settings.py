@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_extensions',
     'silk',
+    'django_celery_beat',
     "web",
 ]
 

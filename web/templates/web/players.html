@@ -662,7 +662,9 @@
           
           // Populate week stats (including upcoming weeks)
           const container = document.getElementById('weekStatsContainer');
+          const scheduleContainer = document.getElementById('scheduleContainer');
           container.innerHTML = '';
+          scheduleContainer.innerHTML = '';
           
           if (data.week_stats && data.week_stats.length > 0) {
             data.week_stats.forEach(week => {
@@ -687,6 +689,7 @@
                   scheduleHTML += '</div>';
                 }
                 weekDiv.innerHTML = scheduleHTML;
+                scheduleContainer.appendChild(weekDiv);
               } else {
                 // Past week - show stats
                 let statsHTML = `<div class="flex justify-between items-center mb-2"><h4 class="font-semibold text-gray-800">${week.week} (${week.games_count} game${week.games_count !== 1 ? 's' : ''})</h4><span class="text-lg font-bold text-blue-600">${week.fantasy_points} pts</span></div>`;
@@ -712,8 +715,8 @@
                 
                 statsHTML += '</div>';
                 weekDiv.innerHTML = statsHTML;
+                container.appendChild(weekDiv);
               }
-              container.appendChild(weekDiv);
             });
           } else {
             container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';

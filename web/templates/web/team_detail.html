@@ -299,81 +299,89 @@
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                         {% if slot.player.position == 'T' %}<span class="inline-block px-1 py-0.5 ml-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">T</span>{% endif %}
                       </div>
-                      {% if slot.player.nll_team %}<div class="text-xs text-gray-600">{{ slot.player.nll_team }}</div>{% endif %}
+                      {% if slot.player.nll_team %}<div class="text-gray-600"><span class="sm:hidden text-sm" style="font-weight: 700;">{{ slot.player.nll_team|team_abbr }}</span><span class="hidden sm:inline text-xs"><strong>{{ slot.player.nll_team }}</strong></span></div>{% endif %}
+                      <div class="text-xs text-gray-500 lg:hidden">{{ slot.opponent|opponent_abbr }}</div>
                     </div>
                     {% if user_owns_team %}
-                    <div class="flex gap-1">
-                      {% if slot.player.position == 'T' %}
-                      <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                        <input type="hidden" name="target_side" value="D">
-                        <button type="submit"
-                                {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-orange-500 hover:bg-orange-600{% endif %} rounded-md text-white shadow-sm"
-                                title="Move to Defense">
-                          D→
-                        </button>
-                      </form>
-                      <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                        <input type="hidden" name="target_side" value="G">
-                        <button type="submit"
-                                {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 hover:bg-blue-600{% endif %} rounded-md text-white shadow-sm"
-                                title="Move to Goalie">
-                          G→
-                        </button>
-                      </form>
-                      {% endif %}
+                    <div class="flex flex-col gap-1">
                       <form method="post" action="{% url 'assign_player' team.id %}" class="inline flex-shrink-0">
                         {% csrf_token %}
                         <input type="hidden" name="player_id" value="{{ slot.player.id }}">
                         <input type="hidden" name="action" value="drop">
-                        <button type="submit"
+                        <button type="button"
                                 {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
+                                onclick="{% if not roster_status or roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
+                                class="px-2 py-1 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 w-full">
                           <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                           </svg>
                           <span class="font-semibold hidden sm:inline">Drop</span>
                         </button>
                       </form>
+                      {% if slot.player.position == 'T' %}
+                      <div class="flex gap-1">
+                        <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline flex-1">
+                          {% csrf_token %}
+                          <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                          <input type="hidden" name="target_side" value="D">
+                          <button type="submit"
+                                  {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                                  class="px-2 py-1 text-xs w-full {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-orange-500 hover:bg-orange-600{% endif %} rounded-md text-white shadow-sm"
+                                  title="Move to Defense">
+                            D→
+                          </button>
+                        </form>
+                        <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline flex-1">
+                          {% csrf_token %}
+                          <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                          <input type="hidden" name="target_side" value="G">
+                          <button type="submit"
+                                  {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                                  class="px-2 py-1 text-xs w-full {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 hover:bg-blue-600{% endif %} rounded-md text-white shadow-sm"
+                                  title="Move to Goalie">
+                            G→
+                          </button>
+                        </form>
+                      </div>
+                      {% endif %}
                     </div>
                     {% endif %}
               </div>
             </td>
-            <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent }}</td>
+            <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{% if slot.selected_week_counts %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}{{ slot.selected_week_points }}{% endif %}{% else %}-{% endif %}</td>
           {% else %}
             <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">—</td>
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
               {% if user_owns_team %}
-              <div class="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div class="flex flex-col max-w-[200px] sm:max-w-none gap-1 sm:gap-2 md:gap-3">
                 {% if roster_status and not roster_status.0 and use_waivers and not is_viewing_past_week %}
                   {# Roster locked but waivers enabled #}
                   {% csrf_token %}
-                  <select id="offense-select" class="w-full text-xs sm:text-sm md:text-base">
-                    <option value="">Select…</option>
-                    {% for p in players_for_select %}
-                      <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
-                    {% endfor %}
-                  </select>
-                  <button type="button"
-                          onclick="submitWaiverClaim(document.getElementById('offense-select').value, 'O')"
-                          class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
-                    <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span class="font-semibold hidden sm:inline">Waiver</span>
-                  </button>
+                  <input type="text" id="offense-waiver-search" placeholder="Search…" oninput="filterPlayerSelect('offense-waiver-search', 'offense-waiver-select')" class="w-full text-xs sm:text-sm px-1.5 sm:px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                  <div class="flex items-center gap-1 sm:gap-2 md:gap-3 w-full">
+                    <select id="offense-waiver-select" class="flex-1 text-xs sm:text-sm md:text-base min-w-0">
+                      <option value="">Select…</option>
+                      {% for p in players_for_select %}
+                        <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="button"
+                            onclick="submitWaiverClaim(document.getElementById('offense-waiver-select').value, 'O')"
+                            class="px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-0.5 sm:gap-2 min-w-[36px] sm:min-w-[96px]">
+                      <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span class="font-semibold hidden sm:inline">Waiver</span>
+                    </button>
+                  </div>
                 {% else %}
                   {# Normal add form #}
+                  <input type="text" id="offense-search" placeholder="Search…" oninput="filterPlayerSelect('offense-search', 'offense-select')" class="w-full text-xs sm:text-sm px-1.5 sm:px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                   <form method="post" action="{% url 'assign_player' team.id %}" class="flex items-center gap-1 sm:gap-2 md:gap-3 w-full">
                     {% csrf_token %}
                     <input type="hidden" name="slot_group" value="O">
-                    <select name="player_id" class="w-full text-xs sm:text-sm md:text-base" {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}>
+                    <select id="offense-select" name="player_id" class="flex-1 text-xs sm:text-sm md:text-base min-w-0" {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}>
                       <option value="">Select…</option>
                       {% for p in players_for_select %}
                         <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
@@ -382,7 +390,7 @@
                     <input type="hidden" name="action" value="add">
                     <button type="submit"
                             {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
+                            class="px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-0.5 sm:gap-2 min-w-[36px] sm:min-w-[96px]">
                       <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                       </svg>
@@ -412,83 +420,90 @@
               <div class="flex items-center justify-between gap-1 sm:gap-2 md:gap-3">
                 <div class="text-left min-w-0 max-w-[100px] sm:max-w-none">
                   <div class="font-semibold truncate">
-                    {{ slot.player.last_name }}, {{ slot.player.first_name }}
+                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                     {% if slot.player.position == 'T' %}<span class="inline-block px-1 py-0.5 ml-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">T</span>{% endif %}
                   </div>
-                  {% if slot.player.nll_team %}<div class="text-xs text-gray-600">{{ slot.player.nll_team }}</div>{% endif %}
+                  {% if slot.player.nll_team %}<div class="text-gray-600"><span class="sm:hidden text-sm" style="font-weight: 700;">{{ slot.player.nll_team|team_abbr }}</span><span class="hidden sm:inline text-xs"><strong>{{ slot.player.nll_team }}</strong></span></div>{% endif %}
+                  <div class="text-xs text-gray-500 lg:hidden">{{ slot.opponent|opponent_abbr }}</div>
                 </div>
                 {% if user_owns_team %}
-                <div class="flex gap-1">
-                  {% if slot.player.position == 'T' %}
-                  <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                    <input type="hidden" name="target_side" value="O">
-                    <button type="submit"
-                            {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-green-500 hover:bg-green-600{% endif %} rounded-md text-white shadow-sm"
-                            title="Move to Offense">
-                      O→
-                    </button>
-                  </form>
-                  <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                    <input type="hidden" name="target_side" value="G">
-                    <button type="submit"
-                            {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 hover:bg-blue-600{% endif %} rounded-md text-white shadow-sm"
-                            title="Move to Goalie">
-                      G→
-                    </button>
-                  </form>
-                  {% endif %}
+                <div class="flex flex-col gap-1">
                   <form method="post" action="{% url 'assign_player' team.id %}" class="inline flex-shrink-0">
                     {% csrf_token %}
                     <input type="hidden" name="player_id" value="{{ slot.player.id }}">
                     <input type="hidden" name="action" value="drop">
-                    <button type="submit"
+                    <button type="button"
                             {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
+                            onclick="{% if not roster_status or roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
+                            class="px-2 py-1 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 w-full">
                       <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                     </svg>
-                    <span class="font-semibold hidden sm:inline">Drop</span>
-                  </button>
-                </form>
+                      <span class="font-semibold hidden sm:inline">Drop</span>
+                    </button>
+                  </form>
+                  {% if slot.player.position == 'T' %}
+                  <div class="flex gap-1">
+                    <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline flex-1">
+                      {% csrf_token %}
+                      <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                      <input type="hidden" name="target_side" value="O">
+                      <button type="submit"
+                              {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                              class="px-2 py-1 text-xs w-full {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-green-500 hover:bg-green-600{% endif %} rounded-md text-white shadow-sm"
+                              title="Move to Offense">
+                        O→
+                      </button>
+                    </form>
+                    <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline flex-1">
+                      {% csrf_token %}
+                      <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                      <input type="hidden" name="target_side" value="G">
+                      <button type="submit"
+                              {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                              class="px-2 py-1 text-xs w-full {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 hover:bg-blue-600{% endif %} rounded-md text-white shadow-sm"
+                              title="Move to Goalie">
+                        G→
+                      </button>
+                    </form>
+                  </div>
+                  {% endif %}
+                </div>
                 {% endif %}
-              </div>
-            </td>
-            <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent }}</td>
+            <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{% if slot.selected_week_counts %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}{{ slot.selected_week_points }}{% endif %}{% else %}-{% endif %}</td>
           {% else %}
             <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">—</td>
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
               {% if user_owns_team %}
-              <div class="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div class="flex flex-col max-w-[200px] sm:max-w-none gap-1 sm:gap-2 md:gap-3">
                 {% if roster_status and not roster_status.0 and use_waivers and not is_viewing_past_week %}
                   {# Roster locked but waivers enabled #}
                   {% csrf_token %}
-                  <select id="defense-select" class="w-full text-xs sm:text-sm md:text-base">
-                    <option value="">Select…</option>
-                    {% for p in players_for_select %}
-                      <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
-                    {% endfor %}
-                  </select>
-                  <button type="button"
-                          onclick="submitWaiverClaim(document.getElementById('defense-select').value, 'D')"
-                          class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
-                    <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span class="font-semibold hidden sm:inline">Waiver</span>
-                  </button>
+                  <input type="text" id="defense-waiver-search" placeholder="Search…" oninput="filterPlayerSelect('defense-waiver-search', 'defense-waiver-select')" class="w-full text-xs sm:text-sm px-1.5 sm:px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                  <div class="flex items-center gap-1 sm:gap-2 md:gap-3 w-full">
+                    <select id="defense-waiver-select" class="flex-1 text-xs sm:text-sm md:text-base min-w-0">
+                      <option value="">Select…</option>
+                      {% for p in players_for_select %}
+                        <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="button"
+                            onclick="submitWaiverClaim(document.getElementById('defense-waiver-select').value, 'D')"
+                            class="px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-0.5 sm:gap-2 min-w-[36px] sm:min-w-[96px]">
+                      <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span class="font-semibold hidden sm:inline">Waiver</span>
+                    </button>
+                  </div>
                 {% else %}
                   {# Normal add form #}
+                  <input type="text" id="defense-search" placeholder="Search…" oninput="filterPlayerSelect('defense-search', 'defense-select')" class="w-full text-xs sm:text-sm px-1.5 sm:px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                   <form method="post" action="{% url 'assign_player' team.id %}" class="flex items-center gap-1 sm:gap-2 md:gap-3 w-full">
                     {% csrf_token %}
                     <input type="hidden" name="slot_group" value="D">
-                    <select name="player_id" class="w-full text-xs sm:text-sm md:text-base" {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}>
+                    <select id="defense-select" name="player_id" class="flex-1 text-xs sm:text-sm md:text-base min-w-0" {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}>
                       <option value="">Select…</option>
                       {% for p in players_for_select %}
                         <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
@@ -497,7 +512,7 @@
                     <input type="hidden" name="action" value="add">
                     <button type="submit"
                             {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
+                            class="px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-0.5 sm:gap-2 min-w-[36px] sm:min-w-[96px]">
                       <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                       </svg>
@@ -526,82 +541,90 @@
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
               <div class="flex items-center justify-between gap-1 sm:gap-2 md:gap-3">
                 <div class="text-left min-w-0 max-w-[100px] sm:max-w-none">
-                  <div class="font-semibold truncate">{{ slot.player.last_name }}, {{ slot.player.first_name }}</div>
-                  {% if slot.player.nll_team %}<div class="text-xs text-gray-600">{{ slot.player.nll_team }}</div>{% endif %}
+                  <div class="font-semibold truncate"><span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span></div>
+                  {% if slot.player.nll_team %}<div class="text-gray-600"><span class="sm:hidden text-sm" style="font-weight: 700;">{{ slot.player.nll_team|team_abbr }}</span><span class="hidden sm:inline text-xs"><strong>{{ slot.player.nll_team }}</strong></span></div>{% endif %}
+                  <div class="text-xs text-gray-500 lg:hidden">{{ slot.opponent|opponent_abbr }}</div>
                 </div>
                 {% if user_owns_team %}
-                <div class="flex gap-1">
-                  {% if slot.player.position == 'T' %}
-                  <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                    <input type="hidden" name="target_side" value="O">
-                    <button type="submit"
-                            {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-green-500 hover:bg-green-600{% endif %} rounded-md text-white shadow-sm"
-                            title="Move to Offense">
-                      O→
-                    </button>
-                  </form>
-                  <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                    <input type="hidden" name="target_side" value="D">
-                    <button type="submit"
-                            {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-orange-500 hover:bg-orange-600{% endif %} rounded-md text-white shadow-sm"
-                            title="Move to Defense">
-                      D→
-                    </button>
-                  </form>
-                  {% endif %}
+                <div class="flex flex-col gap-1">
                   <form method="post" action="{% url 'assign_player' team.id %}" class="inline flex-shrink-0">
                     {% csrf_token %}
                     <input type="hidden" name="player_id" value="{{ slot.player.id }}">
                     <input type="hidden" name="action" value="drop">
-                    <button type="submit"
+                    <button type="button"
                             {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
-                      <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            onclick="{% if not roster_status or roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
+                            class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded-md text-white outline-none focus:ring-2 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 min-w-[56px]">
+                      <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                       </svg>
-                      <span class="font-semibold hidden sm:inline">Drop</span>
+                      <span class="font-semibold">Drop</span>
                     </button>
                   </form>
+                  {% if slot.player.position == 'T' %}
+                  <div class="flex gap-1">
+                    <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                      <input type="hidden" name="target_side" value="O">
+                      <button type="submit"
+                              {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                              class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-green-500 hover:bg-green-600{% endif %} rounded-md text-white shadow-sm"
+                              title="Move to Offense">
+                        O→
+                      </button>
+                    </form>
+                    <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                      <input type="hidden" name="target_side" value="D">
+                      <button type="submit"
+                              {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                              class="px-2 py-1 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-orange-500 hover:bg-orange-600{% endif %} rounded-md text-white shadow-sm"
+                              title="Move to Defense">
+                        D→
+                      </button>
+                    </form>
+                  </div>
+                  {% endif %}
                 </div>
               </div>
               {% endif %}
             </td>
-            <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent }}</td>
+            <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{% if slot.selected_week_counts %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}{{ slot.selected_week_points }}{% endif %}{% else %}-{% endif %}</td>
           {% else %}
             <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">—</td>
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
               {% if user_owns_team %}
-              <div class="flex items-center gap-1 sm:gap-2 md:gap-3">
+              <div class="flex flex-col max-w-[200px] sm:max-w-none gap-1 sm:gap-2 md:gap-3">
                 {% if roster_status and not roster_status.0 and use_waivers and not is_viewing_past_week %}
                   {# Roster locked but waivers enabled #}
                   {% csrf_token %}
-                  <select id="goalie-select" class="w-full text-xs sm:text-sm md:text-base">
-                    <option value="">Select…</option>
-                    {% for p in players_for_select %}
-                      <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
-                    {% endfor %}
-                  </select>
-                  <button type="button"
-                          onclick="submitWaiverClaim(document.getElementById('goalie-select').value, 'G')"
-                          class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
-                    <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span class="font-semibold hidden sm:inline">Waiver</span>
-                  </button>
+                  <input type="text" id="goalie-waiver-search" placeholder="Search…" oninput="filterPlayerSelect('goalie-waiver-search', 'goalie-waiver-select')" class="w-full text-xs sm:text-sm px-1.5 sm:px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                  <div class="flex items-center gap-1 sm:gap-2 md:gap-3 w-full">
+                    <select id="goalie-waiver-select" class="flex-1 text-xs sm:text-sm md:text-base min-w-0">
+                      <option value="">Select…</option>
+                      {% for p in players_for_select %}
+                        <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="button"
+                            onclick="submitWaiverClaim(document.getElementById('goalie-waiver-select').value, 'G')"
+                            class="px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-0.5 sm:gap-2 min-w-[36px] sm:min-w-[96px]">
+                      <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span class="font-semibold hidden sm:inline">Waiver</span>
+                    </button>
+                  </div>
                 {% else %}
                   {# Normal add form #}
+                  <input type="text" id="goalie-search" placeholder="Search…" oninput="filterPlayerSelect('goalie-search', 'goalie-select')" class="w-full text-xs sm:text-sm px-1.5 sm:px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                   <form method="post" action="{% url 'assign_player' team.id %}" class="flex items-center gap-1 sm:gap-2 md:gap-3 w-full">
                     {% csrf_token %}
                     <input type="hidden" name="slot_group" value="G">
-                    <select name="player_id" class="w-full text-xs sm:text-sm md:text-base" {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}>
+                    <select id="goalie-select" name="player_id" class="flex-1 text-xs sm:text-sm md:text-base min-w-0" {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}>
                       <option value="">Select…</option>
                       {% for p in players_for_select %}
                         <option value="{{ p.player.id }}">{{ p.player.last_name }}, {{ p.player.first_name }} ({{ p.player.get_position_display }}) #{{ p.player.number|default:"—" }}{% if p.team_in_league %} — {{ p.team_in_league.name }}{% endif %}</option>
@@ -610,7 +633,7 @@
                     <input type="hidden" name="action" value="add">
                     <button type="submit"
                             {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            class="px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 min-w-[60px] sm:min-w-[96px]">
+                            class="px-1 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500{% endif %} rounded-md text-white outline-none focus:ring-2 sm:focus:ring-4 shadow-lg transform active:scale-95 transition-transform flex items-center justify-center gap-0.5 sm:gap-2 min-w-[36px] sm:min-w-[96px]">
                       <svg class="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                       </svg>
@@ -654,20 +677,26 @@
       </div>
       
       <div class="p-6">
+        <!-- NLL Team & Schedule Section (Prominent for mobile) -->
+        <div class="mb-6 pb-6 border-b border-gray-300">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span class="font-semibold text-gray-600 block text-sm">NLL Team:</span>
+              <div id="playerNLLTeam" class="text-lg font-semibold">-</div>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-600 block text-sm">Position:</span>
+              <div id="playerPosition" class="text-lg font-semibold">-</div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Player Bio Section -->
         <div id="playerBioSection" class="mb-6 pb-6 border-b border-gray-300">
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 text-sm">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             <div>
               <span class="font-semibold text-gray-600">Number:</span>
               <div id="playerNumber">-</div>
-            </div>
-            <div>
-              <span class="font-semibold text-gray-600">Position:</span>
-              <div id="playerPosition">-</div>
-            </div>
-            <div>
-              <span class="font-semibold text-gray-600">NLL Team:</span>
-              <div id="playerNLLTeam">-</div>
             </div>
             <div>
               <span class="font-semibold text-gray-600">Shoots:</span>
@@ -686,12 +715,12 @@
               <div id="playerHometown">-</div>
             </div>
             <div>
-              <span class="font-semibold text-gray-600">Draft Year:</span>
-              <div id="playerDraftYear">-</div>
-            </div>
-            <div>
               <span class="font-semibold text-gray-600">Birthdate:</span>
               <div id="playerBirthdate">-</div>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-600">Draft Year:</span>
+              <div id="playerDraftYear">-</div>
             </div>
           </div>
         </div>
@@ -772,6 +801,24 @@ function showConfirmModal(message, onConfirm) {
     modal.classList.add('hidden');
     modal.style.pointerEvents = 'none';
   };
+}
+
+function filterPlayerSelect(searchId, selectId) {
+  const searchInput = document.getElementById(searchId);
+  const selectElement = document.getElementById(selectId);
+  if (!searchInput || !selectElement) return;
+  
+  const searchTerm = searchInput.value.toLowerCase();
+  const options = selectElement.querySelectorAll('option');
+  
+  options.forEach(option => {
+    if (option.value === '') {
+      option.style.display = 'block'; // Always show the placeholder
+    } else {
+      const optionText = option.textContent.toLowerCase();
+      option.style.display = optionText.includes(searchTerm) ? 'block' : 'none';
+    }
+  });
 }
 
 // Player modal functions

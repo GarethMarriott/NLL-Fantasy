@@ -92,6 +92,23 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"  No current week found for {league.name}"))
                 continue
             
+            # IMPORTANT: Waivers are processed when the current week's rosters UNLOCK (Monday 9am)
+            # At that time, players from waiver claims should have week_added set to the NEXT week
+            # (not the current locked week), since they only become active after the current week ends
+            try:
+                next_week = Week.objects.filter(
+                    season=current_year,
+                    week_number__gt=current_week.week_number
+                ).order_by('week_number').first()
+                
+                if not next_week:
+                    # Fallback: if no next week exists, use next week number
+                    next_week_number = current_week.week_number + 1
+                else:
+                    next_week_number = next_week.week_number
+            except:
+                next_week_number = current_week.week_number + 1
+            
             # Initialize waiver priorities if not set (first time setup)
             teams_without_priority = league.teams.filter(waiver_priority=0)
             if teams_without_priority.exists():
@@ -102,13 +119,13 @@ class Command(BaseCommand):
             
             # Process waivers
             self.stdout.write(f"\n--- PROCESSING WAIVERS ---")
-            waiver_stats = self._process_waivers(league, current_week)
+            waiver_stats = self._process_waivers(league, current_week, next_week_number)
             total_waivers_processed += waiver_stats['processed']
             total_waivers_successful += waiver_stats['successful']
             
             # Process trades
             self.stdout.write(f"\n--- PROCESSING TRADES ---")
-            trade_stats = self._process_trades(league, current_week)
+            trade_stats = self._process_trades(league, current_week, next_week_number)
             total_trades_processed += trade_stats['processed']
             total_trades_successful += trade_stats['successful']
         
@@ -121,7 +138,7 @@ class Command(BaseCommand):
         ))
         self.stdout.write(f"{'='*60}\n")
 
-    def _process_waivers(self, league, current_week):
+    def _process_waivers(self, league, current_week, next_week_number):
         """Process all pending waiver claims for a league"""
         stats = {'processed': 0, 'successful': 0}
         
@@ -136,13 +153,13 @@ class Command(BaseCommand):
         
         for claim in claims:
             stats['processed'] += 1
-            success = self._process_claim(claim, current_week)
+            success = self._process_claim(claim, current_week, next_week_number)
             if success:
                 stats['successful'] += 1
         
         return stats
     
-    def _process_trades(self, league, current_week):
+    def _process_trades(self, league, current_week, next_week_number):
         """Process all accepted trades for a league"""
         stats = {'processed': 0, 'successful': 0}
         
@@ -159,13 +176,13 @@ class Command(BaseCommand):
         
         for trade in trades:
             stats['processed'] += 1
-            success = self._process_trade(trade, current_week)
+            success = self._process_trade(trade, current_week, next_week_number)
             if success:
                 stats['successful'] += 1
         
         return stats
 
-    def _process_claim(self, claim, current_week):
+    def _process_claim(self, claim, current_week, next_week_number):
         """Process a single waiver claim"""
         try:
             with transaction.atomic():
@@ -233,12 +250,13 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(f"  ✗ {claim.team.name}: {pos_name} roster full"))
                     return False
                 
-                # Add the new player
+                # Add the new player with week_added set to NEXT week
+                # (not current locked week, since player only becomes active next week)
                 Roster.objects.create(
                     player=claim.player_to_add,
                     team=claim.team,
                     league=claim.league,
-                    week_added=current_week.week_number,
+                    week_added=next_week_number,
                     added_date=timezone.now().date()
                 )
                 
@@ -284,7 +302,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"  ✗ {claim.team.name}: Error - {str(e)}"))
             return False
     
-    def _process_trade(self, trade, current_week):
+    def _process_trade(self, trade, current_week, next_week_number):
         """Process a single accepted trade"""
         try:
             with transaction.atomic():
@@ -366,7 +384,7 @@ class Command(BaseCommand):
                         player=tp.player,
                         team=team2,
                         league=trade.league,
-                        week_added=current_week.week_number,
+                        week_added=next_week_number,
                         added_date=timezone.now().date()
                     )
                     
@@ -388,7 +406,7 @@ class Command(BaseCommand):
                         player=tp.player,
                         team=team1,
                         league=trade.league,
-                        week_added=current_week.week_number,
+                        week_added=next_week_number,
                         added_date=timezone.now().date()
                     )
                     

@@ -25,7 +25,7 @@
                     <span>{{ forloop.counter }}</span>
                   </td>
                   <td class="px-3 py-2 text-left">
-                    <span class="font-semibold">{{ row.team.name }}</span>
+                    <a href="{% url 'team_detail' row.team.id %}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{{ row.team.name }}</a>
                   </td>
                   <td class="px-3 py-2">
                     <span>{{ row.wins }}</span>

@@ -14,6 +14,30 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 
+# NLL Team abbreviations mapping
+TEAM_ABBREVIATIONS = {
+    "Toronto Rock": "TOR",
+    "Calgary Roughnecks": "CGY",
+    "Saskatchewan Rush": "SAS",
+    "Winnipeg MIL": "WIN",
+    "Buffalo Bandits": "BUF",
+    "New York Riptide": "NYR",
+    "Vancouver Warriors": "VAN",
+    "Edmonton Oil Kings": "EDM",
+    "Ottawa Black Bears": "OTT",
+    "Panther City Lacrosse Club": "PAN",
+    "Las Vegas Desert Dogs": "LV",
+    "Oshawa FireWolves": "OSH",
+    "Halifax Thunderbirds": "HAL",
+    "Rochester Knighthawks": "ROC",
+}
+
+
+def get_team_abbr(team_name):
+    """Get team abbreviation from full team name"""
+    return TEAM_ABBREVIATIONS.get(team_name, team_name[:3].upper() if team_name else "")
+
+
 def post_league_message(league, message_text):
     """Post a system message to league chat"""
     ChatMessage.objects.create(
@@ -173,25 +197,9 @@ def team_detail(request, team_id):
     
     # Determine default week to display
     if current_week:
-        # Check if it's Monday 9am PT or later - if so, switch to upcoming week
-        # to give users time to make roster changes before games start
-        try:
-            pt = pytz.timezone('US/Pacific')
-            current_time_pt = current_time.astimezone(pt)
-            is_monday_after_9am = (current_time_pt.weekday() == 0 and current_time_pt.hour >= 9)
-            
-            if is_monday_after_9am:
-                # Try to get next week
-                next_week = Week.objects.filter(
-                    season=league_season,
-                    week_number__gt=current_week.week_number
-                ).order_by('week_number').first()
-                default_week_num = next_week.week_number if next_week else current_week.week_number
-            else:
-                default_week_num = current_week.week_number
-        except Exception:
-            # Fallback if timezone conversion fails
-            default_week_num = current_week.week_number
+        # Show the current week (the first week whose games haven't started yet)
+        # This is the week where roster changes apply
+        default_week_num = current_week.week_number
     else:
         # No future weeks - this shouldn't happen during the season
         # Fall back to the most recent week
@@ -325,12 +333,15 @@ def team_detail(request, team_id):
                 "Philadelphia Wings": "880",
                 "Buffalo Bandits": "888",
                 "Georgia Swarm": "890",
-                "Panther City Lacrosse Club": "910",
                 "Toronto Rock": "896",
                 "Halifax Thunderbirds": "912",
-                "Chesapeake Bayhawks": "915",
-                "New York Riptide": "917",
-                "Vermont Venom": "918",
+                "Panther City Lacrosse Club": "913",
+                "Albany FireWolves": "914",
+                "Las Vegas Desert Dogs": "915",
+                "New York Riptide": "911",
+                "Ottawa Black Bears": "917",
+                "Oshawa FireWolves": "918",
+                "Rochester Knighthawks": "910",
             }
             player_team_id = team_name_to_id.get(p.nll_team)
             if player_team_id:
@@ -352,12 +363,15 @@ def team_detail(request, team_id):
                         "880": "Philadelphia Wings",
                         "888": "Buffalo Bandits",
                         "890": "Georgia Swarm",
-                        "910": "Panther City Lacrosse Club",
                         "896": "Toronto Rock",
+                        "910": "Rochester Knighthawks",
+                        "911": "New York Riptide",
                         "912": "Halifax Thunderbirds",
-                        "915": "Chesapeake Bayhawks",
-                        "917": "New York Riptide",
-                        "918": "Vermont Venom",
+                        "913": "Panther City Lacrosse Club",
+                        "914": "Albany FireWolves",
+                        "915": "Las Vegas Desert Dogs",
+                        "917": "Ottawa Black Bears",
+                        "918": "Oshawa FireWolves",
                     }
                     opponent = f"{team_id_to_name.get(game.home_team, game.home_team)} @ {team_id_to_name.get(game.away_team, game.away_team)}"
         
@@ -1645,18 +1659,15 @@ def player_detail_modal(request, player_id):
         "Philadelphia Wings": "880",
         "Buffalo Bandits": "888",
         "Georgia Swarm": "890",
-        "Panther City Lacrosse Club": "910",
         "Toronto Rock": "896",
         "Halifax Thunderbirds": "912",
-        "Chesapeake Bayhawks": "915",
+        "Panther City Lacrosse Club": "913",
+        "Albany FireWolves": "914",
+        "Las Vegas Desert Dogs": "915",
         "Ottawa Black Bears": "917",
-        "Vermont Venom": "918",
-        # Teams without games in current schedule (these won't have upcoming weeks)
-        "Albany FireWolves": "899",
-        "Las Vegas Desert Dogs": None,
-        "Oshawa FireWolves": None,
-        "New York Riptide": None,
-        "Rochester Knighthawks": None,
+        "Oshawa FireWolves": "918",
+        "Rochester Knighthawks": "910",
+        "New York Riptide": "911",
     }
     
     # Reverse mapping for ID to name (only for teams that have games)
@@ -2001,18 +2012,10 @@ def matchups(request):
     completed_weeks = actual_weeks.filter(end_date__lt=timezone.now())
     max_week = completed_weeks.last().week_number if completed_weeks.exists() else 0
     
-    # Move current user's team to the front (anchor position) if logged in
-    if request.user.is_authenticated and selected_league_id:
-        user_team_owner = FantasyTeamOwner.objects.filter(
-            user=request.user, 
-            team__league_id=selected_league_id
-        ).select_related('team').first()
-        
-        if user_team_owner:
-            user_team = user_team_owner.team
-            # Remove user's team from list and add it to the front
-            teams = [t for t in teams if t.id != user_team.id]
-            teams.insert(0, user_team)
+    # IMPORTANT: Keep teams sorted by ID (do NOT reorder by user team position)
+    # The schedule algorithm uses team order as the anchor for round-robin rotation.
+    # Changing the order would generate different matchups for different users!
+    # teams.sort(key=lambda t: t.id)  # Already sorted from query above
     
     team_ids = [t.id for t in teams]
     

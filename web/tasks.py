@@ -69,8 +69,7 @@ def process_waivers():
     try:
         # Get all pending waivers that should be processed
         pending_waivers = WaiverClaim.objects.filter(
-            status='pending',
-            process_at__lte=timezone.now()
+            status='pending'
         ).order_by('priority', 'created_at')
         
         processed_count = 0
