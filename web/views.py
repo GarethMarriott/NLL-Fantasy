@@ -195,26 +195,28 @@ def team_detail(request, team_id):
         end_date__gte=current_date
     ).order_by('week_number').first()
     
-    # If no active week, get the first week that hasn't started yet
+    # Determine default week to display
     if current_active_week:
+        # Show the active week (games in progress)
         default_week_num = current_active_week.week_number
     else:
-        # Look for the first future week
-        future_week = Week.objects.filter(
+        # No active week - show the most recently completed week
+        most_recent_week = Week.objects.filter(
             season=league_season,
-            start_date__gt=current_date
-        ).order_by('week_number').first()
+            start_date__lte=current_date
+        ).order_by('-week_number').first()
         
-        if future_week:
-            default_week_num = future_week.week_number
+        if most_recent_week:
+            default_week_num = most_recent_week.week_number
         else:
-            # No future weeks - fall back to the most recent week
-            most_recent_week = Week.objects.filter(
+            # No past weeks - fall back to first future week
+            future_week = Week.objects.filter(
                 season=league_season,
-                start_date__lte=current_date
-            ).order_by('-week_number').first()
-            if most_recent_week:
-                default_week_num = most_recent_week.week_number
+                start_date__gt=current_date
+            ).order_by('week_number').first()
+            
+            if future_week:
+                default_week_num = future_week.week_number
             else:
                 default_week_num = 1
     
