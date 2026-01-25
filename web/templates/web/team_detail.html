@@ -14,6 +14,11 @@
            class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium">
           Trade Center
         </a>
+        {% else %}
+        <a href="{% url 'chat' %}?chat_type=team&team_chat_id={{ team.id }}"
+           class="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium">
+          💬 Start Chat
+        </a>
         {% endif %}
         <a href="{% url 'matchups' %}"
            class="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium">
