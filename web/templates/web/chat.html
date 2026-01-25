@@ -47,7 +47,7 @@
   <!-- Messages Container -->
   <div id="chat-messages" class="h-96 overflow-y-auto p-4 space-y-3 bg-gray-50 dark:bg-gray-900">
     {% for msg in messages reversed %}
-      {% if chat_type == 'league' or (chat_type == 'team' and msg.message_type not in 'ADD,DROP') %}
+      {% if chat_type == 'league' or msg.message_type == 'CHAT' or msg.message_type == 'TRADE_PROPOSED' or msg.message_type == 'TRADE_ACCEPTED' or msg.message_type == 'TRADE_REJECTED' or msg.message_type == 'TRADE_CANCELLED' or msg.message_type == 'TRADE_EXECUTED' %}
       <div class="flex items-start space-x-3">
         {% if msg.sender %}
           <div class="flex-shrink-0">
