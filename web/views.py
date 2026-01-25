@@ -2483,7 +2483,9 @@ def logout_view(request):
 
 @login_required
 def chat_view(request):
-    """Display chat modal page"""
+    """Display chat with option to view league chat or team chats"""
+    from web.models import TeamChatMessage
+    
     selected_league_id = request.session.get('selected_league_id')
     
     # Auto-select league if user has exactly one
@@ -2497,21 +2499,75 @@ def chat_view(request):
         messages.warning(request, "Please select a league to view chat.")
         return redirect('league_list')
     
-    messages_list = ChatMessage.objects.filter(
-        league_id=selected_league_id
-    ).select_related(
-        'sender', 'player', 'team', 'league'
-    ).all()[:100]  # Last 100 messages
+    # Get the user's team(s) in this league
+    user_team = None
+    if request.user.is_authenticated:
+        owner = FantasyTeamOwner.objects.filter(
+            user=request.user,
+            team__league_id=selected_league_id
+        ).select_related('team').first()
+        if owner:
+            user_team = owner.team
+    
+    # Determine which chat to display
+    chat_type = request.GET.get('chat_type', 'league')  # 'league' or 'team'
+    team_chat_id = request.GET.get('team_chat_id', None)  # ID of other team for team chats
+    
+    messages_list = []
+    available_team_chats = []
+    current_chat_with = None
+    
+    if chat_type == 'league':
+        # Display league chat
+        messages_list = ChatMessage.objects.filter(
+            league_id=selected_league_id
+        ).select_related(
+            'sender', 'player', 'team', 'league'
+        ).all()[:100]  # Last 100 messages
+    
+    elif chat_type == 'team' and team_chat_id and user_team:
+        # Display team-to-team chat
+        other_team_id = int(team_chat_id)
+        # Ensure consistent ordering (lower ID first)
+        team1_id = min(user_team.id, other_team_id)
+        team2_id = max(user_team.id, other_team_id)
+        
+        messages_list = TeamChatMessage.objects.filter(
+            team1_id=team1_id,
+            team2_id=team2_id
+        ).select_related(
+            'sender', 'team1', 'team2', 'trade'
+        ).all()[:100]  # Last 100 messages
+        
+        # Get the other team
+        current_chat_with = Team.objects.get(id=other_team_id)
+    
+    # Get all other teams in the league for chat options
+    if user_team:
+        # Show all other teams in the league (not just existing chats)
+        available_team_chats = Team.objects.filter(
+            league_id=selected_league_id
+        ).exclude(
+            id=user_team.id
+        ).order_by('name')
+    else:
+        available_team_chats = []
     
     return render(request, "web/chat.html", {
-        "messages": messages_list
+        "messages": messages_list,
+        "chat_type": chat_type,
+        "current_chat_with": current_chat_with,
+        "available_team_chats": available_team_chats,
+        "user_team": user_team
     })
 
 
 @login_required
 @require_POST
 def chat_post_message(request):
-    """API endpoint to post a new chat message"""
+    """API endpoint to post a new chat message (league or team)"""
+    from web.models import TeamChatMessage
+    
     selected_league_id = request.session.get('selected_league_id')
     
     if not selected_league_id:
@@ -2523,10 +2579,13 @@ def chat_post_message(request):
         return JsonResponse({"error": "League not found"}, status=404)
     
     # Verify user is a member of this league
-    if not FantasyTeamOwner.objects.filter(user=request.user, team__league=league).exists():
+    owner = FantasyTeamOwner.objects.filter(user=request.user, team__league=league).first()
+    if not owner:
         return JsonResponse({"error": "You are not a member of this league"}, status=403)
     
     message_text = request.POST.get("message", "").strip()
+    chat_type = request.POST.get("chat_type", "league")
+    team_chat_id = request.POST.get("team_chat_id", None)
     
     if not message_text:
         return JsonResponse({"error": "Message cannot be empty"}, status=400)
@@ -2534,13 +2593,37 @@ def chat_post_message(request):
     if len(message_text) > 1000:
         return JsonResponse({"error": "Message too long (max 1000 characters)"}, status=400)
     
-    # Create the chat message
-    chat_msg = ChatMessage.objects.create(
-        league=league,
-        sender=request.user,
-        message_type=ChatMessage.MessageType.CHAT,
-        message=message_text
-    )
+    # Create the appropriate chat message
+    if chat_type == 'league':
+        # League chat
+        chat_msg = ChatMessage.objects.create(
+            league=league,
+            sender=request.user,
+            message_type=ChatMessage.MessageType.CHAT,
+            message=message_text
+        )
+    elif chat_type == 'team' and team_chat_id:
+        # Team-to-team chat
+        other_team_id = int(team_chat_id)
+        other_team = Team.objects.get(id=other_team_id, league=league)
+        
+        # Create message using the helper function
+        post_team_chat_message(
+            owner.team, 
+            other_team, 
+            message_text,
+            sender=request.user
+        )
+        
+        # Get the message we just created
+        team1_id = min(owner.team.id, other_team_id)
+        team2_id = max(owner.team.id, other_team_id)
+        chat_msg = TeamChatMessage.objects.filter(
+            team1_id=team1_id,
+            team2_id=team2_id
+        ).order_by('-created_at').first()
+    else:
+        return JsonResponse({"error": "Invalid chat type or team"}, status=400)
     
     return JsonResponse({
         "success": True,
