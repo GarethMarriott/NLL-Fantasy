@@ -239,14 +239,22 @@
                                     Accept
                                   </button>
                                 </form>
+                                <form method="post" action="{% url 'reject_trade' trade.id %}">
+                                  {% csrf_token %}
+                                  <button type="button" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
+                                          onclick="showConfirmModal('Reject this trade?', () => this.closest('form').submit());">
+                                    Reject
+                                  </button>
+                                </form>
+                              {% elif trade.status == 'ACCEPTED' and not trade.executed_at %}
+                                <form method="post" action="{% url 'reject_trade' trade.id %}">
+                                  {% csrf_token %}
+                                  <button type="button" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
+                                          onclick="showConfirmModal('Reject this accepted trade?', () => this.closest('form').submit());">
+                                    Reject
+                                  </button>
+                                </form>
                               {% endif %}
-                              <form method="post" action="{% url 'reject_trade' trade.id %}">
-                                {% csrf_token %}
-                                <button type="button" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
-                                        onclick="showConfirmModal('{% if trade.status == 'ACCEPTED' %}Reject this accepted trade?{% else %}Reject this trade?{% endif %}', () => this.closest('form').submit());">
-                                  Reject
-                                </button>
-                              </form>
                             {% else %}
                               {# User proposed this trade - show cancel button #}
                               <form method="post" action="{% url 'cancel_trade' trade.id %}">
