@@ -47,7 +47,7 @@
   <!-- Messages Container -->
   <div id="chat-messages" class="h-96 overflow-y-auto p-4 space-y-3 bg-gray-50 dark:bg-gray-900">
     {% for msg in messages reversed %}
-      {% if chat_type == 'league' or (chat_type == 'team' and msg.message_type != 'ADD' and msg.message_type != 'DROP') %}
+      {% if chat_type == 'league' or (chat_type == 'team' and msg.message_type not in 'ADD,DROP') %}
       <div class="flex items-start space-x-3">
         {% if msg.sender %}
           <div class="flex-shrink-0">
