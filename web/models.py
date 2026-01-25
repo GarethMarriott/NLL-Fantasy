@@ -434,10 +434,9 @@ class Week(models.Model):
         Returns True if roster transactions are locked for this week.
         
         Lock rules:
-        - A week is PERMANENTLY LOCKED once its roster_lock_time (first game) passes
-        - A week is UNLOCKED only between roster_unlock_time (Mon 9am PT) and its roster_lock_time (first game)
-        - Once a week's lock_time passes, it never unlocks (completed/in-progress weeks stay locked)
-        - Only the upcoming week can be edited during its unlock window
+        - Once a week's first game starts (lock_time), it stays locked permanently
+        - ALL weeks lock when any week is currently active (games in progress)
+        - Weeks only unlock between Monday 9 AM and first game Friday
         """
         from django.utils import timezone
         
@@ -449,11 +448,24 @@ class Week(models.Model):
                 return True
             return False
         
-        # Once a week's lock_time passes (first game happens), it stays locked permanently
+        # Rule 1: Once this week's first game starts, it stays locked permanently
         if now >= self.roster_lock_time:
             return True
         
-        # Before lock_time: week is unlocked only during the unlock window (Mon 9am to first game)
+        # Rule 2: Check if ANY week is currently active (first game started, but not past next week's unlock)
+        # If any week is active, ALL weeks are locked
+        league_season = self.season if hasattr(self, 'season') else self.start_date.year
+        any_week_active = Week.objects.filter(
+            season=league_season,
+            roster_lock_time__lte=now,     # This week's games have started
+            roster_unlock_time__gt=now     # But we're not yet at next week's unlock time
+        ).exclude(id=self.id).exists()     # Exclude this week (we already checked above)
+        
+        if any_week_active:
+            return True
+        
+        # Rule 3: No active weeks - check if this specific week's unlock window is open
+        # (between Monday 9 AM and Friday first game)
         if self.roster_unlock_time <= now < self.roster_lock_time:
             return False
         
