@@ -5,6 +5,11 @@
 {% endblock %}
 
 {% block content %}
+<!-- Hide Django messages -->
+<style>
+  .messages { display: none !important; }
+</style>
+
 <div class="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg">
   <div class="p-4 border-b border-gray-200 dark:border-gray-700">
     <div class="flex items-center justify-between mb-2">
@@ -140,7 +145,12 @@ let teamChatId = {% if current_chat_with %}'{{ current_chat_with.id }}'{% else %
 setInterval(fetchNewMessages, 3000);
 
 function fetchNewMessages() {
-  fetch(`/chat/messages/?since=${lastMessageId}`)
+  let url = `/chat/messages/?since=${lastMessageId}&chat_type=${chatType}`;
+  if (chatType === 'team' && teamChatId) {
+    url += `&team_chat_id=${teamChatId}`;
+  }
+  
+  fetch(url)
     .then(response => response.json())
     .then(data => {
       if (data.messages && data.messages.length > 0) {

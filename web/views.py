@@ -2636,41 +2636,80 @@ def chat_post_message(request):
 @login_required
 def chat_get_messages(request):
     """API endpoint to fetch new chat messages (for auto-refresh)"""
+    from web.models import TeamChatMessage
+    
     selected_league_id = request.session.get('selected_league_id')
     
     if not selected_league_id:
         return JsonResponse({"messages": []})
     
     since_id = request.GET.get("since", 0)
-    
-    messages_list = ChatMessage.objects.filter(
-        league_id=selected_league_id,
-        id__gt=since_id
-    ).select_related(
-        'sender', 'player', 'team'
-    ).order_by('created_at')[:50]
+    chat_type = request.GET.get("chat_type", "league")
+    team_chat_id = request.GET.get("team_chat_id", None)
     
     data = []
-    for msg in messages_list:
-        sender_name = msg.sender.username if msg.sender else "System"
-        team_names = []
+    
+    if chat_type == 'league':
+        # League chat messages
+        messages_list = ChatMessage.objects.filter(
+            league_id=selected_league_id,
+            id__gt=since_id
+        ).select_related(
+            'sender', 'player', 'team'
+        ).order_by('created_at')[:50]
         
-        # Get team names if sender is a team owner
-        if msg.sender:
-            team_names = [
-                owner.team.name 
-                for owner in msg.sender.fantasy_teams.filter(team__league_id=selected_league_id)
-            ]
+        for msg in messages_list:
+            sender_name = msg.sender.username if msg.sender else "System"
+            team_names = []
+            
+            # Get team names if sender is a team owner
+            if msg.sender:
+                team_names = [
+                    owner.team.name 
+                    for owner in msg.sender.fantasy_teams.filter(team__league_id=selected_league_id)
+                ]
+            
+            data.append({
+                "id": msg.id,
+                "sender": sender_name,
+                "teams": team_names,
+                "message": msg.message,
+                "message_type": msg.message_type,
+                "created_at": msg.created_at.isoformat(),
+                "is_system": msg.sender is None
+            })
+    
+    elif chat_type == 'team' and team_chat_id:
+        # Team chat messages
+        user_team = FantasyTeamOwner.objects.filter(
+            user=request.user,
+            team__league_id=selected_league_id
+        ).select_related('team').first()
         
-        data.append({
-            "id": msg.id,
-            "sender": sender_name,
-            "teams": team_names,
-            "message": msg.message,
-            "message_type": msg.message_type,
-            "created_at": msg.created_at.isoformat(),
-            "is_system": msg.sender is None
-        })
+        if user_team:
+            other_team_id = int(team_chat_id)
+            team1_id = min(user_team.team.id, other_team_id)
+            team2_id = max(user_team.team.id, other_team_id)
+            
+            messages_list = TeamChatMessage.objects.filter(
+                team1_id=team1_id,
+                team2_id=team2_id,
+                id__gt=since_id
+            ).select_related(
+                'sender', 'team1', 'team2'
+            ).order_by('created_at')[:50]
+            
+            for msg in messages_list:
+                sender_name = msg.sender.username if msg.sender else "System"
+                
+                data.append({
+                    "id": msg.id,
+                    "sender": sender_name,
+                    "message": msg.message,
+                    "message_type": msg.message_type,
+                    "created_at": msg.created_at.isoformat(),
+                    "is_system": msg.sender is None
+                })
     
     return JsonResponse({"messages": data})
 
