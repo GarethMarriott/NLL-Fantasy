@@ -1070,8 +1070,8 @@ def propose_trade(request, team_id):
         )
     
     # Post message to team chat
-    your_players_str = ", ".join([f"{p.last_name}" for p in your_players])
-    their_players_str = ", ".join([f"{p.last_name}" for p in their_players])
+    your_players_str = ", ".join([f"{p.first_name} {p.last_name}" for p in your_players])
+    their_players_str = ", ".join([f"{p.first_name} {p.last_name}" for p in their_players])
     message = f"Trade proposed: {team.name} receives ({their_players_str}) and {target_team.name} receives ({your_players_str})"
     post_team_chat_message(team, target_team, message, 
                           message_type='TRADE_PROPOSED', 
