@@ -2558,7 +2558,8 @@ def chat_view(request):
         "chat_type": chat_type,
         "current_chat_with": current_chat_with,
         "available_team_chats": available_team_chats,
-        "user_team": user_team
+        "user_team": user_team,
+        "is_team_chat": chat_type == 'team'
     })
 
 
