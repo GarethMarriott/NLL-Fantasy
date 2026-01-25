@@ -187,30 +187,36 @@ def team_detail(request, team_id):
     current_date = timezone.now().date()
     current_time = timezone.now()
     
-    # Get the first week that hasn't started yet (start_date is in the future)
-    # This is the only week where roster changes are allowed
-    # Waivers/trades from completed weeks apply to this week's roster
-    current_week = Week.objects.filter(
+    # First priority: Find the currently active week (games in progress)
+    # This is where start_date <= now <= end_date
+    current_active_week = Week.objects.filter(
         season=league_season,
-        start_date__gt=current_date
+        start_date__lte=current_date,
+        end_date__gte=current_date
     ).order_by('week_number').first()
     
-    # Determine default week to display
-    if current_week:
-        # Show the current week (the first week whose games haven't started yet)
-        # This is the week where roster changes apply
-        default_week_num = current_week.week_number
+    # If no active week, get the first week that hasn't started yet
+    if current_active_week:
+        default_week_num = current_active_week.week_number
     else:
-        # No future weeks - this shouldn't happen during the season
-        # Fall back to the most recent week
-        most_recent_week = Week.objects.filter(
+        # Look for the first future week
+        future_week = Week.objects.filter(
             season=league_season,
-            start_date__lte=current_date
-        ).order_by('-week_number').first()
-        if most_recent_week:
-            default_week_num = most_recent_week.week_number
+            start_date__gt=current_date
+        ).order_by('week_number').first()
+        
+        if future_week:
+            default_week_num = future_week.week_number
         else:
-            default_week_num = 1
+            # No future weeks - fall back to the most recent week
+            most_recent_week = Week.objects.filter(
+                season=league_season,
+                start_date__lte=current_date
+            ).order_by('-week_number').first()
+            if most_recent_week:
+                default_week_num = most_recent_week.week_number
+            else:
+                default_week_num = 1
     
     # Get selected week from query params
     selected_week_num = request.GET.get('week')
