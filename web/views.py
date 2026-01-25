@@ -48,6 +48,27 @@ def post_league_message(league, message_text):
     )
 
 
+def post_team_chat_message(team1, team2, message_text, message_type=None, trade=None, sender=None):
+    """Post a message to team-to-team chat"""
+    from web.models import TeamChatMessage
+    
+    # Ensure consistent team ordering (team1 < team2 by ID)
+    if team1.id > team2.id:
+        team1, team2 = team2, team1
+    
+    if message_type is None:
+        message_type = TeamChatMessage.MessageType.CHAT
+    
+    TeamChatMessage.objects.create(
+        team1=team1,
+        team2=team2,
+        sender=sender,
+        message=message_text,
+        message_type=message_type,
+        trade=trade
+    )
+
+
 def check_roster_capacity(team, position, exclude_player=None):
     """
     Check if a team has room to add a player to a specific position.
@@ -1048,6 +1069,15 @@ def propose_trade(request, team_id):
             from_team=target_team
         )
     
+    # Post message to team chat
+    your_players_str = ", ".join([f"{p.last_name}" for p in your_players])
+    their_players_str = ", ".join([f"{p.last_name}" for p in their_players])
+    message = f"Trade proposed: {team.name} receives ({their_players_str}) and {target_team.name} receives ({your_players_str})"
+    post_team_chat_message(team, target_team, message, 
+                          message_type='TRADE_PROPOSED', 
+                          trade=trade, 
+                          sender=request.user)
+    
     messages.success(request, f"Trade proposal sent to {target_team.name}!")
     return redirect("team_detail", team_id=team.id)
 
@@ -1150,6 +1180,13 @@ def accept_trade(request, trade_id):
         trade.status = Trade.Status.ACCEPTED
         trade.save()
         
+        # Post message to team chat
+        message = f"Trade accepted by {trade.receiving_team.name}. Will execute Monday at 9 AM."
+        post_team_chat_message(trade.proposing_team, trade.receiving_team, message,
+                              message_type='TRADE_ACCEPTED',
+                              trade=trade,
+                              sender=request.user)
+        
         if current_week:
             messages.success(request, f"Trade accepted! It will be processed on Monday at 9 AM when rosters unlock.")
         else:
@@ -1158,6 +1195,13 @@ def accept_trade(request, trade_id):
         # Rosters are unlocked - execute trade immediately
         trade.status = Trade.Status.ACCEPTED
         trade.save()
+        
+        # Post message to team chat
+        message = f"Trade accepted and executed by {trade.receiving_team.name}."
+        post_team_chat_message(trade.proposing_team, trade.receiving_team, message,
+                              message_type='TRADE_EXECUTED',
+                              trade=trade,
+                              sender=request.user)
         
         success, msg = execute_trade(trade)
         if success:
@@ -1194,6 +1238,13 @@ def reject_trade(request, trade_id):
     trade.status = Trade.Status.REJECTED
     trade.save()
     
+    # Post message to team chat
+    message = f"Trade rejected by {trade.receiving_team.name}."
+    post_team_chat_message(trade.proposing_team, trade.receiving_team, message,
+                          message_type='TRADE_REJECTED',
+                          trade=trade,
+                          sender=request.user)
+    
     messages.success(request, f"Trade offer from {trade.proposing_team.name} rejected.")
     return redirect("team_detail", team_id=trade.receiving_team.id)
 
@@ -1223,6 +1274,13 @@ def cancel_trade(request, trade_id):
     
     trade.status = Trade.Status.CANCELLED
     trade.save()
+    
+    # Post message to team chat
+    message = f"Trade cancelled by {trade.proposing_team.name}."
+    post_team_chat_message(trade.proposing_team, trade.receiving_team, message,
+                          message_type='TRADE_CANCELLED',
+                          trade=trade,
+                          sender=request.user)
     
     messages.success(request, f"Trade offer to {trade.receiving_team.name} cancelled.")
     return redirect("team_detail", team_id=trade.proposing_team.id)

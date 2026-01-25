@@ -672,6 +672,65 @@ class ChatMessage(models.Model):
         sender_name = self.sender.username if self.sender else "System"
         return f"[{self.message_type}] {sender_name}: {self.message[:50]}"
 
+class TeamChatMessage(models.Model):
+    """Private messages between two teams"""
+    class MessageType(models.TextChoices):
+        CHAT = "CHAT", "Chat Message"
+        TRADE_PROPOSED = "TRADE_PROPOSED", "Trade Proposed"
+        TRADE_ACCEPTED = "TRADE_ACCEPTED", "Trade Accepted"
+        TRADE_REJECTED = "TRADE_REJECTED", "Trade Rejected"
+        TRADE_CANCELLED = "TRADE_CANCELLED", "Trade Cancelled"
+        TRADE_EXECUTED = "TRADE_EXECUTED", "Trade Executed"
+    
+    team1 = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name="team_chats_as_team1",
+        help_text="First team in the conversation"
+    )
+    team2 = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name="team_chats_as_team2",
+        help_text="Second team in the conversation"
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="team_chat_messages",
+        help_text="User who sent the message"
+    )
+    message_type = models.CharField(
+        max_length=20,
+        choices=MessageType.choices,
+        default=MessageType.CHAT
+    )
+    message = models.TextField()
+    
+    # Reference to related trade
+    trade = models.ForeignKey(
+        'Trade',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="chat_messages",
+        help_text="Trade related to this message"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["team1", "team2"]),
+            models.Index(fields=["-created_at"]),
+        ]
+    
+    def __str__(self) -> str:
+        return f"{self.team1.name} ↔ {self.team2.name}: {self.message[:50]}"
+
 class WaiverClaim(models.Model):
     """Waiver claims for players that process when rosters unlock"""
     class Status(models.TextChoices):
