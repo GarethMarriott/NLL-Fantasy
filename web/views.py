@@ -527,7 +527,7 @@ def team_detail(request, team_id):
             "selected_week": selected_week_num,
             "selected_week_obj": selected_week_obj,
             "available_weeks": available_weeks,
-            "current_week": current_week.week_number if current_week else 1,
+            "current_week": default_week_num,
             "selected_week_total": selected_week_total,
             "overall_total": overall_total,
             "players_for_select": players_with_teams,
