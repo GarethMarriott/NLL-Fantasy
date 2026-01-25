@@ -553,8 +553,19 @@ def assign_player(request, team_id):
         messages.error(request, "You don't have permission to modify this team.")
         return redirect("team_detail", team_id=team.id)
     
+    # Check league settings for waiver status
+    use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
+    
     # Check if roster changes are allowed - find the next unlocked week
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
+    
+    # Get current week and check if rosters are locked
+    current_week = Week.objects.filter(
+        season=league_season,
+        start_date__lte=timezone.now().date()
+    ).order_by('-week_number').first()
+    
+    rosters_are_locked = current_week and current_week.is_locked()
     
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
@@ -564,8 +575,13 @@ def assign_player(request, team_id):
             next_unlocked_week = w
             break
     
+    # If rosters are locked and waivers are enabled, redirect to waiver claim process
+    if rosters_are_locked and use_waivers:
+        # Redirect to waiver claim submission instead
+        return redirect('submit_waiver_claim', team_id=team_id)
+    
     if not next_unlocked_week:
-        # No unlocked weeks available
+        # No unlocked weeks available and no waivers enabled
         messages.error(request, "All weeks are currently locked. No roster changes allowed.")
         return redirect("team_detail", team_id=team.id)
     
@@ -1092,6 +1108,9 @@ def execute_trade(trade):
 @require_POST
 def accept_trade(request, trade_id):
     """Accept a trade offer"""
+    from django.utils import timezone
+    from web.models import Week
+    
     trade = get_object_or_404(Trade, id=trade_id)
     
     # Check if the user owns the receiving team
@@ -1108,32 +1127,35 @@ def accept_trade(request, trade_id):
         messages.error(request, "This trade is no longer pending.")
         return redirect("team_detail", team_id=trade.receiving_team.id)
     
-    # Update trade status to accepted
-    trade.status = Trade.Status.ACCEPTED
-    trade.save()
+    # Check if current week is locked (rosters locked during games)
+    league_season = trade.league.created_at.year if trade.league.created_at else timezone.now().year
+    current_week = Week.objects.filter(
+        season=league_season,
+        start_date__lte=timezone.now().date()
+    ).order_by('-week_number').first()
     
-    # Check if both teams can make roster changes (week is unlocked)
-    proposing_can_change, _, proposing_unlock_date = trade.proposing_team.can_make_roster_changes()
-    receiving_can_change, _, receiving_unlock_date = trade.receiving_team.can_make_roster_changes()
+    is_locked = current_week and current_week.is_locked()
     
-    if proposing_can_change and receiving_can_change:
-        # Both teams are unlocked, execute trade immediately
+    # Update trade status
+    if is_locked:
+        # Rosters are locked - trade will execute when rosters unlock (Monday 9 AM)
+        trade.status = Trade.Status.ACCEPTED
+        trade.save()
+        
+        if current_week:
+            messages.success(request, f"Trade accepted! It will be processed on Monday at 9 AM when rosters unlock.")
+        else:
+            messages.success(request, f"Trade accepted! Waiting for rosters to unlock.")
+    else:
+        # Rosters are unlocked - execute trade immediately
+        trade.status = Trade.Status.ACCEPTED
+        trade.save()
+        
         success, msg = execute_trade(trade)
         if success:
             messages.success(request, f"Trade accepted and completed with {trade.proposing_team.name}!")
         else:
             messages.error(request, f"Trade accepted but execution failed: {msg}")
-    else:
-        # At least one team is locked, defer execution
-        import datetime
-        unlock_date = max(
-            proposing_unlock_date or datetime.date.max,
-            receiving_unlock_date or datetime.date.max
-        )
-        if unlock_date != datetime.date.max:
-            messages.success(request, f"Trade accepted! It will be completed on {unlock_date.strftime('%A, %B %d')} when rosters unlock.")
-        else:
-            messages.success(request, f"Trade accepted! Waiting for rosters to unlock.")
     
     return redirect("team_detail", team_id=trade.receiving_team.id)
 
