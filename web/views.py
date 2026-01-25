@@ -1251,7 +1251,7 @@ def reject_trade(request, trade_id):
 
 @require_POST
 def cancel_trade(request, trade_id):
-    """Cancel a trade offer (proposing team can cancel if not executed)"""
+    """Cancel a trade offer (proposing team can cancel if not executed or accepted)"""
     trade = get_object_or_404(Trade, id=trade_id)
     
     # Check if the user owns the proposing team
@@ -1266,6 +1266,10 @@ def cancel_trade(request, trade_id):
     
     if trade.executed_at:
         messages.error(request, "This trade has already been executed.")
+        return redirect("team_detail", team_id=trade.proposing_team.id)
+    
+    if trade.status == Trade.Status.ACCEPTED:
+        messages.error(request, "Cannot cancel an accepted trade. The trade is locked until executed.")
         return redirect("team_detail", team_id=trade.proposing_team.id)
     
     if trade.status in [Trade.Status.REJECTED, Trade.Status.CANCELLED]:

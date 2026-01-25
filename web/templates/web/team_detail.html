@@ -261,14 +261,16 @@
                                 </form>
                               {% endif %}
                             {% else %}
-                              {# User proposed this trade - show cancel button #}
+                              {# User proposed this trade - show cancel button (only if not ACCEPTED) #}
+                              {% if trade.status != 'ACCEPTED' %}
                               <form method="post" action="{% url 'cancel_trade' trade.id %}">
                                 {% csrf_token %}
                                 <button type="button" class="px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md shadow-sm transition-colors"
-                                        onclick="showConfirmModal('{% if trade.status == 'ACCEPTED' %}Cancel this accepted trade?{% else %}Cancel this trade offer?{% endif %}', () => this.closest('form').submit());">
+                                        onclick="showConfirmModal('Cancel this trade offer?', () => this.closest('form').submit());">
                                   Cancel
                                 </button>
                               </form>
+                              {% endif %}
                             {% endif %}
                           </div>
                         {% endif %}
