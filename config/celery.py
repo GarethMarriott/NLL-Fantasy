@@ -15,10 +15,6 @@ app.autodiscover_tasks()
 
 # Celery Beat Schedule (Periodic Tasks)
 app.conf.beat_schedule = {
-    'lock-rosters-friday-5pm-PT': {
-        'task': 'web.tasks.lock_rosters_for_current_week',
-        'schedule': crontab(day_of_week='fri', hour=1, minute=0),  # Friday 5pm PT = Friday 1am UTC (next day)
-    },
     'unlock-rosters-monday-9am-PT': {
         'task': 'web.tasks.unlock_rosters_and_process_transactions',
         'schedule': crontab(day_of_week='mon', hour=16, minute=0),  # Monday 9am PT = Monday 4pm UTC (since PT is UTC-7/8)
@@ -46,14 +42,6 @@ app.conf.beat_schedule = {
     'fetch-stats-monday-retry': {
         'task': 'web.tasks.fetch_nll_stats_task',
         'schedule': crontab(day_of_week='mon', hour=15, minute=0),  # Monday 7 AM PT = Monday 3 PM UTC (retry before unlock)
-    },
-    'process-waivers-daily': {
-        'task': 'web.tasks.process_waivers',
-        'schedule': crontab(hour=23, minute=0),  # Every day at 11 PM
-    },
-    'check-league-status': {
-        'task': 'web.tasks.check_league_status',
-        'schedule': crontab(hour='*/6'),  # Every 6 hours
     },
     'cleanup-old-sessions': {
         'task': 'web.tasks.cleanup_old_sessions',
