@@ -182,8 +182,8 @@ def fetch_nll_stats_task():
         
         logger.info(f"Starting NLL stats fetch for season {current_year}")
         
-        # Call the fetch_nll_stats management command
-        call_command('fetch_nll_stats', current_year)
+        # Call the fetch_nll_stats management command with --season as named argument
+        call_command('fetch_nll_stats', season=current_year)
         
         logger.info(f"Successfully fetched NLL stats for season {current_year}")
         
