@@ -1022,6 +1022,15 @@ class Trade(models.Model):
         blank=True,
         help_text="When the trade was executed (players actually swapped)"
     )
+    failure_reason = models.TextField(
+        blank=True,
+        help_text="Reason if trade execution failed"
+    )
+    processed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the trade was processed (executed or failed)"
+    )
     
     class Meta:
         ordering = ['-created_at']
