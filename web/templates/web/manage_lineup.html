@@ -1,0 +1,178 @@
+{% extends "web/base.html" %}
+
+{% block title %}Manage Lineup - {{ team.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-8 px-4">
+  <div class="mb-8">
+    <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Manage Lineup</h1>
+    <p class="text-gray-600 dark:text-gray-400">{{ team.name }} - {{ league.name }}</p>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="mb-4 p-4 rounded-lg {% if message.tags %}{{ message.tags }}{% else %}bg-blue-100 text-blue-700{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="POST" class="space-y-8">
+    {% csrf_token %}
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Starters Column -->
+      <div class="lg:col-span-2">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+            Starters (7 Required)
+          </h2>
+
+          <!-- Offense Starters -->
+          <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+              <span class="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+              Offense Starters (3 Required)
+            </h3>
+            <div class="space-y-3">
+              {% for roster in starter_offense %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div>
+                    <p class="font-medium text-gray-900 dark:text-white">{{ roster.player.first_name }} {{ roster.player.last_name }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ roster.player.nll_team.abbreviation }} - {{ roster.player.position }}</p>
+                  </div>
+                  <select name="player_{{ roster.player.id }}_slot" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white">
+                    {% for value, label in slot_choices %}
+                      <option value="{{ value }}" {% if roster.slot_assignment == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              {% endfor %}
+              {% if not starter_offense %}
+                <p class="text-gray-600 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">No offense players assigned as starters</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Defense Starters -->
+          <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+              <span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+              Defense Starters (3 Required)
+            </h3>
+            <div class="space-y-3">
+              {% for roster in starter_defense %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div>
+                    <p class="font-medium text-gray-900 dark:text-white">{{ roster.player.first_name }} {{ roster.player.last_name }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ roster.player.nll_team.abbreviation }} - {{ roster.player.position }}</p>
+                  </div>
+                  <select name="player_{{ roster.player.id }}_slot" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white">
+                    {% for value, label in slot_choices %}
+                      <option value="{{ value }}" {% if roster.slot_assignment == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              {% endfor %}
+              {% if not starter_defense %}
+                <p class="text-gray-600 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">No defense players assigned as starters</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Goalie Starter -->
+          <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+              <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+              Goalie Starter (1 Required)
+            </h3>
+            <div class="space-y-3">
+              {% for roster in starter_goalie %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div>
+                    <p class="font-medium text-gray-900 dark:text-white">{{ roster.player.first_name }} {{ roster.player.last_name }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ roster.player.nll_team.abbreviation }} - {{ roster.player.position }}</p>
+                  </div>
+                  <select name="player_{{ roster.player.id }}_slot" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white">
+                    {% for value, label in slot_choices %}
+                      <option value="{{ value }}" {% if roster.slot_assignment == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              {% endfor %}
+              {% if not starter_goalie %}
+                <p class="text-gray-600 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">No goalie assigned as starter</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bench Column -->
+      <div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+            Bench ({{ bench_players.count }})
+          </h2>
+
+          <div class="space-y-3 max-h-96 overflow-y-auto">
+            {% for roster in bench_players %}
+              <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-900 dark:text-white truncate">{{ roster.player.first_name }} {{ roster.player.last_name }}</p>
+                  <p class="text-xs text-gray-600 dark:text-gray-400">{{ roster.player.nll_team.abbreviation }} - {{ roster.player.position }}</p>
+                </div>
+                <select name="player_{{ roster.player.id }}_slot" class="px-2 py-1 ml-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white text-sm">
+                  {% for value, label in slot_choices %}
+                    <option value="{{ value }}" {% if roster.slot_assignment == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endfor %}
+            {% if not bench_players %}
+              <p class="text-gray-600 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">No bench players</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-6">
+          <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">Lineup Summary</h3>
+          <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+            <li>Offense Starters: <span class="font-semibold">{{ starter_offense.count }}/3</span></li>
+            <li>Defense Starters: <span class="font-semibold">{{ starter_defense.count }}/3</span></li>
+            <li>Goalie Starters: <span class="font-semibold">{{ starter_goalie.count }}/1</span></li>
+            <li class="pt-2 border-t border-blue-200 dark:border-blue-800">
+              Total Starters: <span class="font-semibold">{{ starter_offense.count|add:starter_defense.count|add:starter_goalie.count }}/7</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex gap-4 mt-8">
+      <button type="submit" class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+        Save Lineup
+      </button>
+      <a href="{% url 'team_detail' team.id %}" class="flex-1 text-center px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-semibold rounded-lg transition">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+<style>
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 28px;
+  }
+
+  .dark select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  }
+</style>
+{% endblock %}

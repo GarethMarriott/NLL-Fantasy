@@ -9,6 +9,16 @@ import pytz
 class League(models.Model):
         # Multi-game week scoring method
     """Fantasy league that contains multiple teams"""
+    ROSTER_FORMAT_CHOICES = [
+        ("bestball", "Best Ball (no lineup management)"),
+        ("traditional", "Traditional (starter slots: 3O, 3D, 1G)"),
+    ]
+    roster_format = models.CharField(
+        max_length=15,
+        choices=ROSTER_FORMAT_CHOICES,
+        default="bestball",
+        help_text="League format: Best Ball (all players score) or Traditional (only starters score)"
+    )
     MULTIGAME_SCORING_CHOICES = [
         ("highest", "Use highest single-game score (default)"),
         ("average", "Use average of all games that week"),
@@ -235,6 +245,16 @@ class Team(models.Model):
 
 class Roster(models.Model):
     """Manages player assignments to teams within specific leagues"""
+    SLOT_CHOICES = [
+        ('starter_o1', 'Starter Offense 1'),
+        ('starter_o2', 'Starter Offense 2'),
+        ('starter_o3', 'Starter Offense 3'),
+        ('starter_d1', 'Starter Defense 1'),
+        ('starter_d2', 'Starter Defense 2'),
+        ('starter_d3', 'Starter Defense 3'),
+        ('starter_g', 'Starter Goalie'),
+        ('bench', 'Bench'),
+    ]
     team = models.ForeignKey(
         Team,
         on_delete=models.CASCADE,
@@ -250,6 +270,12 @@ class Roster(models.Model):
         on_delete=models.CASCADE,
         related_name='roster_entries',
         help_text="The league this roster assignment belongs to"
+    )
+    slot_assignment = models.CharField(
+        max_length=20,
+        choices=SLOT_CHOICES,
+        default='bench',
+        help_text="For traditional leagues: which slot this player is assigned to. For best ball leagues: always 'bench' (not used)"
     )
     added_date = models.DateTimeField(auto_now_add=True)
     week_added = models.PositiveSmallIntegerField(

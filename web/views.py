@@ -567,6 +567,73 @@ def team_detail(request, team_id):
     )
 
 
+@login_required
+def manage_lineup(request, team_id):
+    """Manage team lineup for traditional league format"""
+    team = get_object_or_404(Team, id=team_id)
+    league = team.league
+    
+    # Check if user owns this team
+    if not request.user.fantasyteamowner or team not in [t for t in Team.objects.filter(league=league) 
+                                                         if hasattr(t.owner, 'user') and t.owner.user == request.user]:
+        messages.error(request, "You do not have permission to manage this team's lineup.")
+        return redirect('team_detail', team_id=team_id)
+    
+    # Only allow lineup management for traditional leagues
+    if league.roster_format != 'traditional':
+        messages.error(request, "Lineup management is only available for traditional format leagues.")
+        return redirect('team_detail', team_id=team_id)
+    
+    # Handle form submission
+    if request.method == 'POST':
+        # Update player slot assignments
+        roster_items = Roster.objects.filter(team=team)
+        for roster_item in roster_items:
+            slot_key = f'player_{roster_item.player.id}_slot'
+            if slot_key in request.POST:
+                new_slot = request.POST[slot_key]
+                # Validate slot value
+                valid_slots = [choice[0] for choice in Roster.SLOT_CHOICES]
+                if new_slot in valid_slots:
+                    roster_item.slot_assignment = new_slot
+                    roster_item.save()
+        
+        # Validate starter slot count
+        starter_slots = Roster.objects.filter(
+            team=team,
+            slot_assignment__startswith='starter_'
+        ).count()
+        
+        if starter_slots != 7:
+            messages.error(request, "You must have exactly 7 starters (3 Offense, 3 Defense, 1 Goalie).")
+            return redirect('manage_lineup', team_id=team_id)
+        
+        messages.success(request, "Lineup updated successfully!")
+        return redirect('team_detail', team_id=team_id)
+    
+    # GET request - show lineup management page
+    roster_items = Roster.objects.filter(team=team).select_related('player')
+    
+    # Separate players by slot assignment
+    starter_offense = roster_items.filter(slot_assignment__in=['starter_o1', 'starter_o2', 'starter_o3'])
+    starter_defense = roster_items.filter(slot_assignment__in=['starter_d1', 'starter_d2', 'starter_d3'])
+    starter_goalie = roster_items.filter(slot_assignment='starter_g')
+    bench_players = roster_items.filter(slot_assignment='bench')
+    
+    context = {
+        'team': team,
+        'league': league,
+        'starter_offense': starter_offense,
+        'starter_defense': starter_defense,
+        'starter_goalie': starter_goalie,
+        'bench_players': bench_players,
+        'all_roster': roster_items,
+        'slot_choices': Roster.SLOT_CHOICES,
+    }
+    
+    return render(request, 'web/manage_lineup.html', context)
+
+
 @require_POST
 def assign_player(request, team_id):
     team = get_object_or_404(Team, id=team_id)
@@ -2409,7 +2476,13 @@ def standings(request):
                     week_added = roster_entry.week_added or 0  # Treat NULL as week 0 (always active)
                     week_dropped = roster_entry.week_dropped or 999  # Treat NULL as week 999 (still active)
                     if week_added <= week_number < week_dropped:
-                        active_players.append(roster_entry.player)
+                        # For traditional leagues, only count starters
+                        if league.roster_format == 'traditional':
+                            if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                                active_players.append(roster_entry.player)
+                        else:
+                            # For best ball, count all players
+                            active_players.append(roster_entry.player)
             
             for p in active_players:
                 stat = None

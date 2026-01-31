@@ -4,7 +4,8 @@ from .views import (
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft,
-    nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView
+    nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
+    manage_lineup
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
@@ -51,6 +52,7 @@ urlpatterns = [
     path("leagues/<int:league_id>/join/", team_create, name="team_create"),
     path("leagues/<int:league_id>/select/", select_league, name="select_league"),
     path("teams/<int:team_id>/settings/", team_settings, name="team_settings"),
+    path("teams/<int:team_id>/lineup/", manage_lineup, name="manage_lineup"),
     
     # Draft
     path("draft/", draft_room, name="draft_room"),

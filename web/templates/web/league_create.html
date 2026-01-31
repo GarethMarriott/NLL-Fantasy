@@ -42,6 +42,25 @@
           {% endif %}
           <p class="mt-1 text-sm text-gray-500">How many teams can join this league?</p>
         </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            League Format *
+          </label>
+          <div class="space-y-3">
+            {% for value, label in form.roster_format %}
+              <label class="flex items-start cursor-pointer">
+                {{ value.tag }}
+                <span class="ml-3">
+                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ label }}</span>
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+          {% if form.roster_format.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.roster_format.errors.0 }}</p>
+          {% endif %}
+        </div>
       </div>
 
       <div class="mt-8 flex gap-4">

@@ -34,7 +34,7 @@ class UserRegistrationForm(UserCreationForm):
 class LeagueCreateForm(forms.ModelForm):
     class Meta:
         model = League
-        fields = ['name', 'description', 'max_teams']
+        fields = ['name', 'description', 'max_teams', 'roster_format']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
             'max_teams': forms.Select(choices=[
@@ -43,6 +43,10 @@ class LeagueCreateForm(forms.ModelForm):
                 (8, '8 teams'),
                 (10, '10 teams'),
                 (12, '12 teams'),
+            ]),
+            'roster_format': forms.RadioSelect(choices=[
+                ('bestball', 'Best Ball - All roster players score'),
+                ('traditional', 'Traditional - Only 7 starters score (3 O, 3 D, 1 G)'),
             ]),
         }
 
@@ -80,7 +84,7 @@ class LeagueSettingsForm(forms.ModelForm):
     class Meta:
         model = League
         fields = [
-            'name', 'description', 'max_teams', 'is_public', 'roster_size', 
+            'name', 'description', 'max_teams', 'roster_format', 'is_public', 'roster_size', 
             'roster_forwards', 'roster_defense', 'roster_goalies',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
@@ -99,6 +103,7 @@ class LeagueSettingsForm(forms.ModelForm):
                 (10, '10 teams'),
                 (12, '12 teams'),
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'roster_format': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'disabled': True}),
             'is_public': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
             'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
@@ -124,6 +129,7 @@ class LeagueSettingsForm(forms.ModelForm):
             'scoring_goalie_goals_against': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+
         }
         help_texts = {
             'multigame_scoring': "If a player plays multiple games in a week, use their highest single-game score (default) or the average of their games.",

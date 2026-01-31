@@ -10,6 +10,12 @@
       </div>
       <div class="flex gap-3">
         {% if user_owns_team %}
+        {% if league.roster_format == 'traditional' %}
+        <a href="{% url 'manage_lineup' team.id %}"
+           class="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium">
+          📋 Manage Lineup
+        </a>
+        {% endif %}
         <a href="{% url 'trade_center' team.id %}"
            class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium">
           Trade Center
