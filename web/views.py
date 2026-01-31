@@ -180,6 +180,36 @@ def team_detail(request, team_id):
     # Get league for scoring settings
     league = team.league if team.league else League()
     
+    # For traditional leagues, show lineup management instead of best ball view
+    if league.roster_format == 'traditional':
+        roster_items = Roster.objects.filter(team=team).select_related('player')
+        
+        # Separate players by slot assignment
+        starter_offense = roster_items.filter(slot_assignment__in=['starter_o1', 'starter_o2', 'starter_o3'])
+        starter_defense = roster_items.filter(slot_assignment__in=['starter_d1', 'starter_d2', 'starter_d3'])
+        starter_goalie = roster_items.filter(slot_assignment='starter_g')
+        bench_players = roster_items.filter(slot_assignment='bench')
+        
+        # Check if user owns this team
+        user_owns_team = False
+        if request.user.is_authenticated:
+            try:
+                owner = team.owner
+                user_owns_team = owner.user == request.user
+            except:
+                pass
+        
+        return render(request, 'web/team_detail_traditional.html', {
+            'team': team,
+            'league': league,
+            'user_owns_team': user_owns_team,
+            'starter_offense': starter_offense,
+            'starter_defense': starter_defense,
+            'starter_goalie': starter_goalie,
+            'bench_players': bench_players,
+            'all_roster': roster_items,
+        })
+    
     # Get all available weeks for dropdown - filter by league's season
     league_season = league.created_at.year if league.created_at else timezone.now().year
     available_weeks = list(Week.objects.filter(season=league_season).order_by('week_number'))
