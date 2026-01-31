@@ -48,7 +48,22 @@
             League Format *
           </label>
           <div class="space-y-3">
-            {{ form.roster_format }}
+            <div class="flex items-center">
+              <input type="radio" id="id_roster_format_0" name="roster_format" value="bestball" 
+                     class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                     {% if form.roster_format.value == 'bestball' %}checked{% endif %}>
+              <label for="id_roster_format_0" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
+                Best Ball (no lineup management)
+              </label>
+            </div>
+            <div class="flex items-center">
+              <input type="radio" id="id_roster_format_1" name="roster_format" value="traditional" 
+                     class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                     {% if form.roster_format.value == 'traditional' %}checked{% endif %}>
+              <label for="id_roster_format_1" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
+                Traditional (starter slots: 3O, 3D, 1G)
+              </label>
+            </div>
           </div>
           {% if form.roster_format.errors %}
             <p class="mt-1 text-sm text-red-600">{{ form.roster_format.errors.0 }}</p>
@@ -84,53 +99,6 @@
     background-color: #374151;
     border-color: #4b5563;
     color: white;
-  }
-  
-  /* Radio button styling */
-  input[type="radio"] {
-    margin-top: 0.25rem;
-    cursor: pointer;
-  }
-  
-  label {
-    display: flex;
-    align-items: flex-start;
-    cursor: pointer;
-  }
-  
-  label span {
-    margin-left: 0.75rem;
-  }
-  
-  /* Dark mode fixes for Django RadioSelect widget */
-  .dark fieldset {
-    color: #f3f4f6 !important;
-    border-color: #4b5563 !important;
-  }
-  
-  .dark fieldset ul {
-    color: #f3f4f6 !important;
-  }
-  
-  .dark fieldset ul li {
-    color: #f3f4f6 !important;
-  }
-  
-  .dark fieldset ul li label {
-    color: #f3f4f6 !important;
-  }
-  
-  .dark fieldset ul li label * {
-    color: #f3f4f6 !important;
-  }
-  
-  .dark input[type="radio"] {
-    accent-color: #3b82f6 !important;
-  }
-  
-  /* Catch any other text elements */
-  .dark div > fieldset * {
-    color: #f3f4f6 !important;
   }
 </style>
 {% endblock %}
