@@ -48,14 +48,7 @@
             League Format *
           </label>
           <div class="space-y-3">
-            {% for value, label in form.roster_format %}
-              <label class="flex items-start cursor-pointer">
-                {{ value.tag }}
-                <span class="ml-3">
-                  <span class="text-sm font-medium text-gray-900 dark:text-white">{{ label }}</span>
-                </span>
-              </label>
-            {% endfor %}
+            {{ form.roster_format }}
           </div>
           {% if form.roster_format.errors %}
             <p class="mt-1 text-sm text-red-600">{{ form.roster_format.errors.0 }}</p>
@@ -91,6 +84,22 @@
     background-color: #374151;
     border-color: #4b5563;
     color: white;
+  }
+  
+  /* Radio button styling */
+  input[type="radio"] {
+    margin-top: 0.25rem;
+    cursor: pointer;
+  }
+  
+  label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+  }
+  
+  label span {
+    margin-left: 0.75rem;
   }
 </style>
 {% endblock %}
