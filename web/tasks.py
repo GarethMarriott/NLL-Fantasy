@@ -34,7 +34,7 @@ def send_email_task(subject, message, recipient_list, html_message=None):
 
 
 @shared_task
-def send_password_reset_email(user_id, uid, token, protocol='https'):
+def send_password_reset_email(user_id, uid, token, protocol='https', domain='shamrockfantasy.com'):
     """Send password reset email with token"""
     from django.contrib.auth import get_user_model
     from django.template.loader import render_to_string
@@ -45,8 +45,7 @@ def send_password_reset_email(user_id, uid, token, protocol='https'):
     try:
         user = User.objects.get(id=user_id)
         
-        # Build reset URL
-        domain = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'shamrockfantasy.com'
+        # Build reset URL with provided domain and protocol
         reset_url = f"{protocol}://{domain}/password-reset/{uid}/{token}/"
         
         # Render email template

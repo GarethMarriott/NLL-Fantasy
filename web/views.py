@@ -3751,6 +3751,10 @@ class CustomPasswordResetView(PasswordResetView):
         email = form.cleaned_data['email']
         users = form.get_users(email)
         
+        # Get the request's protocol and domain for correct reset URL
+        protocol = 'https' if self.request.is_secure() else 'http'
+        domain = self.request.get_host()
+        
         for user_obj in users:
             # Generate token using Django's default token generator
             token = default_token_generator.make_token(user_obj)
@@ -3761,7 +3765,8 @@ class CustomPasswordResetView(PasswordResetView):
                 user_id=user_obj.id,
                 uid=uid,
                 token=token,
-                protocol='https',
+                protocol=protocol,
+                domain=domain,
             )
         
         # Return done response instead of calling super()
