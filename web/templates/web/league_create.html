@@ -103,16 +103,25 @@
   }
   
   /* Dark mode radio button labels - improve contrast */
-  .dark label {
-    color: #f3f4f6;
+  .dark fieldset ul li label {
+    color: #f3f4f6 !important;
   }
   
-  .dark label span {
-    color: #f3f4f6;
+  .dark fieldset ul li label span {
+    color: #f3f4f6 !important;
   }
   
   .dark input[type="radio"] {
     accent-color: #3b82f6;
+  }
+  
+  /* Catch any text in radio button containers */
+  .dark fieldset {
+    color: #f3f4f6;
+  }
+  
+  .dark fieldset ul li {
+    color: #f3f4f6;
   }
 </style>
 {% endblock %}
