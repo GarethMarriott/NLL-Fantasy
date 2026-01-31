@@ -160,12 +160,21 @@ LOGOUT_REDIRECT_URL = '/'
 # Message storage using session instead of database
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 # ===== EMAIL CONFIGURATION =====
-# For development, use console backend (prints emails to terminal)
-# For production, set EMAIL_BACKEND in .env to anymail.backends.sendgrid.EmailBackend
+# Support multiple email backends via environment variables
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+
+# Gmail SMTP Configuration (when using Gmail as email provider)
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env('EMAIL_PORT', default=587, cast=int)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True, cast=bool)
+
+# SendGrid Configuration (legacy, keeping for reference)
 ANYMAIL = {
     'SENDGRID_API_KEY': env('SENDGRID_API_KEY', default=''),
 }
+
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@nllFantasy.com')
 SERVER_EMAIL = env('SERVER_EMAIL', default='server@nllFantasy.com')
 
