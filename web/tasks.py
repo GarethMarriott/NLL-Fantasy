@@ -34,28 +34,51 @@ def send_email_task(subject, message, recipient_list, html_message=None):
 
 
 @shared_task
-def send_password_reset_email(user_id, reset_url):
-    """Send password reset email"""
+def send_password_reset_email(user_id, uid, token, protocol='https'):
+    """Send password reset email with token"""
     from django.contrib.auth import get_user_model
+    from django.template.loader import render_to_string
+    from django.core.mail import send_mail
+    from django.conf import settings
     User = get_user_model()
     
     try:
         user = User.objects.get(id=user_id)
-        subject = 'Reset Your NLL Fantasy Password'
-        html_message = render_to_string('emails/password_reset.html', {
+        
+        # Build reset URL
+        domain = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'shamrockfantasy.com'
+        reset_url = f"{protocol}://{domain}/password-reset/{uid}/{token}/"
+        
+        # Render email template
+        subject = 'Password Reset Request - NLL Fantasy'
+        html_message = render_to_string('emails/password_reset_email.html', {
             'user': user,
+            'protocol': protocol,
+            'domain': domain,
+            'uid': uid,
+            'token': token,
+            'token_expire_hours': 24,
             'reset_url': reset_url,
         })
         
-        send_email_task.delay(
+        # Send email
+        send_mail(
             subject,
-            f"Reset your password at: {reset_url}",
+            f"Click here to reset your password: {reset_url}",
+            settings.DEFAULT_FROM_EMAIL,
             [user.email],
-            html_message=html_message
+            html_message=html_message,
+            fail_silently=False,
         )
-        logger.info(f"Password reset email queued for {user.email}")
+        
+        logger.info(f"Password reset email sent to {user.email}")
+        return f"Password reset email sent to {user.email}"
     except User.DoesNotExist:
-        logger.error(f"User with id {user_id} not found")
+        logger.error(f"User with id {user_id} not found for password reset")
+        return f"User with id {user_id} not found"
+    except Exception as e:
+        logger.error(f"Error sending password reset email: {str(e)}")
+        return f"Error sending password reset email: {str(e)}"
 
 
 @shared_task

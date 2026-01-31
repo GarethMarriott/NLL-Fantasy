@@ -4,7 +4,7 @@ from .views import (
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft,
-    nll_schedule
+    nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
@@ -33,6 +33,10 @@ urlpatterns = [
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
     path("register/", register_view, name="register"),
+    path("password-reset/", CustomPasswordResetView.as_view(), name="password_reset"),
+    path("password-reset/done/", CustomPasswordResetDoneView.as_view(), name="password_reset_done"),
+    path("password-reset/<uidb64>/<token>/", CustomPasswordResetConfirmView.as_view(), name="password_reset_confirm"),
+    path("password-reset/complete/", CustomPasswordResetCompleteView.as_view(), name="password_reset_complete"),
     
     # Chat
     path("chat/", chat_view, name="chat"),

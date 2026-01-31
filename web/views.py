@@ -1,15 +1,18 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.db import models
 from django.db.models import Q
+from django.urls import reverse_lazy
 import pytz
 
 from .models import Player, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
-from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm
+from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm, PasswordResetForm, SetPasswordForm
+from .tasks import send_password_reset_email
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
@@ -3727,3 +3730,58 @@ def cancel_draft(request):
     post_league_message(league, "❌ The draft has been cancelled by the commissioner.")
     messages.info(request, "Draft cancelled.")
     return redirect('draft_room')
+
+
+# ===== Password Reset Views =====
+
+class CustomPasswordResetView(PasswordResetView):
+    """Custom password reset view with async email task"""
+    form_class = PasswordResetForm
+    template_name = 'web/password_reset_form.html'
+    success_url = reverse_lazy('password_reset_done')
+    email_template_name = 'emails/password_reset_email.html'
+    subject_template_name = 'emails/password_reset_subject.txt'
+    
+    def form_valid(self, form):
+        """Override to use async email task"""
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        
+        email = form.cleaned_data['email']
+        users = form.get_users(email)
+        
+        for user_obj in users:
+            # Generate token using Django's default token generator
+            token = default_token_generator.make_token(user_obj)
+            uid = urlsafe_base64_encode(force_bytes(user_obj.pk))
+            
+            # Queue async email task
+            send_password_reset_email.delay(
+                user_id=user_obj.id,
+                uid=uid,
+                token=token,
+                protocol='https',
+            )
+        
+        # Return done response instead of calling super()
+        # to avoid the default email sending
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(self.get_success_url())
+
+
+class CustomPasswordResetDoneView(PasswordResetDoneView):
+    """Confirmation page after password reset email is sent"""
+    template_name = 'web/password_reset_done.html'
+
+
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    """View for entering new password after clicking reset link"""
+    form_class = SetPasswordForm
+    template_name = 'web/password_reset_confirm.html'
+    success_url = reverse_lazy('password_reset_complete')
+
+
+class CustomPasswordResetCompleteView(PasswordResetCompleteView):
+    """Success page after password has been reset"""
+    template_name = 'web/password_reset_complete.html'

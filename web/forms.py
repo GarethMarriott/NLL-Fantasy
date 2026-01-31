@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm as DjangoPasswordResetForm, SetPasswordForm as DjangoSetPasswordForm
 from django.contrib.auth.models import User
 from .models import League, Team
 
@@ -134,3 +134,36 @@ class LeagueSettingsForm(forms.ModelForm):
         # Remove playoff_weeks from form fields entirely
         if 'playoff_weeks' in self.fields:
             self.fields.pop('playoff_weeks')
+
+# ===== Password Reset Forms =====
+
+class PasswordResetForm(DjangoPasswordResetForm):
+    """Custom password reset form with Tailwind styling"""
+    email = forms.EmailField(
+        max_length=254,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email',
+        })
+    )
+
+
+class SetPasswordForm(DjangoSetPasswordForm):
+    """Custom set password form with Tailwind styling"""
+    new_password1 = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Enter new password',
+            'autocomplete': 'new-password',
+        })
+    )
+    new_password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Confirm new password',
+            'autocomplete': 'new-password',
+        })
+    )
