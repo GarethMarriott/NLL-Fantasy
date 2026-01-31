@@ -27,13 +27,25 @@ app.conf.beat_schedule = {
         'task': 'web.tasks.fetch_nll_stats_task',
         'schedule': crontab(day_of_week='fri', hour=6, minute=0),  # Friday 11 PM PT = Saturday 6 AM UTC
     },
+    'fetch-stats-saturday-morning': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='sat', hour=17, minute=0),  # Saturday 9 AM PT = Saturday 5 PM UTC
+    },
     'fetch-stats-saturday-night': {
         'task': 'web.tasks.fetch_nll_stats_task',
         'schedule': crontab(day_of_week='sat', hour=6, minute=0),  # Saturday 11 PM PT = Sunday 6 AM UTC
     },
+    'fetch-stats-sunday-morning': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='sun', hour=17, minute=0),  # Sunday 9 AM PT = Sunday 5 PM UTC
+    },
     'fetch-stats-sunday-night': {
         'task': 'web.tasks.fetch_nll_stats_task',
         'schedule': crontab(day_of_week='sun', hour=6, minute=0),  # Sunday 11 PM PT = Monday 6 AM UTC
+    },
+    'fetch-stats-monday-retry': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='mon', hour=15, minute=0),  # Monday 7 AM PT = Monday 3 PM UTC (retry before unlock)
     },
     'process-waivers-daily': {
         'task': 'web.tasks.process_waivers',
