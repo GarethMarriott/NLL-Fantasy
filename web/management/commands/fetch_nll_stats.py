@@ -256,15 +256,27 @@ class Command(BaseCommand):
                 # Create or get Game for this specific game
                 home_team = game.get('home', 'TBA')
                 away_team = game.get('away', 'TBA')
-                game_obj, _ = Game.objects.get_or_create(
-                    week=week,
-                    nll_game_id=str(game_id),
-                    defaults={
-                        'date': game_date,
-                        'home_team': home_team,
-                        'away_team': away_team,
-                    }
-                )
+                try:
+                    game_obj, _ = Game.objects.get_or_create(
+                        week=week,
+                        nll_game_id=str(game_id),
+                        defaults={
+                            'date': game_date,
+                            'home_team': home_team,
+                            'away_team': away_team,
+                        }
+                    )
+                except Exception as e:
+                    # If game already exists with same date/teams, try to get it by those fields
+                    try:
+                        game_obj = Game.objects.get(
+                            date=game_date,
+                            home_team=home_team,
+                            away_team=away_team
+                        )
+                    except:
+                        # If we can't find or create, skip this game's stats
+                        game_obj = None
             else:
                 week = None
                 game_obj = None
