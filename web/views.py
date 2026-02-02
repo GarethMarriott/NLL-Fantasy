@@ -766,6 +766,8 @@ def assign_player(request, team_id):
     # If rosters are locked and waivers are enabled, redirect to waiver claim process
     # EXCEPT for drop actions, which should always be allowed
     if rosters_are_locked and use_waivers and action != "drop":
+        print(f"DEBUG: Redirecting to waiver claims (rosters_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action})")
+        messages.info(request, f"DEBUG: Redirecting to waiver claims page (rosters_locked={rosters_are_locked})")
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
