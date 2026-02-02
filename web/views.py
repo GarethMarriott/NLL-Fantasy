@@ -739,12 +739,6 @@ def assign_player(request, team_id):
     # Get the current/active week (where today falls between start and end)
     from django.db.models import Q
     today = timezone.now().date()
-    print(f"DEBUG: Today's date: {today}")
-    
-    # Log all weeks for debugging
-    all_weeks_check = Week.objects.filter(season=league_season).order_by('week_number')
-    for w in all_weeks_check:
-        print(f"DEBUG: Week {w.week_number}: {w.start_date} to {w.end_date}")
     
     current_week = Week.objects.filter(
         season=league_season,
@@ -752,23 +746,18 @@ def assign_player(request, team_id):
         end_date__gte=today
     ).first()
     
-    print(f"DEBUG: Query result for week spanning today: {current_week}")
-    
     # If no week spans today, find the NEXT week (upcoming), not the previous one
     if not current_week:
         current_week = Week.objects.filter(
             season=league_season,
             start_date__gt=today
         ).order_by('week_number').first()
-        print(f"DEBUG: No week spans today, found upcoming week: {current_week}")
     
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
     all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
     for w in all_weeks:
-        is_w_locked = w.is_locked()
-        print(f"DEBUG: Week {w.week_number} is_locked()={is_w_locked}")
-        if not is_w_locked:
+        if not w.is_locked():
             next_unlocked_week = w
             break
     
@@ -776,15 +765,9 @@ def assign_player(request, team_id):
     # i.e., if the next unlocked week is different from the current week
     rosters_are_locked = next_unlocked_week and (not current_week or next_unlocked_week.week_number > current_week.week_number)
     
-    print(f"DEBUG: current_week={current_week}, next_unlocked_week={next_unlocked_week}, rosters_are_locked={rosters_are_locked}")
-    
-    print(f"DEBUG: rosters_are_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action}, next_unlocked_week={next_unlocked_week}")
-    
     # If rosters are locked and waivers are enabled, redirect to waiver claim process
     # EXCEPT for drop actions, which should always be allowed
     if rosters_are_locked and use_waivers and action != "drop":
-        print(f"DEBUG: Redirecting to waiver claims (rosters_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action})")
-        messages.info(request, f"DEBUG: current_week={current_week}, rosters_are_locked={rosters_are_locked}, Redirecting to waiver claims page")
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
@@ -892,8 +875,6 @@ def assign_player(request, team_id):
         return redirect("players")
     
     if action == "add":
-        print(f"DEBUG: Handling ADD action")
-        messages.info(request, f"DEBUG: Attempting to add {player.first_name} {player.last_name}")
         # Check roster size limit (total players)
         current_roster_count = Roster.objects.filter(
             team=team,
@@ -938,17 +919,14 @@ def assign_player(request, team_id):
         
         # Create a roster entry for this player on this team in this league
         try:
-            messages.info(request, f"DEBUG: About to create roster with week_added={next_week_number}")
             roster = Roster.objects.create(
                 player=player,
                 team=team,
                 league=team.league,
                 week_added=next_week_number
             )
-            print(f"DEBUG: Roster created successfully - ID {roster.id}, week_added={next_week_number}")
             messages.success(request, f"Added {player.first_name} {player.last_name} to your roster (week {next_week_number})")
         except Exception as e:
-            print(f"DEBUG: ERROR creating roster: {type(e).__name__}: {e}")
             messages.error(request, f"Error adding player: {str(e)}")
             return redirect("team_detail", team_id=team.id)
         # Update assigned_side for slot placement
