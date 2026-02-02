@@ -54,7 +54,7 @@
   <div id="chat-messages" class="h-96 overflow-y-auto p-4 space-y-3 bg-gray-50 dark:bg-gray-900">
     {% for msg in messages reversed %}
       {% if not is_team_chat or msg.message_type not in "ADD|DROP|SYSTEM" %}
-      <div class="flex items-start space-x-3">
+      <div class="flex items-start space-x-3" data-message-id="{{ msg.id }}">
         {% if msg.sender %}
           <div class="flex-shrink-0">
             <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold">
@@ -165,12 +165,27 @@
 </div>
 
 <script>
+// Get the last message ID from the DOM to ensure we skip initial messages
+function getLastMessageIdFromDOM() {
+  const messages = document.querySelectorAll('#chat-messages > div');
+  if (messages.length > 0) {
+    const lastMsg = messages[messages.length - 1];
+    const dataId = lastMsg.getAttribute('data-message-id');
+    return dataId ? parseInt(dataId) : 0;
+  }
+  return 0;
+}
+
 let lastMessageId = {{ messages.first.id|default:0 }};
 let chatType = '{{ chat_type }}';
 let teamChatId = {% if current_chat_with %}'{{ current_chat_with.id }}'{% else %}null{% endif %};
 
 // Auto-refresh messages every 3 seconds
-setInterval(fetchNewMessages, 3000);
+setInterval(function() {
+  // Update lastMessageId from DOM before fetching
+  lastMessageId = getLastMessageIdFromDOM();
+  fetchNewMessages();
+}, 3000);
 
 function fetchNewMessages() {
   let url = `/chat/messages/?since=${lastMessageId}&chat_type=${chatType}`;
@@ -197,6 +212,7 @@ function addMessageToChat(msg) {
   const chatContainer = document.getElementById('chat-messages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'flex items-start space-x-3';
+  messageDiv.setAttribute('data-message-id', msg.id);
   
   const senderInitial = msg.is_system ? '!' : msg.sender.charAt(0).toUpperCase();
   const senderClass = msg.is_system ? 'bg-gray-500' : 'bg-blue-500';
