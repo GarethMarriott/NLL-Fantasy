@@ -104,7 +104,29 @@
           </div>
           
           <div class="mt-1 text-sm text-gray-700 dark:text-gray-300">
-            {{ msg.message }}
+            {% if msg.message_type == 'ADD' %}
+              <div class="bg-green-100 dark:bg-green-900 border-l-4 border-green-500 p-2 rounded">
+                {% if msg.player %}
+                  <span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">
+                    + {{ msg.player.first_name|slice:":1" }}. {{ msg.player.last_name }}
+                  </span>
+                {% endif %}
+              </div>
+            {% elif msg.message_type == 'DROP' %}
+              <div class="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 p-2 rounded">
+                {% if msg.player %}
+                  <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">
+                    - {{ msg.player.first_name|slice:":1" }}. {{ msg.player.last_name }}
+                  </span>
+                {% endif %}
+              </div>
+            {% elif 'TRADE' in msg.message_type %}
+              <div class="bg-purple-100 dark:bg-purple-900 border-l-4 border-purple-500 p-2 rounded">
+                {{ msg.message }}
+              </div>
+            {% else %}
+              {{ msg.message }}
+            {% endif %}
           </div>
         </div>
       </div>
@@ -180,8 +202,27 @@ function addMessageToChat(msg) {
   const timeStr = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   
   let messageClass = 'mt-1 text-sm text-gray-700 dark:text-gray-300';
-  if (msg.message_type === 'ADD') messageClass += ' bg-green-100 dark:bg-green-900 p-2 rounded';
-  if (msg.message_type === 'DROP') messageClass += ' bg-red-100 dark:bg-red-900 p-2 rounded';
+  let messageContent = msg.message;
+  
+  if (msg.message_type === 'ADD') {
+    messageClass = 'mt-1 text-sm bg-green-100 dark:bg-green-900 border-l-4 border-green-500 p-2 rounded';
+    const playerName = msg.message.split('|')[0] || msg.message;
+    const parts = playerName.trim().split(' ');
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ') || '';
+    const initial = firstName.charAt(0).toUpperCase();
+    messageContent = `<span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">+ ${initial}. ${lastName}</span>`;
+  } else if (msg.message_type === 'DROP') {
+    messageClass = 'mt-1 text-sm bg-red-100 dark:bg-red-900 border-l-4 border-red-500 p-2 rounded';
+    const playerName = msg.message.split('|')[0] || msg.message;
+    const parts = playerName.trim().split(' ');
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ') || '';
+    const initial = firstName.charAt(0).toUpperCase();
+    messageContent = `<span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">- ${initial}. ${lastName}</span>`;
+  } else if (msg.message_type && msg.message_type.includes('TRADE')) {
+    messageClass = 'mt-1 text-sm bg-purple-100 dark:bg-purple-900 border-l-4 border-purple-500 p-2 rounded';
+  }
   
   messageDiv.innerHTML = `
     <div class="flex-shrink-0">
@@ -195,7 +236,7 @@ function addMessageToChat(msg) {
         ${teamInfo}
         <span class="text-xs text-gray-500 dark:text-gray-400">${timeStr}</span>
       </div>
-      <div class="${messageClass}">${msg.message}</div>
+      <div class="${messageClass}">${messageContent}</div>
     </div>
   `;
   
