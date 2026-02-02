@@ -180,36 +180,6 @@ def team_detail(request, team_id):
     # Get league for scoring settings
     league = team.league if team.league else League()
     
-    # For traditional leagues, show lineup management instead of best ball view
-    if league.roster_format == 'traditional':
-        roster_items = Roster.objects.filter(team=team).select_related('player')
-        
-        # Separate players by slot assignment
-        starter_offense = roster_items.filter(slot_assignment__in=['starter_o1', 'starter_o2', 'starter_o3'])
-        starter_defense = roster_items.filter(slot_assignment__in=['starter_d1', 'starter_d2', 'starter_d3'])
-        starter_goalie = roster_items.filter(slot_assignment='starter_g')
-        bench_players = roster_items.filter(slot_assignment='bench')
-        
-        # Check if user owns this team
-        user_owns_team = False
-        if request.user.is_authenticated:
-            try:
-                owner = team.owner
-                user_owns_team = owner.user == request.user
-            except:
-                pass
-        
-        return render(request, 'web/team_detail_traditional.html', {
-            'team': team,
-            'league': league,
-            'user_owns_team': user_owns_team,
-            'starter_offense': starter_offense,
-            'starter_defense': starter_defense,
-            'starter_goalie': starter_goalie,
-            'bench_players': bench_players,
-            'all_roster': roster_items,
-        })
-    
     # Get all available weeks for dropdown - filter by league's season
     league_season = league.created_at.year if league.created_at else timezone.now().year
     available_weeks = list(Week.objects.filter(season=league_season).order_by('week_number'))
@@ -463,6 +433,36 @@ def team_detail(request, team_id):
     while len(goalie_slots) < 2:
         goalie_slots.append(None)
 
+    # For traditional leagues, mark which players are starters and separate them
+    is_traditional = league.roster_format == 'traditional'
+    if is_traditional:
+        # Get roster entries with slot assignments
+        roster_with_slots = team.roster_entries.select_related('player').filter(
+            Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num),
+            player__active=True
+        ).filter(
+            Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
+        )
+        
+        # Create a mapping of player_id to slot_assignment
+        player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
+        
+        # Mark starter status on each slot
+        for slot_group in [offence_slots, defence_slots, goalie_slots]:
+            for slot in slot_group:
+                if slot:
+                    player_id = slot['player'].id
+                    slot_assignment = player_to_slot.get(player_id, 'bench')
+                    slot['is_starter'] = slot_assignment.startswith('starter_') if slot_assignment else False
+                    slot['slot_assignment'] = slot_assignment
+    else:
+        # For best ball, all players are "starters" (all count)
+        for slot_group in [offence_slots, defence_slots, goalie_slots]:
+            for slot in slot_group:
+                if slot:
+                    slot['is_starter'] = True
+                    slot['slot_assignment'] = 'bestball'
+
     # Aggregate weekly totals: top 3 offense, top 3 defense, top 1 goalie
     # Also mark which stats count toward the total
     # Calculate for the selected week only
@@ -491,47 +491,71 @@ def team_detail(request, team_id):
     defense_scores.sort(key=lambda x: x[0], reverse=True)
     goalie_scores.sort(key=lambda x: x[0], reverse=True)
     
-    # Mark top 3 offense as counting
-    for score, slot in offense_scores[:3]:
-        slot["counts_for_total"][week_idx] = True
-        slot["selected_week_counts"] = True
-    
-    # Mark top 3 defense as counting
-    for score, slot in defense_scores[:3]:
-        slot["counts_for_total"][week_idx] = True
-        slot["selected_week_counts"] = True
-    
-    # Mark top 1 goalie as counting
-    for score, slot in goalie_scores[:1]:
-        slot["counts_for_total"][week_idx] = True
-        slot["selected_week_counts"] = True
-    
-    # Calculate total for selected week only
-    selected_week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
+    if is_traditional:
+        # For traditional leagues, only mark assigned starters as counting
+        # Get the 3 assigned offense starters
+        starter_offense = [slot for slot in offence_slots if slot and slot.get('is_starter')][:3]
+        starter_defense = [slot for slot in defence_slots if slot and slot.get('is_starter')][:3]
+        starter_goalie = [slot for slot in goalie_slots if slot and slot.get('is_starter')][:1]
+        
+        # Mark these specific slots as counting
+        for slot in starter_offense + starter_defense + starter_goalie:
+            slot["counts_for_total"][week_idx] = True
+            slot["selected_week_counts"] = True
+        
+        # Calculate total only from starters
+        selected_week_total = sum(slot['selected_week_points'] for slot in starter_offense + starter_defense + starter_goalie 
+                                  if slot and slot['selected_week_points'] is not None)
+    else:
+        # For best ball, mark top 3 offense, top 3 defense, top 1 goalie as counting
+        for score, slot in offense_scores[:3]:
+            slot["counts_for_total"][week_idx] = True
+            slot["selected_week_counts"] = True
+        
+        for score, slot in defense_scores[:3]:
+            slot["counts_for_total"][week_idx] = True
+            slot["selected_week_counts"] = True
+        
+        for score, slot in goalie_scores[:1]:
+            slot["counts_for_total"][week_idx] = True
+            slot["selected_week_counts"] = True
+        
+        # Calculate total for selected week only
+        selected_week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
     
     # Calculate overall total across all weeks (for the Total column)
     overall_total = 0
     for week_idx_all in range(18):
-        offense_scores_all = []
-        for slot in offence_slots:
-            if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
-                offense_scores_all.append(slot["weekly_points"][week_idx_all])
+        if is_traditional:
+            # For traditional, sum all starter scores across all weeks
+            starter_offense_all = [slot for slot in offence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:3]
+            starter_defense_all = [slot for slot in defence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:3]
+            starter_goalie_all = [slot for slot in goalie_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:1]
+            
+            week_total_all = sum(slot["weekly_points"][week_idx_all] for slot in starter_offense_all + starter_defense_all + starter_goalie_all)
+        else:
+            # For best ball, top 3 of each position
+            offense_scores_all = []
+            for slot in offence_slots:
+                if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
+                    offense_scores_all.append(slot["weekly_points"][week_idx_all])
+            
+            defense_scores_all = []
+            for slot in defence_slots:
+                if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
+                    defense_scores_all.append(slot["weekly_points"][week_idx_all])
+            
+            goalie_scores_all = []
+            for slot in goalie_slots:
+                if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
+                    goalie_scores_all.append(slot["weekly_points"][week_idx_all])
+            
+            offense_scores_all.sort(reverse=True)
+            defense_scores_all.sort(reverse=True)
+            goalie_scores_all.sort(reverse=True)
+            
+            week_total_all = sum(offense_scores_all[:3]) + sum(defense_scores_all[:3]) + sum(goalie_scores_all[:1])
         
-        defense_scores_all = []
-        for slot in defence_slots:
-            if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
-                defense_scores_all.append(slot["weekly_points"][week_idx_all])
-        
-        goalie_scores_all = []
-        for slot in goalie_slots:
-            if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
-                goalie_scores_all.append(slot["weekly_points"][week_idx_all])
-        
-        offense_scores_all.sort(reverse=True)
-        defense_scores_all.sort(reverse=True)
-        goalie_scores_all.sort(reverse=True)
-        
-        week_total_all = sum(offense_scores_all[:3]) + sum(defense_scores_all[:3]) + sum(goalie_scores_all[:1])
         overall_total += week_total_all
 
     # Get all players with their team assignment in this league (if any) - CURRENT ROSTER ONLY
@@ -575,6 +599,7 @@ def team_detail(request, team_id):
         "web/team_detail.html",
         {
             "team": team,
+            "league": league,
             "user_owns_team": user_owns_team,
             "offence_slots": offence_slots,
             "defence_slots": defence_slots,
@@ -593,6 +618,7 @@ def team_detail(request, team_id):
             "pending_trades": pending_trades,
             "pending_changes_count": pending_changes_count,
             "use_waivers": use_waivers,
+            "is_traditional": is_traditional,
         },
     )
 
