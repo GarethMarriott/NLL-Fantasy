@@ -751,7 +751,10 @@ def assign_player(request, team_id):
             start_date__lte=timezone.now().date()
         ).order_by('-week_number').first()
     
-    rosters_are_locked = current_week and current_week.is_locked()
+    is_locked = current_week.is_locked() if current_week else False
+    rosters_are_locked = current_week and is_locked
+    
+    print(f"DEBUG: current_week={current_week}, week_number={current_week.week_number if current_week else None}, is_locked()={is_locked}")
     
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
@@ -767,7 +770,7 @@ def assign_player(request, team_id):
     # EXCEPT for drop actions, which should always be allowed
     if rosters_are_locked and use_waivers and action != "drop":
         print(f"DEBUG: Redirecting to waiver claims (rosters_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action})")
-        messages.info(request, f"DEBUG: Redirecting to waiver claims page (rosters_locked={rosters_are_locked})")
+        messages.info(request, f"DEBUG: current_week={current_week}, is_locked={is_locked}, Redirecting to waiver claims page")
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
