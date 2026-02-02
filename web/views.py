@@ -630,8 +630,7 @@ def manage_lineup(request, team_id):
     league = team.league
     
     # Check if user owns this team
-    if not request.user.fantasyteamowner or team not in [t for t in Team.objects.filter(league=league) 
-                                                         if hasattr(t.owner, 'user') and t.owner.user == request.user]:
+    if not (hasattr(team, 'owner') and team.owner and team.owner.user == request.user):
         messages.error(request, "You do not have permission to manage this team's lineup.")
         return redirect('team_detail', team_id=team_id)
     
