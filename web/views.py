@@ -762,8 +762,9 @@ def assign_player(request, team_id):
         return redirect("team_detail", team_id=team.id)
 
     next_week_number = next_unlocked_week.week_number
-
     slot_group = request.POST.get("slot_group")
+    
+    if action == "swap":
         # Handle swap from players page
         drop_player_id = request.POST.get("drop_player_id")
         if not drop_player_id:
