@@ -715,6 +715,8 @@ def assign_player(request, team_id):
     
     # Get action early to check if it's a drop (which bypasses waiver redirect)
     action = request.POST.get("action")
+    player_id = request.POST.get("player_id")
+    print(f"DEBUG assign_player: action={action}, player_id={player_id}")
     
     # Check if roster changes are allowed - find the next unlocked week
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
@@ -897,12 +899,14 @@ def assign_player(request, team_id):
             return redirect("team_detail", team_id=team.id)
         
         # Create a roster entry for this player on this team in this league
+        print(f"DEBUG: Creating roster for {player.first_name} {player.last_name}, week_added={next_week_number}")
         Roster.objects.create(
             player=player,
             team=team,
             league=team.league,
             week_added=next_week_number
         )
+        print(f"DEBUG: Roster created successfully")
         # Update assigned_side for slot placement
         if slot_group in {"O", "D", "G"}:
             player.assigned_side = slot_group
