@@ -719,11 +719,20 @@ def assign_player(request, team_id):
     # Check if roster changes are allowed - find the next unlocked week
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
     
-    # Get current week and check if rosters are locked
+    # Get the current/active week (where today falls between start and end)
+    from django.db.models import Q
     current_week = Week.objects.filter(
         season=league_season,
-        start_date__lte=timezone.now().date()
-    ).order_by('-week_number').first()
+        start_date__lte=timezone.now().date(),
+        end_date__gte=timezone.now().date()
+    ).first()
+    
+    # If no week spans today, find the most recent week that started before today
+    if not current_week:
+        current_week = Week.objects.filter(
+            season=league_season,
+            start_date__lte=timezone.now().date()
+        ).order_by('-week_number').first()
     
     rosters_are_locked = current_week and current_week.is_locked()
     
