@@ -121,7 +121,9 @@
                 {{ msg.message }}
               {% endif %}
             {% elif 'TRADE' in msg.message_type %}
-              {{ msg.message }}
+              <span class="inline-block bg-purple-500 text-white px-3 py-1 rounded font-semibold">
+                📦 {{ msg.message }}
+              </span>
             {% else %}
               {{ msg.message }}
             {% endif %}
@@ -216,6 +218,8 @@ function addMessageToChat(msg) {
     const lastName = parts.slice(1).join(' ') || '';
     const initial = firstName.charAt(0).toUpperCase();
     messageContent = `<span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">- ${initial}. ${lastName}</span>`;
+  } else if (msg.message_type && msg.message_type.includes('TRADE')) {
+    messageContent = `<span class="inline-block bg-purple-500 text-white px-3 py-1 rounded font-semibold">📦 ${msg.message}</span>`;
   }
   
   messageDiv.innerHTML = `
