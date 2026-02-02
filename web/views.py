@@ -718,6 +718,19 @@ def assign_player(request, team_id):
     player_id = request.POST.get("player_id")
     print(f"DEBUG assign_player: action={action}, player_id={player_id}")
     
+    if not player_id:
+        messages.error(request, "No player specified.")
+        return redirect("team_detail", team_id=team.id)
+
+    try:
+        player = Player.objects.get(id=int(player_id))
+    except Player.DoesNotExist:
+        messages.error(request, "Player not found.")
+        return redirect("team_detail", team_id=team.id)
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid player ID.")
+        return redirect("team_detail", team_id=team.id)
+    
     # Check if roster changes are allowed - find the next unlocked week
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
     
