@@ -751,11 +751,6 @@ def assign_player(request, team_id):
             start_date__lte=timezone.now().date()
         ).order_by('-week_number').first()
     
-    is_locked = current_week.is_locked() if current_week else False
-    rosters_are_locked = current_week and is_locked
-    
-    print(f"DEBUG: current_week={current_week}, week_number={current_week.week_number if current_week else None}, is_locked()={is_locked}")
-    
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
     all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
@@ -763,6 +758,12 @@ def assign_player(request, team_id):
         if not w.is_locked():
             next_unlocked_week = w
             break
+    
+    # Rosters are locked if: we have an unlocked week AND it's a future week (not current)
+    # i.e., if the next unlocked week is different from the current week
+    rosters_are_locked = next_unlocked_week and (not current_week or next_unlocked_week.week_number > current_week.week_number)
+    
+    print(f"DEBUG: current_week={current_week}, next_unlocked_week={next_unlocked_week}, rosters_are_locked={rosters_are_locked}")
     
     print(f"DEBUG: rosters_are_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action}, next_unlocked_week={next_unlocked_week}")
     
