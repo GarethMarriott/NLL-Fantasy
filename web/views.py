@@ -2909,19 +2909,19 @@ def register_view(request):
 
 @login_required
 def league_list(request):
-    """List all leagues and user's leagues with search functionality"""
+    """List all active leagues and user's leagues (including archived) with search functionality"""
     search_query = request.GET.get('search', '').strip()
     search_type = request.GET.get('search_type', 'name')
     
-    # Leagues the user is commissioner of
+    # Leagues the user is commissioner of (include archived for reference)
     my_leagues = League.objects.filter(commissioner=request.user)
     
-    # Leagues where user owns a team
+    # Leagues where user owns a team (include archived for reference)
     my_team_leagues = League.objects.filter(
         teams__owner__user=request.user
     ).distinct()
     
-    # All other active leagues
+    # All other ACTIVE leagues only
     other_leagues = League.objects.filter(is_active=True).exclude(
         id__in=my_leagues.values_list('id', flat=True)
     ).exclude(
@@ -2941,9 +2941,18 @@ def league_list(request):
         # Without search, only show public leagues
         other_leagues = other_leagues.filter(is_public=True)
     
+    # Separate user's active and archived leagues
+    my_active = my_leagues.filter(is_active=True)
+    my_archived = my_leagues.filter(is_active=False)
+    
+    my_team_active = my_team_leagues.filter(is_active=True)
+    my_team_archived = my_team_leagues.filter(is_active=False)
+    
     return render(request, "web/league_list.html", {
-        "my_leagues": my_leagues,
-        "my_team_leagues": my_team_leagues,
+        "my_active_leagues": my_active,
+        "my_archived_leagues": my_archived,
+        "my_team_active_leagues": my_team_active,
+        "my_team_archived_leagues": my_team_archived,
         "other_leagues": other_leagues,
         "search_query": search_query,
         "search_type": search_type,
