@@ -754,13 +754,13 @@ def assign_player(request, team_id):
     
     print(f"DEBUG: Query result for week spanning today: {current_week}")
     
-    # If no week spans today, find the most recent week that started before today
+    # If no week spans today, find the NEXT week (upcoming), not the previous one
     if not current_week:
         current_week = Week.objects.filter(
             season=league_season,
-            start_date__lte=today
-        ).order_by('-week_number').first()
-        print(f"DEBUG: Fallback query result (most recent started before today): {current_week}")
+            start_date__gt=today
+        ).order_by('week_number').first()
+        print(f"DEBUG: No week spans today, found upcoming week: {current_week}")
     
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
