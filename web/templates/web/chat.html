@@ -81,35 +81,10 @@
                 </span>
               {% endif %}
             {% else %}
-              <span class="font-semibold text-gray-600 dark:text-gray-400">System</span>
-            {% endif %}
-            <span class="text-xs text-gray-500 dark:text-gray-400">{{ msg.created_at|date:"M d, g:i A" }}</span>
-            
-            {% if msg.message_type != 'CHAT' %}
-              <span class="text-xs px-2 py-1 rounded-full 
-                {% if 'TRADE' in msg.message_type %}bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200
-                {% elif msg.message_type == 'ADD' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
-                {% elif msg.message_type == 'DROP' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
-                {% endif %}">
-                {% if msg.message_type == 'TRADE_PROPOSED' %}Trade Proposed
-                {% elif msg.message_type == 'TRADE_ACCEPTED' %}Trade Accepted
-                {% elif msg.message_type == 'TRADE_REJECTED' %}Trade Rejected
-                {% elif msg.message_type == 'TRADE_CANCELLED' %}Trade Cancelled
-                {% elif msg.message_type == 'TRADE_EXECUTED' %}Trade Executed
-                {% elif msg.message_type == 'ADD' %}Player Added
-                {% elif msg.message_type == 'DROP' %}Player Dropped
-                {% endif %}
-              </span>
-            {% endif %}
-          </div>
-          
-          <div class="mt-1 text-sm text-gray-700 dark:text-gray-300">
-            {% if msg.message_type == 'ADD' %}
-              <div class="space-y-2">
-                {% if msg.player %}
-                  <span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">
-                    + {{ msg.player.first_name|slice:":1" }}. {{ msg.player.last_name }}
-                  </span>
+                {% if msg.message_type == 'ADD' or msg.message_type == 'DROP' %}
+                  <span class="font-semibold text-gray-900 dark:text-white">⚡ {{ msg.player|default:"System" }}</span>
+                {% else %}
+                  <span class="font-semibold text-gray-600 dark:text-gray-400">System</span>
                 {% endif %}
                 {% if msg.player_dropped %}
                   <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold ml-2">
@@ -216,7 +191,8 @@ function addMessageToChat(msg) {
   
   const senderInitial = msg.is_system ? '!' : msg.sender.charAt(0).toUpperCase();
   const senderClass = msg.is_system ? 'bg-gray-500' : 'bg-blue-500';
-  const senderName = msg.is_system ? 'System' : msg.sender;
+  // For ADD/DROP messages, show team name; otherwise show sender name
+  const senderName = (msg.message_type === 'ADD' || msg.message_type === 'DROP') ? msg.sender : msg.sender;
   const teamInfo = msg.team ? `<span class="text-xs text-gray-500 dark:text-gray-400">(${msg.team})</span>` : '';
   
   const date = new Date(msg.created_at);

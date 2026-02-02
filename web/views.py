@@ -2804,6 +2804,10 @@ def chat_get_messages(request):
                     for owner in msg.sender.fantasy_teams.filter(team__league_id=selected_league_id)
                 ]
             
+            # For transaction messages (ADD/DROP/TRADE), use the team name if available
+            if msg.message_type in [ChatMessage.MessageType.ADD, ChatMessage.MessageType.DROP] and msg.team:
+                sender_name = msg.team.name
+            
             player_name = None
             if msg.player:
                 player_name = f"{msg.player.first_name} {msg.player.last_name}"
