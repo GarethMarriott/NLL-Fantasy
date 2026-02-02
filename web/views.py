@@ -713,6 +713,9 @@ def assign_player(request, team_id):
     # Check league settings for waiver status
     use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
     
+    # Get action early to check if it's a drop (which bypasses waiver redirect)
+    action = request.POST.get("action")
+    
     # Check if roster changes are allowed - find the next unlocked week
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
     
@@ -733,7 +736,8 @@ def assign_player(request, team_id):
             break
     
     # If rosters are locked and waivers are enabled, redirect to waiver claim process
-    if rosters_are_locked and use_waivers:
+    # EXCEPT for drop actions, which should always be allowed
+    if rosters_are_locked and use_waivers and action != "drop":
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
@@ -747,8 +751,7 @@ def assign_player(request, team_id):
     if not can_change:
         messages.error(request, f"Roster changes not allowed: {message}")
         return redirect("team_detail", team_id=team.id)
-    
-    action = request.POST.get("action")
+
     player_id = request.POST.get("player_id")
     if not player_id:
         return redirect("team_detail", team_id=team.id)
@@ -761,8 +764,6 @@ def assign_player(request, team_id):
     next_week_number = next_unlocked_week.week_number
 
     slot_group = request.POST.get("slot_group")
-    
-    if action == "swap":
         # Handle swap from players page
         drop_player_id = request.POST.get("drop_player_id")
         if not drop_player_id:
@@ -912,11 +913,6 @@ def assign_player(request, team_id):
         messages.success(request, f"Added {player.first_name} {player.last_name} to your roster")
     elif action == "drop":
         # Soft delete: set week_dropped instead of deleting the roster entry
-        import sys
-        print(f'DEBUG: Drop action triggered for player {player.id} ({player.first_name} {player.last_name})', file=sys.stderr)
-        print(f'DEBUG: Team {team.id} ({team.name}), league {team.league.id}', file=sys.stderr)
-        print(f'DEBUG: next_week_number = {next_week_number}', file=sys.stderr)
-        
         roster_entry = Roster.objects.filter(
             player=player,
             team=team,
@@ -924,13 +920,9 @@ def assign_player(request, team_id):
             week_dropped__isnull=True
         ).first()
         
-        print(f'DEBUG: Found roster_entry: {roster_entry}', file=sys.stderr)
-        
         if roster_entry:
-            print(f'DEBUG: Setting week_dropped to {next_week_number}', file=sys.stderr)
             roster_entry.week_dropped = next_week_number
             roster_entry.save()
-            print(f'DEBUG: Saved, now week_dropped = {roster_entry.week_dropped}', file=sys.stderr)
             # Clear assigned_side when dropping
             player.assigned_side = None
             player.save()
@@ -945,8 +937,6 @@ def assign_player(request, team_id):
             )
             
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
-        else:
-            print(f'DEBUG: No roster_entry found!', file=sys.stderr)
 
 
     return redirect("team_detail", team_id=team.id)
