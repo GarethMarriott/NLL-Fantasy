@@ -13,7 +13,6 @@ import pytz
 from .models import Player, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
 from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm, PasswordResetForm, SetPasswordForm
 from .tasks import send_password_reset_email
-from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 
