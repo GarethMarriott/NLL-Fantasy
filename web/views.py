@@ -736,8 +736,6 @@ def assign_player(request, team_id):
     
     rosters_are_locked = current_week and current_week.is_locked()
     
-    print(f"DEBUG assign_player: current_week={current_week}, rosters_are_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action}")
-    
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
     all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
@@ -746,12 +744,9 @@ def assign_player(request, team_id):
             next_unlocked_week = w
             break
     
-    print(f"DEBUG assign_player: next_unlocked_week={next_unlocked_week}")
-    
     # If rosters are locked and waivers are enabled, redirect to waiver claim process
     # EXCEPT for drop actions, which should always be allowed
     if rosters_are_locked and use_waivers and action != "drop":
-        print(f"DEBUG: Redirecting to waiver claims (rosters_locked={rosters_are_locked}, use_waivers={use_waivers}, action={action})")
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
@@ -888,9 +883,6 @@ def assign_player(request, team_id):
         if not can_add:
             position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(slot_group, 'Unknown')
             messages.error(request, f"Your {position_name} roster is full ({current_pos_count}/{max_pos_slots} spots).")
-            return redirect("team_detail", team_id=team.id)
-        elif slot_group == "G" and player.position != "G":
-            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Goalie slots (position: {player.get_position_display()})")
             return redirect("team_detail", team_id=team.id)
         
         # Check if player is already rostered in this league (active roster only)
@@ -1724,15 +1716,11 @@ def players(request):
         user_roster_json = json.dumps(user_roster)
         
         # Check if roster changes are allowed
-        can_change, msg, _ = user_team.can_make_roster_changes()
+        can_change, _, _ = user_team.can_make_roster_changes()
         roster_can_change = can_change
-        
-        print(f"DEBUG players view: can_make_roster_changes() returned can_change={can_change}, msg={msg}")
         
         # Check if league uses waivers
         use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
-        
-        print(f"DEBUG players view: roster_can_change={roster_can_change}, use_waivers={use_waivers}")
 
     return render(
         request,
