@@ -715,6 +715,9 @@ def assign_player(request, team_id):
     
     # Get action early to check if it's a drop (which bypasses waiver redirect)
     action = request.POST.get("action")
+    import sys
+    print(f'DEBUG: assign_player called with action={action}', file=sys.stderr)
+    print(f'DEBUG: rosters_are_locked={rosters_are_locked}, use_waivers={use_waivers}', file=sys.stderr)
     
     # Check if roster changes are allowed - find the next unlocked week
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
