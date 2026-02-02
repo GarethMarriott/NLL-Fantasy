@@ -211,38 +211,42 @@ def team_detail(request, team_id):
     current_date = timezone.now().date()
     current_time = timezone.now()
     
-    # First priority: Find the currently active week (games in progress)
-    # This is where start_date <= now <= end_date
-    current_active_week = Week.objects.filter(
-        season=league_season,
-        start_date__lte=current_date,
-        end_date__gte=current_date
-    ).order_by('week_number').first()
-    
-    # Determine default week to display
-    if current_active_week:
-        # Show the active week (games in progress)
-        default_week_num = current_active_week.week_number
+    # First priority: Use league's current_week if it's set (updated automatically every Monday 9am PT)
+    if league.current_week:
+        default_week_num = league.current_week.week_number
     else:
-        # No active week - show the most recently completed week
-        most_recent_week = Week.objects.filter(
+        # Fallback: Find the currently active week (games in progress)
+        # This is where start_date <= now <= end_date
+        current_active_week = Week.objects.filter(
             season=league_season,
-            start_date__lte=current_date
-        ).order_by('-week_number').first()
+            start_date__lte=current_date,
+            end_date__gte=current_date
+        ).order_by('week_number').first()
         
-        if most_recent_week:
-            default_week_num = most_recent_week.week_number
+        # Determine default week to display
+        if current_active_week:
+            # Show the active week (games in progress)
+            default_week_num = current_active_week.week_number
         else:
-            # No past weeks - fall back to first future week
-            future_week = Week.objects.filter(
+            # No active week - show the most recently completed week
+            most_recent_week = Week.objects.filter(
                 season=league_season,
-                start_date__gt=current_date
-            ).order_by('week_number').first()
+                start_date__lte=current_date
+            ).order_by('-week_number').first()
             
-            if future_week:
-                default_week_num = future_week.week_number
+            if most_recent_week:
+                default_week_num = most_recent_week.week_number
             else:
-                default_week_num = 1
+                # No past weeks - fall back to first future week
+                future_week = Week.objects.filter(
+                    season=league_season,
+                    start_date__gt=current_date
+                ).order_by('week_number').first()
+                
+                if future_week:
+                    default_week_num = future_week.week_number
+                else:
+                    default_week_num = 1
     
     # Get selected week from query params
     selected_week_num = request.GET.get('week')
