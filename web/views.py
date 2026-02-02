@@ -846,11 +846,14 @@ def assign_player(request, team_id):
     
     if action == "add":
         # Check roster size limit (total players)
+        import sys
+        print(f'DEBUG ADD: player_id={player_id}, slot_group={slot_group}', file=sys.stderr)
         current_roster_count = Roster.objects.filter(
             team=team,
             league=team.league,
             week_dropped__isnull=True
         ).count()
+        print(f'DEBUG ADD: current_roster_count={current_roster_count}', file=sys.stderr)
         
         roster_max = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
         
