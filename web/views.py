@@ -874,6 +874,7 @@ def assign_player(request, team_id):
     
     if action == "add":
         print(f"DEBUG: Handling ADD action")
+        messages.info(request, f"DEBUG: Attempting to add {player.first_name} {player.last_name}")
         # Check roster size limit (total players)
         current_roster_count = Roster.objects.filter(
             team=team,
@@ -918,6 +919,7 @@ def assign_player(request, team_id):
         
         # Create a roster entry for this player on this team in this league
         try:
+            messages.info(request, f"DEBUG: About to create roster with week_added={next_week_number}")
             roster = Roster.objects.create(
                 player=player,
                 team=team,
