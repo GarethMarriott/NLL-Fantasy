@@ -417,10 +417,10 @@ def team_detail(request, team_id):
         else:
             players_by_position["O"].append(entry)
 
-    # Build slots without reshuffling Transition; assigned_side controls placement
-    offence_pool = players_by_position["O"] + players_by_position["T"]  # Include T players in offense
-    defence_pool = players_by_position["D"] + players_by_position["T"]  # Include T players in defense
-    goalie_pool = players_by_position["G"] + players_by_position["T"]   # Include T players in goalie
+    # Build slots - T players are already placed in their target pool by assigned_side
+    offence_pool = players_by_position["O"]
+    defence_pool = players_by_position["D"]
+    goalie_pool = players_by_position["G"]
 
     offence_slots = offence_pool[:6]
     defence_slots = defence_pool[:6]
