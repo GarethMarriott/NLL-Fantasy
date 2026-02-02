@@ -17,7 +17,7 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'unlock-rosters-monday-9am-PT': {
         'task': 'web.tasks.unlock_rosters_and_process_transactions',
-        'schedule': crontab(day_of_week='mon', hour=16, minute=0),  # Monday 9am PT = Monday 4pm UTC (since PT is UTC-7/8)
+        'schedule': crontab(day_of_week='mon', hour=17, minute=0),  # Monday 9am PT = Monday 5pm UTC (since PT is UTC-8)
     },
     'fetch-stats-friday-night': {
         'task': 'web.tasks.fetch_nll_stats_task',
