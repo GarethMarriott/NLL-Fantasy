@@ -2790,7 +2790,7 @@ def chat_get_messages(request):
             league_id=selected_league_id,
             id__gt=since_id
         ).select_related(
-            'sender', 'player', 'team'
+            'sender', 'player', 'player_dropped', 'team'
         ).order_by('created_at')[:50]
         
         for msg in messages_list:
@@ -2804,12 +2804,22 @@ def chat_get_messages(request):
                     for owner in msg.sender.fantasy_teams.filter(team__league_id=selected_league_id)
                 ]
             
+            player_name = None
+            if msg.player:
+                player_name = f"{msg.player.first_name} {msg.player.last_name}"
+            
+            player_dropped_name = None
+            if msg.player_dropped:
+                player_dropped_name = f"{msg.player_dropped.first_name} {msg.player_dropped.last_name}"
+            
             data.append({
                 "id": msg.id,
                 "sender": sender_name,
                 "teams": team_names,
                 "message": msg.message,
                 "message_type": msg.message_type,
+                "player": player_name,
+                "player_dropped": player_dropped_name,
                 "created_at": msg.created_at.isoformat(),
                 "is_system": msg.sender is None
             })

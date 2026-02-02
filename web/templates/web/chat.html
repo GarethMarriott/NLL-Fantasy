@@ -209,9 +209,9 @@ function addMessageToChat(msg) {
   let messageClass = 'mt-1 text-sm text-gray-700 dark:text-gray-300';
   let messageContent = msg.message;
   
-  if (msg.message_type === 'ADD') {
-    const playerName = msg.message.split('|')[0] || msg.message;
-    const parts = playerName.trim().split(' ');
+  if (msg.message_type === 'ADD' && msg.player) {
+    // Player name comes as "First Last" from the API
+    const parts = msg.player.trim().split(' ');
     const firstName = parts[0];
     const lastName = parts.slice(1).join(' ') || '';
     const initial = firstName.charAt(0).toUpperCase();
@@ -219,14 +219,15 @@ function addMessageToChat(msg) {
     
     // Add dropped player if available
     if (msg.player_dropped) {
-      const droppedInitial = msg.player_dropped.charAt(0).toUpperCase();
-      const droppedName = msg.player_dropped.split(' ').slice(1).join(' ') || '';
-      content += ` <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">- ${droppedInitial}. ${droppedName}</span>`;
+      const droppedParts = msg.player_dropped.trim().split(' ');
+      const droppedFirstName = droppedParts[0];
+      const droppedLastName = droppedParts.slice(1).join(' ') || '';
+      const droppedInitial = droppedFirstName.charAt(0).toUpperCase();
+      content += ` <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">- ${droppedInitial}. ${droppedLastName}</span>`;
     }
     messageContent = content;
-  } else if (msg.message_type === 'DROP') {
-    const playerName = msg.message.split('|')[0] || msg.message;
-    const parts = playerName.trim().split(' ');
+  } else if (msg.message_type === 'DROP' && msg.player) {
+    const parts = msg.player.trim().split(' ');
     const firstName = parts[0];
     const lastName = parts.slice(1).join(' ') || '';
     const initial = firstName.charAt(0).toUpperCase();
