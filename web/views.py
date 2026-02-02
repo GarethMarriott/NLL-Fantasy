@@ -738,24 +738,37 @@ def assign_player(request, team_id):
     
     # Get the current/active week (where today falls between start and end)
     from django.db.models import Q
+    today = timezone.now().date()
+    print(f"DEBUG: Today's date: {today}")
+    
+    # Log all weeks for debugging
+    all_weeks_check = Week.objects.filter(season=league_season).order_by('week_number')
+    for w in all_weeks_check:
+        print(f"DEBUG: Week {w.week_number}: {w.start_date} to {w.end_date}")
+    
     current_week = Week.objects.filter(
         season=league_season,
-        start_date__lte=timezone.now().date(),
-        end_date__gte=timezone.now().date()
+        start_date__lte=today,
+        end_date__gte=today
     ).first()
+    
+    print(f"DEBUG: Query result for week spanning today: {current_week}")
     
     # If no week spans today, find the most recent week that started before today
     if not current_week:
         current_week = Week.objects.filter(
             season=league_season,
-            start_date__lte=timezone.now().date()
+            start_date__lte=today
         ).order_by('-week_number').first()
+        print(f"DEBUG: Fallback query result (most recent started before today): {current_week}")
     
     # Find the next unlocked week based on lock/unlock times
     next_unlocked_week = None
     all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
     for w in all_weeks:
-        if not w.is_locked():
+        is_w_locked = w.is_locked()
+        print(f"DEBUG: Week {w.week_number} is_locked()={is_w_locked}")
+        if not is_w_locked:
             next_unlocked_week = w
             break
     
