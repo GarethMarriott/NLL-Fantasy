@@ -3,31 +3,41 @@
 ## Overview
 
 The league archiving and renewal system allows commissioners to:
-1. **Archive completed leagues** - Automatically or manually mark seasons as complete
+1. **Archive completed leagues** - Automatically after the NLL season ends (Monday after week 21)
 2. **Renew leagues** - Create new seasons with identical settings and members
 
 ## How It Works
 
 ### Automatic Archiving
 
-**Trigger:** January 1st at midnight (Celery Beat scheduled task)
+**Trigger:** Daily at 3 AM (Celery Beat scheduled task)
 
 The `archive_old_leagues()` task:
-- Finds all active leagues
-- Checks if playoff weeks have completed for the current season
+- Runs every day to check if the season has ended
+- Finds the final week of the season (highest week_number)
+- Checks if current date is after final week end + 3 days (Monday after games)
 - Sets `is_active = False` for completed leagues
 - Preserves all historical data
 
+**Timing:**
+- NLL season typically ends around week 21 in December
+- The Monday after the final games conclude, the league is automatically archived
+- At that point, commissioners see the "Renew League" button on the league detail page
+
 ### Manual League Renewal
 
-**Access:** `/leagues/<league_id>/renew/` (Commissioner only)
+**Access:** `/leagues/<league_id>/renew/` (Commissioner only after archiving)
+
+**Trigger:** Only appears after league is archived
 
 The renewal process:
-1. Commissioner views archived league
-2. Navigates to "Renew League" page
-3. Reviews what will be transferred
-4. Confirms renewal
-5. New league created with:
+1. Season ends, league is automatically archived
+2. Commissioner visits league detail page
+3. "Renew League" button appears (archived leagues only)
+4. Navigates to renewal confirmation page
+5. Reviews what will be transferred
+6. Confirms renewal
+7. New league created with:
    - Fresh name: "[Original Name] - 2027"
    - Identical settings and scoring rules
    - New rosters (empty, ready for draft)
@@ -98,8 +108,9 @@ The renewal process:
 ```python
 @shared_task
 def archive_old_leagues():
-    # Marks completed leagues as inactive
-    # Called: January 1st (configurable in celery.py)
+    # Marks completed leagues as inactive after season ends
+    # Checks if current date > final week end + 3 days (Monday after games)
+    # Called: Daily at 3 AM
 ```
 
 #### `renew_league(old_league_id, new_season=None)`
@@ -182,14 +193,12 @@ print(f"Created: {new_league.name}")
 Edit `config/celery.py`:
 ```python
 'archive-old-leagues': {
-    'schedule': crontab(month_of_year='1', day_of_month=1, hour=0, minute=0),
+    'task': 'web.tasks.archive_old_leagues',
+    'schedule': crontab(hour=3, minute=0),  # Daily at 3 AM - checks for season end
 }
 ```
 
-**Examples:**
-- First of each month: `crontab(day_of_month=1, hour=0, minute=0)`
-- Daily at 2 AM: `crontab(hour=2, minute=0)`
-- Specific date: `crontab(month_of_year='1', day_of_month=1, hour=0, minute=0)`
+The task runs daily and automatically detects when the season ends by checking the Week calendar.
 
 ### Automatic Season Year
 Renewal defaults to next calendar year. Override in code:
