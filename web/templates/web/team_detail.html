@@ -463,7 +463,7 @@
                         <input type="hidden" name="action" value="drop">
                         <button type="submit"
                                 {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="{% if roster_status and roster_status.0 and not is_viewing_past_week %}event.preventDefault(); this.closest('form').setAttribute('data-form-submit', 'true'); showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', (form) => { if (form) form.submit(); else event.target.closest('form').submit(); }); return false;{% endif %}"
+                                onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}this.closest('form').setAttribute('data-form-submit', 'true'); showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', (form) => { if (form) form.submit(); });{% endif %} return false;"
                                 class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
@@ -567,7 +567,7 @@
                         <input type="hidden" name="action" value="drop">
                         <button type="submit"
                                 {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="{% if roster_status and roster_status.0 and not is_viewing_past_week %}event.preventDefault(); this.closest('form').setAttribute('data-form-submit', 'true'); showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', (form) => { if (form) form.submit(); else event.target.closest('form').submit(); }); return false;{% endif %}"
+                                onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}this.closest('form').setAttribute('data-form-submit', 'true'); showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', (form) => { if (form) form.submit(); });{% endif %} return false;"
                                 class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
@@ -672,7 +672,7 @@
                         <input type="hidden" name="action" value="drop">
                         <button type="submit"
                                 {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="{% if roster_status and roster_status.0 and not is_viewing_past_week %}event.preventDefault(); this.closest('form').setAttribute('data-form-submit', 'true'); showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', (form) => { if (form) form.submit(); else event.target.closest('form').submit(); }); return false;{% endif %}"
+                                onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}this.closest('form').setAttribute('data-form-submit', 'true'); showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', (form) => { if (form) form.submit(); });{% endif %} return false;"
                                 class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
@@ -899,13 +899,22 @@ function showConfirmModal(message, onConfirm) {
   confirmBtn.onclick = function() {
     modal.classList.add('hidden');
     modal.style.pointerEvents = 'none';
-    // Get the active form element before calling onConfirm
-    const activeForm = document.querySelector('form[data-form-submit="true"]');
-    if (onConfirm) onConfirm(activeForm);
+    // Get the form marked for submission
+    const form = document.querySelector('form[data-form-submit="true"]');
+    if (form) {
+      form.removeAttribute('data-form-submit');
+      form.submit();
+    } else if (onConfirm) {
+      onConfirm(form);
+    }
   };
   cancelBtn.onclick = function() {
     modal.classList.add('hidden');
     modal.style.pointerEvents = 'none';
+    const form = document.querySelector('form[data-form-submit="true"]');
+    if (form) {
+      form.removeAttribute('data-form-submit');
+    }
   };
 }
 
