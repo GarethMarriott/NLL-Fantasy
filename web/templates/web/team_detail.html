@@ -463,7 +463,7 @@
                         <input type="hidden" name="action" value="drop">
                         <button type="submit"
                                 {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', null, this.closest('form'));{% endif %} return false;"
+                                onclick="console.log('Offense drop clicked'); event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', null, this.closest('form'));{% endif %} return false;"
                                 class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
@@ -886,6 +886,7 @@
 <script>
 // Reusable confirmation modal logic
 function showConfirmModal(message, onConfirm, formElement) {
+  console.log('showConfirmModal called', { message, onConfirm, formElement });
   const modal = document.getElementById('confirmModal');
   const msg = document.getElementById('confirmModalMessage');
   const confirmBtn = document.getElementById('confirmModalConfirmBtn');
@@ -897,15 +898,19 @@ function showConfirmModal(message, onConfirm, formElement) {
   confirmBtn.onclick = null;
   cancelBtn.onclick = null;
   confirmBtn.onclick = function() {
+    console.log('Confirm button clicked, submitting form:', formElement);
     modal.classList.add('hidden');
     modal.style.pointerEvents = 'none';
     if (formElement) {
+      console.log('Submitting form...');
       formElement.submit();
     } else if (onConfirm) {
+      console.log('Calling onConfirm callback');
       onConfirm();
     }
   };
   cancelBtn.onclick = function() {
+    console.log('Cancel button clicked');
     modal.classList.add('hidden');
     modal.style.pointerEvents = 'none';
   };
