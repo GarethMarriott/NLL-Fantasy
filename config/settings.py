@@ -31,9 +31,9 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-kl)ulr+m0roanuqp6e)6=f1h
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1,shamrockfantasy.com,www.shamrockfantasy.com,138.68.228.237', cast=lambda v: [s.strip() for s in v.split(',')])
 
-CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000', cast=lambda v: [s.strip() for s in v.split(',')])
+CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000,https://shamrockfantasy.com,https://www.shamrockfantasy.com', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Application definition
 
