@@ -257,6 +257,8 @@ def team_detail(request, team_id):
     else:
         selected_week_num = default_week_num
     
+    print(f"DEBUG team_detail: selected_week_num={selected_week_num}, default_week_num={default_week_num}")
+    
     # Get the selected week object to check if it's locked
     selected_week_obj = Week.objects.filter(
         season=league_season,
@@ -912,15 +914,15 @@ def assign_player(request, team_id):
             return redirect("team_detail", team_id=team.id)
         
         # Create a roster entry for this player on this team in this league
-        print(f"DEBUG: Creating roster for {player.first_name} {player.last_name}, week_added={next_week_number}")
         try:
-            Roster.objects.create(
+            roster = Roster.objects.create(
                 player=player,
                 team=team,
                 league=team.league,
                 week_added=next_week_number
             )
-            print(f"DEBUG: Roster created successfully")
+            print(f"DEBUG: Roster created successfully - ID {roster.id}, week_added={next_week_number}")
+            messages.success(request, f"Added {player.first_name} {player.last_name} to your roster (week {next_week_number})")
         except Exception as e:
             print(f"DEBUG: ERROR creating roster: {type(e).__name__}: {e}")
             messages.error(request, f"Error adding player: {str(e)}")
