@@ -82,11 +82,14 @@ class Command(BaseCommand):
             self.stdout.write(f"{'='*60}")
             
             # Get current week - use the current year as season
+            # IMPORTANT: Use end_date__gte (week hasn't ended yet) instead of start_date__lte
+            # to avoid picking the wrong week. On Monday 9am, we're transitioning from the 
+            # previous week (which ended Sunday) to the new week.
             current_year = timezone.now().year
             current_week = Week.objects.filter(
                 season=current_year,
-                start_date__lte=timezone.now().date()
-            ).order_by('-week_number').first()
+                end_date__gte=timezone.now().date()
+            ).order_by('week_number').first()
             
             if not current_week:
                 self.stdout.write(self.style.WARNING(f"  No current week found for {league.name}"))
