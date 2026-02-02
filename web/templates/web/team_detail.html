@@ -460,7 +460,24 @@
                 {% else %}
                 <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
+                  {% if user_owns_team %}
+                  <form method="post" action="{% url 'assign_player' team.id %}" class="inline-block" style="display: inline-block;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add">
+                    <input type="hidden" name="slot_group" value="O">
+                    <select name="player_id" class="px-1 py-0.5 text-xs border border-gray-300 rounded">
+                      <option value="">Select player...</option>
+                      {% for item in players_for_select %}
+                        {% if item.team_in_league is None %}
+                        <option value="{{ item.player.id }}">{{ item.player.last_name }}, {{ item.player.first_name }}</option>
+                        {% endif %}
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="px-1 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Add</button>
+                  </form>
+                  {% else %}
                   <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
+                  {% endif %}
                 </td>
                 <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
@@ -487,7 +504,24 @@
                 {% else %}
                 <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
+                  {% if user_owns_team %}
+                  <form method="post" action="{% url 'assign_player' team.id %}" class="inline-block" style="display: inline-block;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add">
+                    <input type="hidden" name="slot_group" value="D">
+                    <select name="player_id" class="px-1 py-0.5 text-xs border border-gray-300 rounded">
+                      <option value="">Select player...</option>
+                      {% for item in players_for_select %}
+                        {% if item.team_in_league is None %}
+                        <option value="{{ item.player.id }}">{{ item.player.last_name }}, {{ item.player.first_name }}</option>
+                        {% endif %}
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="px-1 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Add</button>
+                  </form>
+                  {% else %}
                   <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
+                  {% endif %}
                 </td>
                 <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
@@ -514,7 +548,24 @@
                 {% else %}
                 <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
+                  {% if user_owns_team %}
+                  <form method="post" action="{% url 'assign_player' team.id %}" class="inline-block" style="display: inline-block;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add">
+                    <input type="hidden" name="slot_group" value="G">
+                    <select name="player_id" class="px-1 py-0.5 text-xs border border-gray-300 rounded">
+                      <option value="">Select player...</option>
+                      {% for item in players_for_select %}
+                        {% if item.team_in_league is None %}
+                        <option value="{{ item.player.id }}">{{ item.player.last_name }}, {{ item.player.first_name }}</option>
+                        {% endif %}
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="px-1 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Add</button>
+                  </form>
+                  {% else %}
                   <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
+                  {% endif %}
                 </td>
                 <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
