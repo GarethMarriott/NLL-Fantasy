@@ -580,14 +580,7 @@
         </tr>
       {% endfor %}
 
-      {# DIVIDER FOR TRADITIONAL LEAGUES #}
-      {% if is_traditional %}
-      <tr class="bg-gray-200 dark:bg-gray-400 h-6">
-        <td colspan="100" class="p-2 text-center font-bold text-gray-700 dark:text-gray-800">BENCH</td>
-      </tr>
-      {% endif %}
-
-      {# Defence slots (7-12) #}
+      {# Weekly total row #}
       {% for slot in defence_slots %}
         <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
           <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter|add:6 }}</td>
