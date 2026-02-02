@@ -1724,11 +1724,15 @@ def players(request):
         user_roster_json = json.dumps(user_roster)
         
         # Check if roster changes are allowed
-        can_change, _, _ = user_team.can_make_roster_changes()
+        can_change, msg, _ = user_team.can_make_roster_changes()
         roster_can_change = can_change
+        
+        print(f"DEBUG players view: can_make_roster_changes() returned can_change={can_change}, msg={msg}")
         
         # Check if league uses waivers
         use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
+        
+        print(f"DEBUG players view: roster_can_change={roster_can_change}, use_waivers={use_waivers}")
 
     return render(
         request,
