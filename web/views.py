@@ -912,6 +912,11 @@ def assign_player(request, team_id):
         messages.success(request, f"Added {player.first_name} {player.last_name} to your roster")
     elif action == "drop":
         # Soft delete: set week_dropped instead of deleting the roster entry
+        import sys
+        print(f'DEBUG: Drop action triggered for player {player.id} ({player.first_name} {player.last_name})', file=sys.stderr)
+        print(f'DEBUG: Team {team.id} ({team.name}), league {team.league.id}', file=sys.stderr)
+        print(f'DEBUG: next_week_number = {next_week_number}', file=sys.stderr)
+        
         roster_entry = Roster.objects.filter(
             player=player,
             team=team,
@@ -919,9 +924,13 @@ def assign_player(request, team_id):
             week_dropped__isnull=True
         ).first()
         
+        print(f'DEBUG: Found roster_entry: {roster_entry}', file=sys.stderr)
+        
         if roster_entry:
+            print(f'DEBUG: Setting week_dropped to {next_week_number}', file=sys.stderr)
             roster_entry.week_dropped = next_week_number
             roster_entry.save()
+            print(f'DEBUG: Saved, now week_dropped = {roster_entry.week_dropped}', file=sys.stderr)
             # Clear assigned_side when dropping
             player.assigned_side = None
             player.save()
@@ -936,6 +945,9 @@ def assign_player(request, team_id):
             )
             
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
+        else:
+            print(f'DEBUG: No roster_entry found!', file=sys.stderr)
+
 
     return redirect("team_detail", team_id=team.id)
 
