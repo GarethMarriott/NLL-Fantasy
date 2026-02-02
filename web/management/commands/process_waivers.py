@@ -273,6 +273,7 @@ class Command(BaseCommand):
                     message_type=ChatMessage.MessageType.ADD,
                     message=message,
                     player=claim.player_to_add,
+                    player_dropped=claim.player_to_drop,
                     team=claim.team
                 )
                 

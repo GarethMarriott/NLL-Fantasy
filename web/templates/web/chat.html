@@ -105,13 +105,18 @@
           
           <div class="mt-1 text-sm text-gray-700 dark:text-gray-300">
             {% if msg.message_type == 'ADD' %}
-              {% if msg.player %}
-                <span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">
-                  + {{ msg.player.first_name|slice:":1" }}. {{ msg.player.last_name }}
-                </span>
-              {% else %}
-                {{ msg.message }}
-              {% endif %}
+              <div class="space-y-2">
+                {% if msg.player %}
+                  <span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">
+                    + {{ msg.player.first_name|slice:":1" }}. {{ msg.player.last_name }}
+                  </span>
+                {% endif %}
+                {% if msg.player_dropped %}
+                  <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold ml-2">
+                    - {{ msg.player_dropped.first_name|slice:":1" }}. {{ msg.player_dropped.last_name }}
+                  </span>
+                {% endif %}
+              </div>
             {% elif msg.message_type == 'DROP' %}
               {% if msg.player %}
                 <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">
@@ -210,7 +215,15 @@ function addMessageToChat(msg) {
     const firstName = parts[0];
     const lastName = parts.slice(1).join(' ') || '';
     const initial = firstName.charAt(0).toUpperCase();
-    messageContent = `<span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">+ ${initial}. ${lastName}</span>`;
+    let content = `<span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">+ ${initial}. ${lastName}</span>`;
+    
+    // Add dropped player if available
+    if (msg.player_dropped) {
+      const droppedInitial = msg.player_dropped.charAt(0).toUpperCase();
+      const droppedName = msg.player_dropped.split(' ').slice(1).join(' ') || '';
+      content += ` <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold">- ${droppedInitial}. ${droppedName}</span>`;
+    }
+    messageContent = content;
   } else if (msg.message_type === 'DROP') {
     const playerName = msg.message.split('|')[0] || msg.message;
     const parts = playerName.trim().split(' ');

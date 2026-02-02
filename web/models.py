@@ -676,6 +676,14 @@ class ChatMessage(models.Model):
         related_name="transactions",
         help_text="Player involved in add/drop/trade"
     )
+    player_dropped = models.ForeignKey(
+        Player,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dropped_transactions",
+        help_text="Player dropped in a waiver/trade transaction"
+    )
     team = models.ForeignKey(
         Team,
         on_delete=models.SET_NULL,
