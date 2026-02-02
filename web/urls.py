@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     home, about, players, player_detail_modal, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
-    register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings,
+    register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft,
     nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup
@@ -49,6 +49,7 @@ urlpatterns = [
     path("leagues/create/", league_create, name="league_create"),
     path("leagues/<int:league_id>/", league_detail, name="league_detail"),
     path("leagues/<int:league_id>/settings/", league_settings, name="league_settings"),
+    path("leagues/<int:league_id>/renew/", renew_league, name="renew_league"),
     path("leagues/<int:league_id>/join/", team_create, name="team_create"),
     path("leagues/<int:league_id>/select/", select_league, name="select_league"),
     path("teams/<int:team_id>/settings/", team_settings, name="team_settings"),

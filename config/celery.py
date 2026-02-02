@@ -47,6 +47,10 @@ app.conf.beat_schedule = {
         'task': 'web.tasks.cleanup_old_sessions',
         'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
     },
+    'archive-old-leagues': {
+        'task': 'web.tasks.archive_old_leagues',
+        'schedule': crontab(month_of_year='1', day_of_month=1, hour=0, minute=0),  # January 1st at midnight - end of NLL season
+    },
 }
 
 @app.task(bind=True)

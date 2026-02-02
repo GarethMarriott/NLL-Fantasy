@@ -190,3 +190,118 @@ def fetch_nll_stats_task():
         logger.error(f"Error fetching NLL stats: {str(e)}")
         raise
 
+
+@shared_task
+def archive_old_leagues():
+    """
+    Archive completed leagues at end of season.
+    
+    Marks leagues as inactive (is_active=False) if their playoff weeks
+    have completed. Called by Celery Beat at end of season.
+    
+    Called by: Celery Beat schedule (configurable)
+    """
+    from web.models import League, Week
+    
+    try:
+        current_season = timezone.now().year
+        
+        # Get all active leagues
+        active_leagues = League.objects.filter(is_active=True)
+        
+        for league in active_leagues:
+            # Find the last playoff week for this season
+            playoff_end = Week.objects.filter(
+                season=current_season,
+                is_playoff=True
+            ).order_by('-week_number').first()
+            
+            # If there's no playoff week or current time has passed the end of playoffs
+            if playoff_end and timezone.now() > playoff_end.end_date + timedelta(days=1):
+                league.is_active = False
+                league.save()
+                logger.info(f"Archived league: {league.name} (ID: {league.id})")
+        
+        logger.info(f"Archive task completed for season {current_season}")
+        
+    except Exception as e:
+        logger.error(f"Error archiving old leagues: {str(e)}")
+        raise
+
+
+def renew_league(old_league_id, new_season=None):
+    """
+    Create a new league for the next season with same settings and members.
+    
+    This is called by commissioners to renew their league. Creates a new
+    League with identical settings and optionally transfers team owners.
+    
+    Args:
+        old_league_id: ID of the league to renew
+        new_season: Year for new league (defaults to next year)
+    
+    Returns:
+        New League object or None if error
+    
+    Usage:
+        from web.tasks import renew_league
+        new_league = renew_league(old_league.id)
+    """
+    from web.models import League, FantasyTeamOwner, Team
+    
+    try:
+        old_league = League.objects.get(id=old_league_id)
+        
+        if new_season is None:
+            new_season = timezone.now().year + 1
+        
+        # Create new league with same settings
+        new_league = League(
+            name=f"{old_league.name} - {new_season}",
+            commissioner=old_league.commissioner,
+            description=old_league.description,
+            max_teams=old_league.max_teams,
+            is_public=old_league.is_public,
+            is_active=True,
+            roster_size=old_league.roster_size,
+            roster_forwards=old_league.roster_forwards,
+            roster_defense=old_league.roster_defense,
+            roster_goalies=old_league.roster_goalies,
+            playoff_weeks=old_league.playoff_weeks,
+            playoff_teams=old_league.playoff_teams,
+            use_waivers=old_league.use_waivers,
+            playoff_reseed=old_league.playoff_reseed,
+            roster_format=old_league.roster_format,
+            multigame_scoring=old_league.multigame_scoring,
+            # Copy all scoring settings
+            scoring_goals=old_league.scoring_goals,
+            scoring_assists=old_league.scoring_assists,
+            scoring_loose_balls=old_league.scoring_loose_balls,
+            scoring_caused_turnovers=old_league.scoring_caused_turnovers,
+            scoring_blocked_shots=old_league.scoring_blocked_shots,
+            scoring_turnovers=old_league.scoring_turnovers,
+            scoring_goalie_wins=old_league.scoring_goalie_wins,
+            scoring_goalie_saves=old_league.scoring_goalie_saves,
+            scoring_goalie_goals_against=old_league.scoring_goalie_goals_against,
+            scoring_goalie_goals=old_league.scoring_goalie_goals,
+            scoring_goalie_assists=old_league.scoring_goalie_assists,
+        )
+        new_league.save()
+        
+        # Invite all previous team owners to join the new league
+        old_team_owners = FantasyTeamOwner.objects.filter(
+            team__league=old_league
+        ).distinct('user')
+        
+        logger.info(f"Created renewed league '{new_league.name}' (ID: {new_league.id}) " +
+                   f"with {old_team_owners.count()} invited members from {old_league.name}")
+        
+        return new_league
+        
+    except League.DoesNotExist:
+        logger.error(f"League with ID {old_league_id} not found")
+        return None
+    except Exception as e:
+        logger.error(f"Error renewing league {old_league_id}: {str(e)}")
+        return None
+

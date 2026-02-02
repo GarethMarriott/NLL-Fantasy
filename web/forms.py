@@ -173,3 +173,27 @@ class SetPasswordForm(DjangoSetPasswordForm):
             'autocomplete': 'new-password',
         })
     )
+
+
+class LeagueRenewalForm(forms.Form):
+    """Form to renew a league for a new season"""
+    confirm_renewal = forms.BooleanField(
+        required=True,
+        label='I confirm I want to renew this league for next season',
+        widget=forms.CheckboxInput(attrs={
+            'class': 'rounded border-gray-300'
+        })
+    )
+    
+    def __init__(self, league=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.league = league
+        if league:
+            self.fields['confirm_renewal'].label = (
+                f"I confirm I want to renew '{league.name}' for {timezone.now().year + 1} "
+                f"with all current settings and members"
+            )
+
+
+# Import timezone for default year
+from django.utils import timezone

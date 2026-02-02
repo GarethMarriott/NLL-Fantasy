@@ -3087,6 +3087,47 @@ def league_settings(request, league_id):
 
 
 @login_required
+def renew_league(request, league_id):
+    """Renew a completed league for the next season with same settings and members"""
+    league = get_object_or_404(League, id=league_id)
+    
+    # Only commissioner can renew
+    if league.commissioner != request.user:
+        messages.error(request, "Only the league commissioner can renew the league.")
+        return redirect("league_detail", league_id=league.id)
+    
+    # Check if league is active (not archived)
+    if league.is_active:
+        messages.warning(request, "This league is still active. Archive it first or wait until the season ends.")
+        return redirect("league_detail", league_id=league.id)
+    
+    if request.method == "POST":
+        form = LeagueRenewalForm(league=league, data=request.POST)
+        if form.is_valid():
+            from web.tasks import renew_league as renew_league_task
+            
+            new_league = renew_league_task(league.id)
+            
+            if new_league:
+                messages.success(
+                    request, 
+                    f"League renewed successfully! Visit the new league at /leagues/{new_league.id}/"
+                )
+                return redirect("league_detail", league_id=new_league.id)
+            else:
+                messages.error(request, "Failed to renew league. Please try again.")
+                return redirect("league_detail", league_id=league.id)
+    else:
+        form = LeagueRenewalForm(league=league)
+    
+    return render(request, "web/renew_league.html", {
+        "league": league,
+        "form": form,
+        "next_season": timezone.now().year + 1,
+    })
+
+
+@login_required
 def team_settings(request, team_id):
     """Team owner settings page (change team name)"""
     team = get_object_or_404(Team, id=team_id)
