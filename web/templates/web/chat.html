@@ -81,10 +81,41 @@
                 </span>
               {% endif %}
             {% else %}
-                {% if msg.message_type == 'ADD' or msg.message_type == 'DROP' %}
-                  <span class="font-semibold text-gray-900 dark:text-white">⚡ {{ msg.player|default:"System" }}</span>
-                {% else %}
-                  <span class="font-semibold text-gray-600 dark:text-gray-400">System</span>
+              {% if msg.message_type == 'ADD' or msg.message_type == 'DROP' %}
+                <span class="font-semibold text-gray-900 dark:text-white">⚡ {{ msg.team.name }}</span>
+              {% else %}
+                <span class="font-semibold text-gray-600 dark:text-gray-400">System</span>
+              {% endif %}
+            {% endif %}
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{ msg.created_at|date:"M d, g:i A" }}</span>
+            
+            {% if msg.message_type != 'CHAT' %}
+              {% if 'TRADE' in msg.message_type %}
+                <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+              {% elif msg.message_type == 'ADD' %}
+                <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              {% elif msg.message_type == 'DROP' %}
+                <span class="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+              {% endif %}
+                {% if msg.message_type == 'TRADE_PROPOSED' %}Trade Proposed
+                {% elif msg.message_type == 'TRADE_ACCEPTED' %}Trade Accepted
+                {% elif msg.message_type == 'TRADE_REJECTED' %}Trade Rejected
+                {% elif msg.message_type == 'TRADE_CANCELLED' %}Trade Cancelled
+                {% elif msg.message_type == 'TRADE_EXECUTED' %}Trade Executed
+                {% elif msg.message_type == 'ADD' %}Player Added
+                {% elif msg.message_type == 'DROP' %}Player Dropped
+                {% endif %}
+              </span>
+            {% endif %}
+          </div>
+          
+          <div class="mt-1 text-sm text-gray-700 dark:text-gray-300">
+            {% if msg.message_type == 'ADD' %}
+              <div class="space-y-2">
+                {% if msg.player %}
+                  <span class="inline-block bg-green-500 text-white px-3 py-1 rounded font-semibold">
+                    + {{ msg.player.first_name|slice:":1" }}. {{ msg.player.last_name }}
+                  </span>
                 {% endif %}
                 {% if msg.player_dropped %}
                   <span class="inline-block bg-red-500 text-white px-3 py-1 rounded font-semibold ml-2">
