@@ -462,9 +462,9 @@
                         <input type="hidden" name="player_id" value="{{ slot.player.id }}">
                         <input type="hidden" name="action" value="drop">
                         <button type="button"
-                                {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="{% if not roster_status or roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
-                                class="w-full px-1.5 py-0.5 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
+                                {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                                onclick="{% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
+                                class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                           </svg>
@@ -566,9 +566,9 @@
                         <input type="hidden" name="player_id" value="{{ slot.player.id }}">
                         <input type="hidden" name="action" value="drop">
                         <button type="button"
-                                {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="{% if not roster_status or roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
-                                class="w-full px-1.5 py-0.5 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
+                                {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                                onclick="{% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
+                                class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                           </svg>
@@ -671,9 +671,9 @@
                         <input type="hidden" name="player_id" value="{{ slot.player.id }}">
                         <input type="hidden" name="action" value="drop">
                         <button type="button"
-                                {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="{% if not roster_status or roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
-                                class="w-full px-1.5 py-0.5 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
+                                {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
+                                onclick="{% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', () => this.closest('form').submit()){% else %}return false{% endif %}"
+                                class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
                           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                           </svg>
