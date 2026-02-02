@@ -194,12 +194,13 @@ def fetch_nll_stats_task():
 @shared_task
 def archive_old_leagues():
     """
-    Archive completed leagues at end of season.
+    Archive completed leagues when the season ends.
     
-    Marks leagues as inactive (is_active=False) if their playoff weeks
-    have completed. Called by Celery Beat at end of season.
+    Marks leagues as inactive (is_active=False) after the final game week
+    (typically week 21) has completed. The Monday after the final week is
+    when rosters unlock for the last time - at that point the league is archived.
     
-    Called by: Celery Beat schedule (configurable)
+    Called by: Celery Beat schedule (daily check)
     """
     from web.models import League, Week
     
@@ -210,17 +211,24 @@ def archive_old_leagues():
         active_leagues = League.objects.filter(is_active=True)
         
         for league in active_leagues:
-            # Find the last playoff week for this season
-            playoff_end = Week.objects.filter(
-                season=current_season,
-                is_playoff=True
+            # Find the final week of the regular season (highest week number, or week 21)
+            final_week = Week.objects.filter(
+                season=current_season
             ).order_by('-week_number').first()
             
-            # If there's no playoff week or current time has passed the end of playoffs
-            if playoff_end and timezone.now() > playoff_end.end_date + timedelta(days=1):
-                league.is_active = False
-                league.save()
-                logger.info(f"Archived league: {league.name} (ID: {league.id})")
+            # If current time is past the Monday after the final week ends
+            # (allowing for playoff buffer), archive the league
+            if final_week:
+                # Calculate Monday after final week ends (add 2 days for games + 1 for Monday)
+                archive_date = final_week.end_date + timedelta(days=3)
+                
+                if timezone.now().date() >= archive_date:
+                    league.is_active = False
+                    league.save()
+                    logger.info(
+                        f"Archived league: {league.name} (ID: {league.id}) "
+                        f"after season {current_season} week {final_week.week_number}"
+                    )
         
         logger.info(f"Archive task completed for season {current_season}")
         

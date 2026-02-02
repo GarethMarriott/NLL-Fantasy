@@ -2991,13 +2991,15 @@ def league_detail(request, league_id):
     
     is_commissioner = league.commissioner == request.user
     can_join = not user_team and teams.count() < league.max_teams
+    can_renew = is_commissioner and not league.is_active  # Show renewal button for archived leagues
     
     return render(request, "web/league_detail.html", {
         "league": league,
         "teams": teams,
         "user_team": user_team,
         "is_commissioner": is_commissioner,
-        "can_join": can_join
+        "can_join": can_join,
+        "can_renew": can_renew
     })
 
 
@@ -3105,9 +3107,9 @@ def renew_league(request, league_id):
         messages.error(request, "Only the league commissioner can renew the league.")
         return redirect("league_detail", league_id=league.id)
     
-    # Check if league is active (not archived)
+    # Can only renew archived leagues
     if league.is_active:
-        messages.warning(request, "This league is still active. Archive it first or wait until the season ends.")
+        messages.warning(request, "This league is still active. Wait until the season ends to renew.")
         return redirect("league_detail", league_id=league.id)
     
     if request.method == "POST":
