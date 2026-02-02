@@ -1540,20 +1540,8 @@ def players(request):
     
     # Get weeks for selected season
     week_options = []
-    selected_week_obj = None
-    is_past_week = False
     if selected_season:
         week_options = list(Week.objects.filter(season=int(selected_season)).order_by('week_number'))
-        
-        # Get the selected week object and determine if it's in the past
-        if selected_week_num:
-            selected_week_obj = Week.objects.filter(
-                season=int(selected_season),
-                week_number=int(selected_week_num)
-            ).first()
-            
-            if selected_week_obj:
-                is_past_week = selected_week_obj.end_date < timezone.now().date()
 
     sort_field = request.GET.get("sort", "fpts")
     sort_dir = request.GET.get("dir", "asc")
@@ -1769,8 +1757,6 @@ def players(request):
             "selected_season": selected_season,
             "week_options": week_options,
             "selected_week_num": selected_week_num,
-            "selected_week_obj": selected_week_obj,
-            "is_past_week": is_past_week,
             "selected_position": selected_position,
             "selected_stat_type": selected_stat_type,
             "sort_field": sort_field,
