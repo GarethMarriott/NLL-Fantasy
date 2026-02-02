@@ -151,6 +151,16 @@ class League(models.Model):
         help_text="Points per goalie assist"
     )
     
+    # Current week - the default week displayed to users
+    current_week = models.ForeignKey(
+        'Week',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leagues_current',
+        help_text="The default week displayed to users (updated every Monday 9am PT)"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
