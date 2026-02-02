@@ -11,12 +11,14 @@
             {{ selected_season }} Season
             {% if selected_week_num %}
               — Week {{ selected_week_num }}
+              {% if is_past_week %}<span class="text-sm font-normal text-gray-600">(Past)</span>{% endif %}
             {% else %}
               — {% if selected_stat_type == 'playoff' %}Playoff{% elif selected_stat_type == 'all' %}All Games{% else %}Regular Season{% endif %} Totals
             {% endif %}
           </h3>
         {% endif %}
       </div>
+      {% if not is_past_week %}
       <form method="get" class="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-3 w-full sm:w-auto">
         <div class="flex items-center col-span-2 sm:col-span-1">
           <label for="search" class="inline sm:hidden mr-2 text-sm font-medium">Search:</label>
@@ -65,6 +67,9 @@
         <input type="hidden" name="dir" value="{{ sort_dir }}">
         <button type="submit" class="col-span-2 sm:col-span-1 px-3 py-1 bg-blue-500 text-white rounded-md text-xs sm:text-sm hover:bg-blue-600">Search</button>
       </form>
+      {% else %}
+      <div class="text-sm text-gray-600 italic">Cannot add players to past weeks</div>
+      {% endif %}
     </div>
 
     <div class="overflow-x-auto">
@@ -184,18 +189,20 @@
               {% elif item.roster_status == 'on_other_team' %}
                 <div class="block px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20" title="On {{ item.rostered_team.name }}">Rostered</div>
               {% elif item.roster_status == 'available' %}
-                {% if roster_can_change %}
-                  <div class="block px-2 py-1 bg-green-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-green-600"
-                    onclick="showReplaceOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
-                    title="Add player">
-                    Add
-                  </div>
-                {% elif use_waivers %}
-                  <div class="block px-2 py-1 bg-yellow-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-yellow-600"
-                    onclick="showWaiverOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
-                    title="Submit waiver claim">
-                    Waiver
-                  </div>
+                {% if not is_past_week %}
+                  {% if roster_can_change %}
+                    <div class="block px-2 py-1 bg-green-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-green-600"
+                      onclick="showReplaceOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
+                      title="Add player">
+                      Add
+                    </div>
+                  {% elif use_waivers %}
+                    <div class="block px-2 py-1 bg-yellow-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-yellow-600"
+                      onclick="showWaiverOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
+                      title="Submit waiver claim">
+                      Waiver
+                    </div>
+                  {% endif %}
                 {% endif %}
               {% endif %}
             </td>
