@@ -82,14 +82,13 @@ class Command(BaseCommand):
             self.stdout.write(f"{'='*60}")
             
             # Get current week - use the current year as season
-            # IMPORTANT: Use end_date__gte (week hasn't ended yet) instead of start_date__lte
-            # to avoid picking the wrong week. On Monday 9am, we're transitioning from the 
-            # previous week (which ended Sunday) to the new week.
+            # IMPORTANT: When waivers process on Monday 9am, the previous week has ended
+            # We need to find the week that just ended (end_date < today), not the upcoming week
             current_year = timezone.now().year
             current_week = Week.objects.filter(
                 season=current_year,
-                end_date__gte=timezone.now().date()
-            ).order_by('week_number').first()
+                end_date__lt=timezone.now().date()
+            ).order_by('-week_number').first()
             
             if not current_week:
                 self.stdout.write(self.style.WARNING(f"  No current week found for {league.name}"))
