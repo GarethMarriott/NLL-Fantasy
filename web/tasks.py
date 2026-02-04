@@ -341,15 +341,16 @@ def renew_league(old_league_id, new_season=None):
                         )
                         taxi_players_moved += 1
                 
-                # Create 3 empty taxi squad slots for dynasty league
-                for slot_num in range(1, 4):
+                # Create taxi squad slots based on league setting
+                taxi_size = new_league.taxi_squad_size if hasattr(new_league, 'taxi_squad_size') else 3
+                for slot_num in range(1, taxi_size + 1):
                     TaxiSquad.objects.get_or_create(
                         team=new_team,
                         slot_number=slot_num,
                         defaults={'player': None}
                     )
                 
-                logger.info(f"Transferred roster for team '{new_team.name}' ({old_rosters.count()} players, {taxi_players_moved} from taxi squad) and created 3 empty taxi squad slots")
+                logger.info(f"Transferred roster for team '{new_team.name}' ({old_rosters.count()} players, {taxi_players_moved} from taxi squad) and created {taxi_size} empty taxi squad slots")
         else:
             # Re-Draft: Create new empty teams for each owner
             logger.info(f"Re-Draft league renewal: creating empty rosters for re-drafting")

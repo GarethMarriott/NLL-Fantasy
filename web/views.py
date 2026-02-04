@@ -3094,10 +3094,11 @@ def team_create(request, league_id):
             # Create FantasyTeamOwner to link user to team
             FantasyTeamOwner.objects.create(user=request.user, team=team)
             
-            # For dynasty leagues, create 3 empty taxi squad slots
+            # For dynasty leagues, create taxi squad slots based on league setting
             if hasattr(league, 'league_type') and league.league_type == 'dynasty':
                 from web.models import TaxiSquad
-                for slot_num in range(1, 4):
+                taxi_size = league.taxi_squad_size if hasattr(league, 'taxi_squad_size') else 3
+                for slot_num in range(1, taxi_size + 1):
                     TaxiSquad.objects.get_or_create(
                         team=team,
                         slot_number=slot_num,

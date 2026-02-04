@@ -102,6 +102,13 @@ class League(models.Model):
         default="redraft",
         help_text="Dynasty leagues preserve rosters when renewed; Re-Draft leagues clear all rosters"
     )
+    
+    # Taxi Squad Size (Dynasty leagues only)
+    taxi_squad_size = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(0), MaxValueValidator(4)],
+        help_text="Number of taxi squad slots for rookies (0-4, only used in Dynasty leagues)"
+    )
 
     # Playoff reseed option for 6-team playoffs
     PLAYOFF_RESEED_CHOICES = [

@@ -89,7 +89,7 @@ class LeagueSettingsForm(forms.ModelForm):
         model = League
         fields = [
             'name', 'description', 'max_teams', 'roster_format', 'league_type', 'is_public', 'roster_size', 
-            'roster_forwards', 'roster_defense', 'roster_goalies',
+            'roster_forwards', 'roster_defense', 'roster_goalies', 'taxi_squad_size',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
@@ -114,6 +114,13 @@ class LeagueSettingsForm(forms.ModelForm):
             'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_defense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_goalies': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
+            'taxi_squad_size': forms.Select(choices=[
+                (0, '0 slots (disabled)'),
+                (1, '1 slot'),
+                (2, '2 slots'),
+                (3, '3 slots'),
+                (4, '4 slots'),
+            ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'playoff_teams': forms.Select(choices=[
                 (2, '2 teams'),
                 (4, '4 teams'),
@@ -138,6 +145,7 @@ class LeagueSettingsForm(forms.ModelForm):
         }
         help_texts = {
             'multigame_scoring': "If a player plays multiple games in a week, use their highest single-game score (default) or the average of their games.",
+            'taxi_squad_size': "Number of taxi squad slots for rookies (Dynasty leagues only). 0 = disabled.",
         }
 
     def __init__(self, *args, **kwargs):
