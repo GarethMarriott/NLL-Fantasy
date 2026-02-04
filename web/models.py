@@ -1182,7 +1182,7 @@ class TaxiSquad(models.Model):
                 name='unique_taxi_slot_per_team'
             ),
             models.CheckConstraint(
-                check=models.Q(slot_number__in=[1, 2, 3]),
+                condition=models.Q(slot_number__in=[1, 2, 3]),
                 name='taxi_slot_1_to_3'
             )
         ]
