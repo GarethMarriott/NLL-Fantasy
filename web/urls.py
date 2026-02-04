@@ -5,7 +5,7 @@ from .views import (
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft,
     nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
-    manage_lineup
+    manage_lineup, add_to_taxi, move_from_taxi
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
@@ -16,6 +16,8 @@ urlpatterns = [
     path("teams/<int:team_id>/", team_detail, name="team_detail"),
     path("teams/<int:team_id>/assign-player/", assign_player, name="assign_player"),
     path("teams/<int:team_id>/move-transition/", move_transition_player, name="move_transition_player"),
+    path("teams/<int:team_id>/add-to-taxi/", add_to_taxi, name="add_to_taxi"),
+    path("teams/<int:team_id>/move-from-taxi/", move_from_taxi, name="move_from_taxi"),
     path("teams/<int:team_id>/trades/", trade_center, name="trade_center"),
     path("teams/<int:team_id>/trades/propose/", propose_trade, name="propose_trade"),
     path("trades/<int:trade_id>/accept/", accept_trade, name="accept_trade"),

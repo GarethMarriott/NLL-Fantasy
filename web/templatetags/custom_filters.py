@@ -58,3 +58,10 @@ def opponent_abbr(opponent_string):
         return f"{home_abbr}{separator}{away_abbr}"
     
     return opponent_string
+@register.filter
+def get_index(lst, index):
+    """Get item from list by index (for use in loops)"""
+    try:
+        return lst[int(index)]
+    except (IndexError, TypeError, ValueError, KeyError):
+        return None

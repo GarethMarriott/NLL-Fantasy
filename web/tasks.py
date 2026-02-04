@@ -666,3 +666,38 @@ def lock_rookie_draft_order(draft_id):
     except Exception as e:
         logger.error(f"Error locking draft order {draft_id}: {str(e)}")
         return False, f"Error locking draft: {str(e)}"
+
+@shared_task
+def lock_taxi_squad_at_season_start(season_year):
+    """
+    Lock all taxi squad slots when the first game of the season starts.
+    This should be called automatically when the first game is scheduled or starts.
+    """
+    from web.models import TaxiSquad, League, Week
+    
+    try:
+        # Get all dynasty leagues
+        dynasty_leagues = League.objects.filter(league_type='dynasty')
+        
+        locked_count = 0
+        
+        for league in dynasty_leagues:
+            # Get all taxi squad entries for this league's teams
+            taxi_squad_entries = TaxiSquad.objects.filter(
+                team__league=league,
+                is_locked=False
+            )
+            
+            # Lock them
+            updated = taxi_squad_entries.update(is_locked=True)
+            locked_count += updated
+            
+            if updated > 0:
+                logger.info(f"Locked {updated} taxi squad slots in league {league.name} for season {season_year}")
+        
+        logger.info(f"Total taxi squad slots locked: {locked_count} for season {season_year}")
+        return True, f"Locked {locked_count} taxi squad slots"
+        
+    except Exception as e:
+        logger.error(f"Error locking taxi squad at season start: {str(e)}")
+        return False, f"Error locking taxi squad: {str(e)}"

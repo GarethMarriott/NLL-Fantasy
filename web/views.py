@@ -599,6 +599,13 @@ def team_detail(request, team_id):
         pending_changes_count = 0
     use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
 
+    # Get taxi squad for dynasty leagues
+    taxi_squad_entries = []
+    is_dynasty = league.league_type == 'dynasty' if hasattr(league, 'league_type') else False
+    if is_dynasty:
+        from web.models import TaxiSquad
+        taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
+
     return render(
         request,
         "web/team_detail.html",
@@ -624,6 +631,8 @@ def team_detail(request, team_id):
             "pending_changes_count": pending_changes_count,
             "use_waivers": use_waivers,
             "is_traditional": is_traditional,
+            "is_dynasty": is_dynasty,
+            "taxi_squad_entries": taxi_squad_entries,
         },
     )
 
@@ -3836,6 +3845,157 @@ def cancel_draft(request):
     post_league_message(league, "❌ The draft has been cancelled by the commissioner.")
     messages.info(request, "Draft cancelled.")
     return redirect('draft_room')
+
+
+# ===== Taxi Squad Views (Dynasty Leagues) =====
+
+@login_required
+def add_to_taxi(request, team_id):
+    """Add a rookie player to taxi squad"""
+    team = get_object_or_404(Team, id=team_id)
+    
+    # Check if user owns this team
+    if not (hasattr(team, 'owner') and team.owner and team.owner.user == request.user):
+        messages.error(request, "You don't have permission to modify this team.")
+        return redirect('team_detail', team_id=team_id)
+    
+    # Check if league is dynasty
+    if not hasattr(team.league, 'league_type') or team.league.league_type != 'dynasty':
+        messages.error(request, "Taxi squad is only available in Dynasty leagues.")
+        return redirect('team_detail', team_id=team_id)
+    
+    if request.method == 'POST':
+        from web.models import TaxiSquad
+        player_id = request.POST.get('player_id')
+        slot_number = request.POST.get('slot_number')
+        
+        if not player_id or not slot_number:
+            messages.error(request, "Missing player or slot information.")
+            return redirect('team_detail', team_id=team_id)
+        
+        try:
+            player = Player.objects.get(id=int(player_id))
+            slot_number = int(slot_number)
+        except (Player.DoesNotExist, ValueError):
+            messages.error(request, "Invalid player or slot.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Validate: Only rookies allowed in taxi squad
+        if not player.is_rookie:
+            messages.error(request, f"{player.get_full_name()} is not a rookie and cannot be added to taxi squad.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Validate: Player not already on roster
+        existing_roster = Roster.objects.filter(
+            player=player,
+            league=team.league,
+            week_dropped__isnull=True
+        ).exists()
+        if existing_roster:
+            messages.error(request, f"{player.get_full_name()} is already on your main roster.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Validate: Player not already in taxi squad
+        if TaxiSquad.objects.filter(team=team, player=player).exists():
+            messages.error(request, f"{player.get_full_name()} is already in your taxi squad.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Check if slot is already filled
+        if TaxiSquad.objects.filter(team=team, slot_number=slot_number).exists():
+            messages.error(request, f"Taxi slot {slot_number} is already filled.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Add to taxi squad
+        TaxiSquad.objects.create(
+            team=team,
+            player=player,
+            slot_number=slot_number
+        )
+        
+        messages.success(request, f"{player.get_full_name()} added to taxi squad slot {slot_number}.")
+    
+    return redirect('team_detail', team_id=team_id)
+
+
+@login_required
+def move_from_taxi(request, team_id):
+    """Move a player from taxi squad to main roster"""
+    team = get_object_or_404(Team, id=team_id)
+    
+    # Check if user owns this team
+    if not (hasattr(team, 'owner') and team.owner and team.owner.user == request.user):
+        messages.error(request, "You don't have permission to modify this team.")
+        return redirect('team_detail', team_id=team_id)
+    
+    # Check if league is dynasty
+    if not hasattr(team.league, 'league_type') or team.league.league_type != 'dynasty':
+        messages.error(request, "Taxi squad is only available in Dynasty leagues.")
+        return redirect('team_detail', team_id=team_id)
+    
+    if request.method == 'POST':
+        from web.models import TaxiSquad
+        player_id = request.POST.get('player_id')
+        
+        if not player_id:
+            messages.error(request, "No player specified.")
+            return redirect('team_detail', team_id=team_id)
+        
+        try:
+            player = Player.objects.get(id=int(player_id))
+        except Player.DoesNotExist:
+            messages.error(request, "Player not found.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Get taxi squad entry
+        taxi_entry = TaxiSquad.objects.filter(team=team, player=player).first()
+        if not taxi_entry:
+            messages.error(request, f"{player.get_full_name()} is not in your taxi squad.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Check if taxi squad is locked
+        if taxi_entry.is_locked:
+            messages.error(request, f"Taxi squad is locked. Cannot move {player.get_full_name()}.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Check roster space
+        current_roster_count = Roster.objects.filter(
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True
+        ).count()
+        
+        roster_size = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
+        if current_roster_count >= roster_size:
+            messages.error(request, f"Your roster is full ({roster_size} players). Please drop a player first.")
+            return redirect('team_detail', team_id=team_id)
+        
+        # Add to main roster
+        league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
+        current_week = Week.objects.filter(
+            season=league_season,
+            start_date__lte=timezone.now().date(),
+            end_date__gte=timezone.now().date()
+        ).first() or Week.objects.filter(
+            season=league_season,
+            start_date__gt=timezone.now().date()
+        ).order_by('week_number').first()
+        
+        week_added = current_week.week_number if current_week else 1
+        
+        Roster.objects.create(
+            team=team,
+            player=player,
+            league=team.league,
+            week_added=week_added,
+            slot_assignment='bench'
+        )
+        
+        # Remove from taxi squad
+        taxi_entry.delete()
+        
+        messages.success(request, f"{player.get_full_name()} moved from taxi squad to main roster.")
+    
+    return redirect('team_detail', team_id=team_id)
 
 
 # ===== Password Reset Views =====

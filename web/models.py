@@ -1149,6 +1149,52 @@ class RookieDraftPick(models.Model):
         return f"R{self.round}P{self.pick_number}: {self.team.name} - {player_name}"
 
 
+class TaxiSquad(models.Model):
+    """Taxi Squad slots for Dynasty leagues - holds rookie players that don't score"""
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='taxi_squad',
+        help_text="Fantasy team this taxi squad belongs to"
+    )
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name='taxi_squad_entries',
+        help_text="Rookie player in this taxi slot"
+    )
+    slot_number = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(3)],
+        help_text="Which taxi slot (1, 2, or 3)"
+    )
+    added_date = models.DateTimeField(auto_now_add=True)
+    is_locked = models.BooleanField(
+        default=False,
+        help_text="Whether this taxi squad slot is locked (season started)"
+    )
+    
+    class Meta:
+        ordering = ['team', 'slot_number']
+        unique_together = [['team', 'player']]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['team', 'slot_number'],
+                name='unique_taxi_slot_per_team'
+            ),
+            models.CheckConstraint(
+                check=models.Q(slot_number__in=[1, 2, 3]),
+                name='taxi_slot_1_to_3'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['team', 'is_locked']),
+            models.Index(fields=['player']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"{self.team.name} Taxi Slot {self.slot_number}: {self.player.get_full_name()}"
+
+
 class Trade(models.Model):
     """Trade offer between two teams"""
     class Status(models.TextChoices):
