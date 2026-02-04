@@ -240,6 +240,14 @@
                 document.getElementById('playerDraftYear').textContent = data.player.draft_year || '-';
                 document.getElementById('playerBirthdate').textContent = data.player.birthdate || '-';
                 
+                // Show rookie badge if applicable
+                const rookieBadge = document.getElementById('playerRookieBadge');
+                if (data.player.is_rookie) {
+                  rookieBadge.classList.remove('hidden');
+                } else {
+                  rookieBadge.classList.add('hidden');
+                }
+                
                 // Apply position color to header
                 const positionLetter = data.player.position ? data.player.position.charAt(0).toUpperCase() : '';
                 const headerElement = document.getElementById('playerModalHeader');
@@ -331,7 +339,10 @@
             <div class="bg-white rounded-lg overflow-hidden max-w-2xl w-full mx-4" onclick="event.stopPropagation()">
             <!-- Header with position color -->
             <div id="playerModalHeader" class="bg-gray-100 px-6 py-4 flex justify-between items-center">
-              <h2 class="text-2xl font-semibold" id="playerModalTitle"></h2>
+              <div class="flex items-center gap-3">
+                <h2 class="text-2xl font-semibold" id="playerModalTitle"></h2>
+                <span id="playerRookieBadge" class="hidden px-2 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded">ROOKIE</span>
+              </div>
               <button onclick="closePlayerModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
             

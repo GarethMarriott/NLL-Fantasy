@@ -2061,6 +2061,7 @@ def player_detail_modal(request, player_id):
             'hometown': player.hometown or 'Unknown',
             'draft_year': player.draft_year or 'Unknown',
             'birthdate': player.birthdate.strftime('%B %d, %Y') if player.birthdate else 'Unknown',
+            'is_rookie': player.is_rookie,
         },
         'week_stats': week_stats
     }

@@ -405,6 +405,10 @@ class Player(models.Model):
     )
 
     active = models.BooleanField(default=True)
+    is_rookie = models.BooleanField(
+        default=False,
+        help_text="Whether the player is a rookie in the current season"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
