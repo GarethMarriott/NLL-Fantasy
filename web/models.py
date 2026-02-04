@@ -1159,9 +1159,11 @@ class TaxiSquad(models.Model):
     )
     player = models.ForeignKey(
         Player,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='taxi_squad_entries',
-        help_text="Rookie player in this taxi slot"
+        help_text="Rookie player in this taxi slot (null if empty)"
     )
     slot_number = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(3)],

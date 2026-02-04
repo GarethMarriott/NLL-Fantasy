@@ -3080,6 +3080,16 @@ def team_create(request, league_id):
             # Create FantasyTeamOwner to link user to team
             FantasyTeamOwner.objects.create(user=request.user, team=team)
             
+            # For dynasty leagues, create 3 empty taxi squad slots
+            if hasattr(league, 'league_type') and league.league_type == 'dynasty':
+                from web.models import TaxiSquad
+                for slot_num in range(1, 4):
+                    TaxiSquad.objects.get_or_create(
+                        team=team,
+                        slot_number=slot_num,
+                        defaults={'player': None}
+                    )
+            
             messages.success(request, f"Team '{team.name}' created! You've joined {league.name}.")
             return redirect("league_detail", league_id=league.id)
     else:
@@ -3851,7 +3861,7 @@ def cancel_draft(request):
 
 @login_required
 def add_to_taxi(request, team_id):
-    """Add a rookie player to taxi squad"""
+    """Add a rookie player to taxi squad (only during off-season)"""
     team = get_object_or_404(Team, id=team_id)
     
     # Check if user owns this team
@@ -3862,6 +3872,13 @@ def add_to_taxi(request, team_id):
     # Check if league is dynasty
     if not hasattr(team.league, 'league_type') or team.league.league_type != 'dynasty':
         messages.error(request, "Taxi squad is only available in Dynasty leagues.")
+        return redirect('team_detail', team_id=team_id)
+    
+    # Check if season has started - prevent adding to taxi squad once season starts
+    league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
+    first_game = Game.objects.filter(season=league_season).order_by('date').first()
+    if first_game and timezone.now() >= first_game.date:
+        messages.error(request, "Cannot add to taxi squad after season starts. You can only move players FROM taxi squad to main roster during the season.")
         return redirect('team_detail', team_id=team_id)
     
     if request.method == 'POST':
@@ -3900,17 +3917,20 @@ def add_to_taxi(request, team_id):
             messages.error(request, f"{player.get_full_name()} is already in your taxi squad.")
             return redirect('team_detail', team_id=team_id)
         
-        # Check if slot is already filled
-        if TaxiSquad.objects.filter(team=team, slot_number=slot_number).exists():
+        # Get existing slot entry or create new one (keep slots persistent)
+        taxi_slot, created = TaxiSquad.objects.get_or_create(
+            team=team,
+            slot_number=slot_number,
+            defaults={'player': player}
+        )
+        
+        if not created and taxi_slot.player is not None:
             messages.error(request, f"Taxi slot {slot_number} is already filled.")
             return redirect('team_detail', team_id=team_id)
         
         # Add to taxi squad
-        TaxiSquad.objects.create(
-            team=team,
-            player=player,
-            slot_number=slot_number
-        )
+        taxi_slot.player = player
+        taxi_slot.save()
         
         messages.success(request, f"{player.get_full_name()} added to taxi squad slot {slot_number}.")
     
@@ -3990,8 +4010,9 @@ def move_from_taxi(request, team_id):
             slot_assignment='bench'
         )
         
-        # Remove from taxi squad
-        taxi_entry.delete()
+        # Clear player from taxi squad but keep the slot
+        taxi_entry.player = None
+        taxi_entry.save()
         
         messages.success(request, f"{player.get_full_name()} moved from taxi squad to main roster.")
     

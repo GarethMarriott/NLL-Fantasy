@@ -781,8 +781,9 @@
       </tr>
 
       {% for i in "123" %}
-        {% if taxi_squad_entries|length > forloop.counter0 %}
-          {% with taxi_entry=taxi_squad_entries|get_index:forloop.counter0 %}
+        {% with taxi_entry=taxi_squad_entries|get_index:forloop.counter0 %}
+          {% if taxi_entry and taxi_entry.player %}
+            {# Filled slot - show player #}
       <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-purple-50">
               <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">T{{ forloop.counter }}</td>
               <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-purple-100 text-purple-800 rounded text-xs sm:text-sm font-semibold border border-purple-300">R</span></td>
@@ -814,8 +815,8 @@
               </td>
               {% endif %}
             </tr>
-          {% endwith %}
-        {% else %}
+          {% else %}
+            {# Empty slot - show add form #}
       <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-purple-50">
               <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">T{{ forloop.counter }}</td>
               <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-purple-100 text-purple-800 rounded text-xs sm:text-sm font-semibold border border-purple-300">R</span></td>
@@ -846,7 +847,8 @@
               <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell">—</td>
               <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">—</td>
             </tr>
-        {% endif %}
+          {% endif %}
+        {% endwith %}
       {% endfor %}
       {% endif %}
 
