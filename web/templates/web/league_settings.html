@@ -120,15 +120,8 @@
 
         <div class="mt-6">
           <label class="block text-sm font-medium mb-2">Playoff Weeks</label>
-          {% if form.initial.playoff_teams|stringformat:'s' == '6' %}
-              <span class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">3</span>
-              <p class="text-xs text-gray-500 mt-1">(3 weeks for 6-team playoff: QF, SF, Final)</p>
-            {% elif form.initial.playoff_teams|stringformat:'s' == '4' %}
-              <span class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">2</span>
-              <p class="text-xs text-gray-500 mt-1">(2 weeks for 4-team playoff: SF, Final)</p>
-            {% else %}
-              <span class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">Set by system</span>
-            {% endif %}
+          <div id="playoffWeeksDisplay" class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">3</div>
+          <p id="playoffWeeksExplain" class="text-xs text-gray-500 mt-1">(3 weeks for 6-team playoff: QF, SF, Final)</p>
           </div>
 
         <div class="mt-4">
@@ -327,6 +320,35 @@
       }
       
       updateRosterTotal();
+
+      // Update playoff weeks based on playoff teams selection
+      const playoffTeamsSelect = document.getElementById('id_playoff_teams');
+      const playoffWeeksDisplay = document.getElementById('playoffWeeksDisplay');
+      const playoffWeeksExplain = document.getElementById('playoffWeeksExplain');
+
+      function updatePlayoffWeeks() {
+        const teams = playoffTeamsSelect.value;
+        if (teams === '6') {
+          playoffWeeksDisplay.textContent = '3';
+          playoffWeeksExplain.textContent = '(3 weeks for 6-team playoff: QF, SF, Final)';
+        } else if (teams === '4') {
+          playoffWeeksDisplay.textContent = '2';
+          playoffWeeksExplain.textContent = '(2 weeks for 4-team playoff: SF, Final)';
+        } else if (teams === '2') {
+          playoffWeeksDisplay.textContent = '1';
+          playoffWeeksExplain.textContent = '(1 week for 2-team playoff: Championship)';
+        } else if (teams === '8') {
+          playoffWeeksDisplay.textContent = '3';
+          playoffWeeksExplain.textContent = '(3 weeks for 8-team playoff: QF, SF, Final)';
+        } else {
+          playoffWeeksDisplay.textContent = 'Set by system';
+          playoffWeeksExplain.textContent = '';
+        }
+      }
+
+      // Call on page load and when selection changes
+      updatePlayoffWeeks();
+      playoffTeamsSelect.addEventListener('change', updatePlayoffWeeks);
     });
   </script>
   
