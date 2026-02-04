@@ -1488,7 +1488,10 @@ def players(request):
         )
     
     # Apply position filter if selected
-    if selected_position:
+    if selected_position == "R":
+        # Filter for rookies only
+        qs = qs.filter(is_rookie=True)
+    elif selected_position:
         qs = qs.filter(position=selected_position)
     else:
         # Exclude goalies from "All Positions" view
