@@ -340,6 +340,13 @@ def renew_league(old_league_id, new_season=None):
         logger.info(f"Created renewed league '{new_league.name}' (ID: {new_league.id}) " +
                    f"with {old_team_owners.count()} members from {old_league.name} ({old_league.league_type})")
         
+        # For dynasty leagues, create a rookie draft for the new season
+        if old_league.league_type == "dynasty":
+            try:
+                create_rookie_draft(new_league.id, new_season)
+            except Exception as e:
+                logger.error(f"Failed to create rookie draft for league {new_league.id}: {str(e)}")
+        
         return new_league
         
     except League.DoesNotExist:
@@ -347,5 +354,87 @@ def renew_league(old_league_id, new_season=None):
         return None
     except Exception as e:
         logger.error(f"Error renewing league {old_league_id}: {str(e)}")
+        return None
+
+
+def create_rookie_draft(league_id, season_year, draft_style="snake"):
+    """
+    Create a 2-round rookie draft for a dynasty league.
+    
+    Initializes all draft picks in snake draft order (teams 1,2,3,4 then 4,3,2,1 in round 2).
+    
+    Args:
+        league_id: ID of the league to create draft for
+        season_year: Season year for which rookies are being drafted
+        draft_style: "snake" or "linear" draft style
+    
+    Returns:
+        RookieDraft object or None if error
+    
+    Usage:
+        from web.tasks import create_rookie_draft
+        draft = create_rookie_draft(league_id=5, season_year=2026)
+    """
+    from web.models import RookieDraft, RookieDraftPick, League, Team
+    
+    try:
+        league = League.objects.get(id=league_id)
+        
+        # Check if rookie draft already exists for this league/season
+        existing_draft = RookieDraft.objects.filter(
+            league=league,
+            season_year=season_year
+        ).first()
+        
+        if existing_draft:
+            logger.info(f"Rookie draft already exists for {league.name} season {season_year}")
+            return existing_draft
+        
+        # Create the rookie draft
+        rookie_draft = RookieDraft.objects.create(
+            league=league,
+            season_year=season_year,
+            draft_style=draft_style,
+            is_active=False,
+            completed=False,
+        )
+        
+        # Get teams for this league and sort by ID for consistent ordering
+        teams = list(Team.objects.filter(league=league).order_by('id'))
+        num_teams = len(teams)
+        
+        if num_teams == 0:
+            logger.warning(f"No teams found for league {league.name}")
+            return rookie_draft
+        
+        # Create draft picks for 2 rounds
+        pick_number = 1
+        for round_num in range(1, 3):  # 2 rounds for rookie draft
+            if draft_style == "snake" and round_num == 2:
+                # Snake draft: reverse order in round 2
+                round_teams = list(reversed(teams))
+            else:
+                # Linear draft or round 1: normal order
+                round_teams = teams
+            
+            for pick_in_round, team in enumerate(round_teams, 1):
+                RookieDraftPick.objects.create(
+                    draft=rookie_draft,
+                    round=round_num,
+                    pick_number=pick_in_round,
+                    overall_pick=pick_number,
+                    team=team,
+                )
+                pick_number += 1
+        
+        logger.info(f"Created rookie draft for {league.name} (season {season_year}) with {pick_number - 1} total picks")
+        
+        return rookie_draft
+        
+    except League.DoesNotExist:
+        logger.error(f"League with ID {league_id} not found")
+        return None
+    except Exception as e:
+        logger.error(f"Error creating rookie draft for league {league_id}: {str(e)}")
         return None
 

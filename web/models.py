@@ -1047,6 +1047,104 @@ class DraftPick(models.Model):
         return f"Round {self.round}, Pick {self.pick_number}: {self.team.name} - {player_name}"
 
 
+class RookieDraft(models.Model):
+    """Rookie-only draft for dynasty leagues held during season renewal"""
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name='rookie_drafts',
+        help_text="Dynasty league this rookie draft belongs to"
+    )
+    season_year = models.PositiveSmallIntegerField(
+        help_text="Season year for which rookies are being drafted"
+    )
+    is_active = models.BooleanField(
+        default=False,
+        help_text="Whether the draft is currently in progress"
+    )
+    completed = models.BooleanField(
+        default=False,
+        help_text="Whether the draft has been completed"
+    )
+    draft_style = models.CharField(
+        max_length=10,
+        choices=[
+            ("snake", "Snake Draft (1,2,3,4 then 4,3,2,1)"),
+            ("linear", "Linear Draft (1,2,3,4 every round)"),
+        ],
+        default="snake",
+        help_text="Draft pick order style"
+    )
+    current_round = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Current round number (1-2 for rookie drafts)"
+    )
+    current_pick = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Current pick number within the round"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-season_year', '-created_at']
+        indexes = [
+            models.Index(fields=['league', 'season_year']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self) -> str:
+        status = "Active" if self.is_active else ("Completed" if self.completed else "Pending")
+        return f"{self.league.name} - {self.season_year} Rookie Draft ({status})"
+
+
+class RookieDraftPick(models.Model):
+    """Individual rookie draft pick"""
+    draft = models.ForeignKey(
+        RookieDraft,
+        on_delete=models.CASCADE,
+        related_name='picks',
+        help_text="Rookie draft this pick belongs to"
+    )
+    round = models.PositiveSmallIntegerField(
+        help_text="Round number (1-2)"
+    )
+    pick_number = models.PositiveSmallIntegerField(
+        help_text="Pick number within the round"
+    )
+    overall_pick = models.PositiveSmallIntegerField(
+        help_text="Overall pick number in the draft"
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='rookie_draft_picks',
+        help_text="Team with this pick"
+    )
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.SET_NULL,
+        related_name='rookie_draft_picks',
+        null=True,
+        blank=True,
+        help_text="Rookie player selected (null if not yet picked)"
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['draft', 'overall_pick']
+        unique_together = [['draft', 'round', 'pick_number']]
+        indexes = [
+            models.Index(fields=['draft', 'overall_pick']),
+            models.Index(fields=['team', 'draft']),
+        ]
+    
+    def __str__(self) -> str:
+        player_name = self.player.get_full_name() if self.player else "TBD"
+        return f"R{self.round}P{self.pick_number}: {self.team.name} - {player_name}"
+
+
 class Trade(models.Model):
     """Trade offer between two teams"""
     class Status(models.TextChoices):
