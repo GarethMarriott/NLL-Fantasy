@@ -34,7 +34,7 @@ class UserRegistrationForm(UserCreationForm):
 class LeagueCreateForm(forms.ModelForm):
     class Meta:
         model = League
-        fields = ['name', 'description', 'max_teams', 'roster_format']
+        fields = ['name', 'description', 'max_teams', 'roster_format', 'league_type']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
             'max_teams': forms.Select(choices=[
@@ -47,6 +47,10 @@ class LeagueCreateForm(forms.ModelForm):
             'roster_format': forms.RadioSelect(choices=[
                 ('bestball', 'Best Ball - All roster players score'),
                 ('traditional', 'Traditional - Only 7 starters score (3 O, 3 D, 1 G)'),
+            ]),
+            'league_type': forms.RadioSelect(choices=[
+                ('redraft', 'Re-Draft - All players removed when league renews'),
+                ('dynasty', 'Dynasty - Players stay on their teams between seasons'),
             ]),
         }
 
@@ -84,7 +88,7 @@ class LeagueSettingsForm(forms.ModelForm):
     class Meta:
         model = League
         fields = [
-            'name', 'description', 'max_teams', 'roster_format', 'is_public', 'roster_size', 
+            'name', 'description', 'max_teams', 'roster_format', 'league_type', 'is_public', 'roster_size', 
             'roster_forwards', 'roster_defense', 'roster_goalies',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
@@ -104,6 +108,7 @@ class LeagueSettingsForm(forms.ModelForm):
                 (12, '12 teams'),
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'roster_format': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'disabled': True}),
+            'league_type': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'disabled': True}),
             'is_public': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
             'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),

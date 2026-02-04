@@ -91,6 +91,18 @@ class League(models.Model):
         help_text="Enable waiver claims that process when rosters unlock on Tuesday"
     )
 
+    # League Type (Dynasty vs Re-Draft)
+    LEAGUE_TYPE_CHOICES = [
+        ("dynasty", "Dynasty (players stay on teams between seasons)"),
+        ("redraft", "Re-Draft (all players removed when league renews)"),
+    ]
+    league_type = models.CharField(
+        max_length=10,
+        choices=LEAGUE_TYPE_CHOICES,
+        default="redraft",
+        help_text="Dynasty leagues preserve rosters when renewed; Re-Draft leagues clear all rosters"
+    )
+
     # Playoff reseed option for 6-team playoffs
     PLAYOFF_RESEED_CHOICES = [
         ("fixed", "1 seed plays winner of 3 vs 6"),

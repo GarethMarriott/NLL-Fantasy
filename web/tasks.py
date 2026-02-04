@@ -244,6 +244,9 @@ def renew_league(old_league_id, new_season=None):
     This is called by commissioners to renew their league. Creates a new
     League with identical settings and optionally transfers team owners.
     
+    For Dynasty leagues: Transfers all players from old league teams to new league teams.
+    For Re-Draft leagues: Only transfers team owners; players are cleared and must be drafted fresh.
+    
     Args:
         old_league_id: ID of the league to renew
         new_season: Year for new league (defaults to next year)
@@ -255,7 +258,7 @@ def renew_league(old_league_id, new_season=None):
         from web.tasks import renew_league
         new_league = renew_league(old_league.id)
     """
-    from web.models import League, FantasyTeamOwner, Team
+    from web.models import League, FantasyTeamOwner, Team, Roster
     
     try:
         old_league = League.objects.get(id=old_league_id)
@@ -278,6 +281,7 @@ def renew_league(old_league_id, new_season=None):
             playoff_weeks=old_league.playoff_weeks,
             playoff_teams=old_league.playoff_teams,
             use_waivers=old_league.use_waivers,
+            league_type=old_league.league_type,  # Preserve league type
             playoff_reseed=old_league.playoff_reseed,
             roster_format=old_league.roster_format,
             multigame_scoring=old_league.multigame_scoring,
@@ -296,13 +300,45 @@ def renew_league(old_league_id, new_season=None):
         )
         new_league.save()
         
-        # Invite all previous team owners to join the new league
+        # Get all previous team owners and their teams
+        old_teams = Team.objects.filter(league=old_league)
         old_team_owners = FantasyTeamOwner.objects.filter(
             team__league=old_league
         ).distinct('user')
         
+        # For Dynasty leagues, transfer rosters; for Re-Draft, just reset rosters
+        if old_league.league_type == "dynasty":
+            # Dynasty: Create new teams and transfer all rosters
+            logger.info(f"Dynasty league renewal: transferring rosters to new league")
+            for old_team in old_teams:
+                # Create new team in new league with same name and owner
+                new_team = Team.objects.create(
+                    league=new_league,
+                    name=old_team.name,
+                    owner=old_team.owner,
+                )
+                
+                # Transfer all roster entries from old team to new team
+                old_rosters = Roster.objects.filter(team=old_team)
+                for old_roster in old_rosters:
+                    Roster.objects.create(
+                        team=new_team,
+                        player=old_roster.player,
+                        season_year=new_season,
+                    )
+                logger.info(f"Transferred roster for team '{new_team.name}' ({old_rosters.count()} players)")
+        else:
+            # Re-Draft: Create new empty teams for each owner
+            logger.info(f"Re-Draft league renewal: creating empty rosters for re-drafting")
+            for old_team in old_teams:
+                Team.objects.create(
+                    league=new_league,
+                    name=old_team.name,
+                    owner=old_team.owner,
+                )
+        
         logger.info(f"Created renewed league '{new_league.name}' (ID: {new_league.id}) " +
-                   f"with {old_team_owners.count()} invited members from {old_league.name}")
+                   f"with {old_team_owners.count()} members from {old_league.name} ({old_league.league_type})")
         
         return new_league
         
