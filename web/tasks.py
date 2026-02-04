@@ -553,3 +553,116 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
         logger.error(f"Error creating rookie draft for league {league_id}: {str(e)}")
         return None
 
+
+def reorder_rookie_draft_picks(draft_id, new_order):
+    """
+    Reorder rookie draft picks by swapping pick order and positions.
+    
+    Allows commissioner to customize draft order after it's been generated.
+    Can only be called before draft starts (order_locked=False).
+    
+    Args:
+        draft_id: ID of the RookieDraft to reorder
+        new_order: List of team IDs in desired draft order
+        Example: [team_5, team_2, team_8, team_1] for 4-team draft
+    
+    Returns:
+        (success: bool, message: str)
+    
+    Usage:
+        from web.tasks import reorder_rookie_draft_picks
+        success, msg = reorder_rookie_draft_picks(draft_id=5, new_order=[2, 1, 3, 4])
+    """
+    from web.models import RookieDraft, RookieDraftPick
+    
+    try:
+        draft = RookieDraft.objects.get(id=draft_id)
+        
+        # Prevent reordering if draft has started or is locked
+        if draft.order_locked or draft.is_active:
+            return False, "Cannot reorder picks - draft is locked or in progress"
+        
+        # Validate new order
+        existing_picks = RookieDraftPick.objects.filter(draft=draft).values_list('team_id', flat=True).distinct()
+        if set(new_order) != set(existing_picks):
+            return False, f"New order teams don't match existing draft picks. Expected: {list(existing_picks)}"
+        
+        # Get all picks for both rounds
+        all_picks = list(RookieDraftPick.objects.filter(draft=draft).order_by('overall_pick'))
+        
+        if not all_picks:
+            return False, "No picks found in draft"
+        
+        num_teams = len(new_order)
+        picks_per_round = num_teams
+        
+        # Rebuild picks with new team order
+        pick_number = 1
+        for round_num in range(1, 3):  # 2 rounds
+            if draft.draft_style == "snake" and round_num == 2:
+                # Snake draft: reverse order in round 2
+                round_order = list(reversed(new_order))
+            else:
+                # Linear or round 1: normal order
+                round_order = new_order
+            
+            for pick_in_round, team_id in enumerate(round_order, 1):
+                # Find the pick object for this team
+                pick = all_picks[pick_number - 1]
+                
+                # Update pick position
+                pick.round = round_num
+                pick.pick_number = pick_in_round
+                pick.overall_pick = pick_number
+                pick.team_id = team_id
+                pick.save()
+                
+                pick_number += 1
+        
+        logger.info(f"Reordered draft {draft.id} for {draft.league.name} season {draft.season_year}")
+        logger.info(f"New order: {new_order}")
+        
+        return True, f"Successfully reordered draft for {draft.league.name}"
+        
+    except RookieDraft.DoesNotExist:
+        return False, f"Draft with ID {draft_id} not found"
+    except Exception as e:
+        logger.error(f"Error reordering draft {draft_id}: {str(e)}")
+        return False, f"Error reordering draft: {str(e)}"
+
+
+def lock_rookie_draft_order(draft_id):
+    """
+    Lock the draft order to prevent further changes.
+    Called when commissioner is satisfied with the draft order and wants to start draft.
+    
+    Args:
+        draft_id: ID of the RookieDraft to lock
+    
+    Returns:
+        (success: bool, message: str)
+    
+    Usage:
+        from web.tasks import lock_rookie_draft_order
+        success, msg = lock_rookie_draft_order(draft_id=5)
+    """
+    from web.models import RookieDraft
+    
+    try:
+        draft = RookieDraft.objects.get(id=draft_id)
+        
+        if draft.order_locked:
+            return False, "Draft order already locked"
+        
+        draft.order_locked = True
+        draft.save()
+        
+        logger.info(f"Locked draft order for {draft.league.name} season {draft.season_year}")
+        
+        return True, f"Draft order locked for {draft.league.name}"
+        
+    except RookieDraft.DoesNotExist:
+        return False, f"Draft with ID {draft_id} not found"
+    except Exception as e:
+        logger.error(f"Error locking draft order {draft_id}: {str(e)}")
+        return False, f"Error locking draft: {str(e)}"

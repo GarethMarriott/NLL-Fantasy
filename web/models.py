@@ -1083,6 +1083,10 @@ class RookieDraft(models.Model):
         default=1,
         help_text="Current pick number within the round"
     )
+    order_locked = models.BooleanField(
+        default=False,
+        help_text="Whether draft order is locked (can't modify once locked)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
