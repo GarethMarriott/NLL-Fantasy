@@ -153,7 +153,17 @@
             <p class="text-red-500 text-xs mt-1">{{ form.use_waivers.errors.0 }}</p>
           {% endif %}
         </div>
-      </div>
+
+        {% if form.instance.league_type == 'dynasty' %}
+        <div class="mt-4">
+          <label class="block text-sm font-medium mb-2">Taxi Squad Size (Dynasty Leagues)</label>
+          {{ form.taxi_squad_size }}
+          <p class="text-xs text-gray-500 mt-1">Number of rookie taxi squad slots per team (0 = disabled, 1-4 slots)</p>
+          {% if form.taxi_squad_size.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.taxi_squad_size.errors.0 }}</p>
+          {% endif %}
+        </div>
+        {% endif %}
 
       {# Field Player Scoring #}
       <div class="bg-white border border-gray-200 rounded-lg p-4">
