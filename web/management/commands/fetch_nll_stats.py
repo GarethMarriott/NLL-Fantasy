@@ -128,12 +128,12 @@ class Command(BaseCommand):
                 jersey_numbers[player_id] = number
         
         # Build rookie status lookup from player_seasons data
-        # player_seasons is indexed by (player_id, season) and has a 'Rookie' field
+        # player_seasons is indexed by (player_id, season) and has a 'rookie' field
         rookie_by_player_season = {}
         for season_data in data.get('player_seasons', []):
             player_id = season_data.get('player_id')
             season = season_data.get('season')
-            is_rookie = season_data.get('Rookie', False)
+            is_rookie = season_data.get('rookie', False)
             if player_id and season:
                 rookie_by_player_season[(player_id, season)] = is_rookie
         
