@@ -69,6 +69,33 @@
             <p class="mt-1 text-sm text-red-600">{{ form.roster_format.errors.0 }}</p>
           {% endif %}
         </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            League Type *
+          </label>
+          <div class="space-y-3">
+            <div class="flex items-center">
+              <input type="radio" id="id_league_type_0" name="league_type" value="redraft" 
+                     class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                     {% if form.league_type.value == 'redraft' %}checked{% endif %}>
+              <label for="id_league_type_0" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
+                Re-Draft (all players removed when league renews)
+              </label>
+            </div>
+            <div class="flex items-center">
+              <input type="radio" id="id_league_type_1" name="league_type" value="dynasty" 
+                     class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                     {% if form.league_type.value == 'dynasty' %}checked{% endif %}>
+              <label for="id_league_type_1" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
+                Dynasty (players stay on teams between seasons)
+              </label>
+            </div>
+          </div>
+          {% if form.league_type.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ form.league_type.errors.0 }}</p>
+          {% endif %}
+        </div>
       </div>
 
       <div class="mt-8 flex gap-4">
