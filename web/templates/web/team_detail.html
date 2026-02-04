@@ -62,6 +62,20 @@
             <p class="text-sm font-semibold text-blue-800">👁️ Viewing Only - You cannot modify this team</p>
           </div>
         </div>
+      {% elif is_over_roster_limit %}
+        <div class="rounded-md bg-red-50 border border-red-300 p-4 mb-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <svg class="h-5 w-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+              <div>
+                <p class="text-sm font-semibold text-red-800">⚠️ OVER ROSTER LIMIT</p>
+                <p class="text-xs text-red-700">Your roster has {{ current_roster_count }} players (limit: {{ roster_limit }}). You must DROP players to get back under the limit. Only drops are allowed until you're back under the limit.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       {% else %}
         <div class="rounded-md bg-green-50 border border-green-200 p-4 mb-4">
           <div class="flex items-center">
@@ -501,7 +515,7 @@
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                   {% if user_owns_team %}
                     {% if not is_viewing_past_week %}
-                    {% if roster_status.0 %}
+                    {% if roster_status.0 and not is_over_roster_limit %}
                     <form method="post" action="{% url 'assign_player' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="add">
@@ -516,6 +530,8 @@
                       </select>
                       <button type="submit" class="px-1 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Add</button>
                     </form>
+                    {% elif is_over_roster_limit %}
+                    <span class="text-red-600 italic text-xs font-semibold">Over Limit</span>
                     {% elif use_waivers %}
                     <form method="post" action="{% url 'submit_waiver_claim' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}
@@ -610,7 +626,7 @@
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                   {% if user_owns_team %}
                     {% if not is_viewing_past_week %}
-                    {% if roster_status.0 %}
+                    {% if roster_status.0 and not is_over_roster_limit %}
                     <form method="post" action="{% url 'assign_player' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="add">
@@ -625,6 +641,8 @@
                       </select>
                       <button type="submit" class="px-1 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Add</button>
                     </form>
+                    {% elif is_over_roster_limit %}
+                    <span class="text-red-600 italic text-xs font-semibold">Over Limit</span>
                     {% elif use_waivers %}
                     <form method="post" action="{% url 'submit_waiver_claim' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}
@@ -719,7 +737,7 @@
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                   {% if user_owns_team %}
                     {% if not is_viewing_past_week %}
-                    {% if roster_status.0 %}
+                    {% if roster_status.0 and not is_over_roster_limit %}
                     <form method="post" action="{% url 'assign_player' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="add">
@@ -734,6 +752,8 @@
                       </select>
                       <button type="submit" class="px-1 py-0.5 text-xs bg-green-500 text-white rounded hover:bg-green-600">Add</button>
                     </form>
+                    {% elif is_over_roster_limit %}
+                    <span class="text-red-600 italic text-xs font-semibold">Over Limit</span>
                     {% elif use_waivers %}
                     <form method="post" action="{% url 'submit_waiver_claim' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}

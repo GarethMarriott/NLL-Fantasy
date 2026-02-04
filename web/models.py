@@ -263,6 +263,22 @@ class Team(models.Model):
         
         # No unlocked weeks found
         return False, "All weeks are currently locked", None
+    
+    def is_over_roster_limit(self):
+        """
+        Check if this team is over the roster size limit.
+        Returns the count of current roster players and whether they're over limit.
+        """
+        if not self.league:
+            return 0, False
+        
+        current_count = Roster.objects.filter(
+            team=self,
+            week_dropped__isnull=True
+        ).count()
+        
+        roster_limit = self.league.roster_size if hasattr(self.league, 'roster_size') else 14
+        return current_count, current_count > roster_limit
 
 
 class Roster(models.Model):

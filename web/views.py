@@ -605,6 +605,10 @@ def team_detail(request, team_id):
     if is_dynasty:
         from web.models import TaxiSquad
         taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
+    
+    # Check if team is over roster limit
+    current_roster_count, is_over_limit = team.is_over_roster_limit()
+    roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
 
     return render(
         request,
@@ -633,6 +637,9 @@ def team_detail(request, team_id):
             "is_traditional": is_traditional,
             "is_dynasty": is_dynasty,
             "taxi_squad_entries": taxi_squad_entries,
+            "is_over_roster_limit": is_over_limit,
+            "current_roster_count": current_roster_count,
+            "roster_limit": roster_limit,
         },
     )
 
@@ -789,6 +796,13 @@ def assign_player(request, team_id):
     can_change, message, locked_until = team.can_make_roster_changes(next_unlocked_week)
     if not can_change:
         messages.error(request, f"Roster changes not allowed: {message}")
+        return redirect("team_detail", team_id=team.id)
+    
+    # Check if team is over roster limit - if so, only allow drops
+    current_count, is_over_limit = team.is_over_roster_limit()
+    if is_over_limit and action != "drop":
+        roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
+        messages.error(request, f"Your roster is OVER the limit ({current_count}/{roster_limit}). You can only DROP players until you're back under the limit.")
         return redirect("team_detail", team_id=team.id)
 
     player_id = request.POST.get("player_id")
@@ -3977,19 +3991,7 @@ def move_from_taxi(request, team_id):
             messages.error(request, f"Taxi squad is locked. Cannot move {player.get_full_name()}.")
             return redirect('team_detail', team_id=team_id)
         
-        # Check roster space
-        current_roster_count = Roster.objects.filter(
-            team=team,
-            league=team.league,
-            week_dropped__isnull=True
-        ).count()
-        
-        roster_size = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
-        if current_roster_count >= roster_size:
-            messages.error(request, f"Your roster is full ({roster_size} players). Please drop a player first.")
-            return redirect('team_detail', team_id=team_id)
-        
-        # Add to main roster
+        # Add to main roster (ALLOW even if over limit)
         league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
         current_week = Week.objects.filter(
             season=league_season,
@@ -4014,7 +4016,14 @@ def move_from_taxi(request, team_id):
         taxi_entry.player = None
         taxi_entry.save()
         
-        messages.success(request, f"{player.get_full_name()} moved from taxi squad to main roster.")
+        # Check if now over roster limit and warn user
+        current_count, is_over = team.is_over_roster_limit()
+        roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
+        
+        if is_over:
+            messages.warning(request, f"{player.get_full_name()} moved to main roster. ⚠️ Your roster is now OVER the limit ({current_count}/{roster_limit}). You must drop players to get back under the limit.")
+        else:
+            messages.success(request, f"{player.get_full_name()} moved from taxi squad to main roster.")
     
     return redirect('team_detail', team_id=team_id)
 

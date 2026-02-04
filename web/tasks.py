@@ -310,6 +310,7 @@ def renew_league(old_league_id, new_season=None):
         if old_league.league_type == "dynasty":
             # Dynasty: Create new teams and transfer all rosters
             logger.info(f"Dynasty league renewal: transferring rosters to new league")
+            from web.models import TaxiSquad
             for old_team in old_teams:
                 # Create new team in new league with same name and owner
                 new_team = Team.objects.create(
@@ -327,8 +328,20 @@ def renew_league(old_league_id, new_season=None):
                         season_year=new_season,
                     )
                 
+                # Move any players still in taxi squad to main roster
+                old_taxi_squad = TaxiSquad.objects.filter(team=old_team, player__isnull=False)
+                taxi_players_moved = 0
+                for taxi_entry in old_taxi_squad:
+                    if taxi_entry.player:
+                        # Add player to new team's roster
+                        Roster.objects.create(
+                            team=new_team,
+                            player=taxi_entry.player,
+                            season_year=new_season,
+                        )
+                        taxi_players_moved += 1
+                
                 # Create 3 empty taxi squad slots for dynasty league
-                from web.models import TaxiSquad
                 for slot_num in range(1, 4):
                     TaxiSquad.objects.get_or_create(
                         team=new_team,
@@ -336,7 +349,7 @@ def renew_league(old_league_id, new_season=None):
                         defaults={'player': None}
                     )
                 
-                logger.info(f"Transferred roster for team '{new_team.name}' ({old_rosters.count()} players) and created 3 taxi squad slots")
+                logger.info(f"Transferred roster for team '{new_team.name}' ({old_rosters.count()} players, {taxi_players_moved} from taxi squad) and created 3 empty taxi squad slots")
         else:
             # Re-Draft: Create new empty teams for each owner
             logger.info(f"Re-Draft league renewal: creating empty rosters for re-drafting")
