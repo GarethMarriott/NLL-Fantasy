@@ -359,9 +359,14 @@ def renew_league(old_league_id, new_season=None):
 
 def create_rookie_draft(league_id, season_year, draft_style="snake"):
     """
-    Create a 2-round rookie draft for a dynasty league.
+    Create a 2-round rookie draft for a dynasty league using reverse standings.
     
-    Initializes all draft picks in snake draft order (teams 1,2,3,4 then 4,3,2,1 in round 2).
+    Reverse standings means: worst team picks first, best team picks last.
+    This provides competitive balance for dynasty leagues.
+    
+    Initializes all draft picks in snake draft order:
+    - Round 1: Worst to best (ascending standings)
+    - Round 2: Best to worst (descending standings - snake)
     
     Args:
         league_id: ID of the league to create draft for
@@ -375,7 +380,8 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
         from web.tasks import create_rookie_draft
         draft = create_rookie_draft(league_id=5, season_year=2026)
     """
-    from web.models import RookieDraft, RookieDraftPick, League, Team
+    from web.models import RookieDraft, RookieDraftPick, League, Team, Week, Roster
+    from django.utils import timezone
     
     try:
         league = League.objects.get(id=league_id)
@@ -390,6 +396,123 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
             logger.info(f"Rookie draft already exists for {league.name} season {season_year}")
             return existing_draft
         
+        # Get teams for this league
+        teams = list(Team.objects.filter(league=league).order_by('id'))
+        num_teams = len(teams)
+        
+        if num_teams == 0:
+            logger.warning(f"No teams found for league {league.name}")
+            return None
+        
+        # Build standings map with points from previous season
+        standings_map = {
+            t.id: {
+                "team": t,
+                "wins": 0,
+                "losses": 0,
+                "ties": 0,
+                "total_points": 0,
+                "points_against": 0,
+                "games": 0,
+            }
+            for t in teams
+        }
+        
+        # Get all completed weeks from previous season to calculate standings
+        prev_season = season_year - 1
+        today = timezone.now().date()
+        completed_weeks = Week.objects.filter(
+            season=prev_season,
+            end_date__lt=today
+        ).order_by('week_number')
+        
+        if completed_weeks.exists():
+            # Calculate standings from completed weeks
+            all_rosters = list(
+                Roster.objects.filter(team__in=teams, league=league, player__active=True)
+                .select_related("player", "team")
+                .prefetch_related("player__game_stats__game__week")
+            )
+            
+            def fantasy_points(stat_obj, player):
+                """Calculate fantasy points for a player stat"""
+                if stat_obj is None:
+                    return 0
+                # Goalie scoring
+                if player.position == "G":
+                    return (
+                        stat_obj.wins * float(league.scoring_goalie_wins) +
+                        stat_obj.saves * float(league.scoring_goalie_saves) +
+                        stat_obj.goals_against * float(league.scoring_goalie_goals_against) +
+                        stat_obj.goals * float(league.scoring_goalie_goals) +
+                        stat_obj.assists * float(league.scoring_goalie_assists)
+                    )
+                # Field player scoring
+                return (
+                    stat_obj.goals * float(league.scoring_goals) +
+                    stat_obj.assists * float(league.scoring_assists) +
+                    stat_obj.loose_balls * float(league.scoring_loose_balls) +
+                    stat_obj.caused_turnovers * float(league.scoring_caused_turnovers) +
+                    stat_obj.blocked_shots * float(league.scoring_blocked_shots) +
+                    stat_obj.turnovers * float(league.scoring_turnovers)
+                )
+            
+            def team_week_total(team_id, week_obj):
+                """Calculate total points for a team in a specific week"""
+                total = 0
+                for roster_entry in all_rosters:
+                    if roster_entry.team_id == team_id:
+                        week_added = roster_entry.week_added or 0
+                        week_dropped = roster_entry.week_dropped or 999
+                        if week_added <= week_obj.week_number < week_dropped:
+                            player = roster_entry.player
+                            stat = next(
+                                (s for s in player.game_stats.all() if s.game.week_id == week_obj.id),
+                                None
+                            )
+                            pts = fantasy_points(stat, player)
+                            total += pts
+                return total
+            
+            # Process each completed week
+            for week in completed_weeks:
+                # Create simple matchups - pair teams sequentially
+                for i in range(0, num_teams, 2):
+                    if i + 1 < num_teams:
+                        team_a_id = teams[i].id
+                        team_b_id = teams[i + 1].id
+                        
+                        home_total = team_week_total(team_a_id, week)
+                        away_total = team_week_total(team_b_id, week)
+                        
+                        standings_map[team_a_id]["total_points"] += home_total
+                        standings_map[team_b_id]["total_points"] += away_total
+                        standings_map[team_a_id]["points_against"] += away_total
+                        standings_map[team_b_id]["points_against"] += home_total
+                        standings_map[team_a_id]["games"] += 1
+                        standings_map[team_b_id]["games"] += 1
+                        
+                        if home_total > away_total:
+                            standings_map[team_a_id]["wins"] += 1
+                            standings_map[team_b_id]["losses"] += 1
+                        elif home_total < away_total:
+                            standings_map[team_b_id]["wins"] += 1
+                            standings_map[team_a_id]["losses"] += 1
+                        else:
+                            standings_map[team_a_id]["ties"] += 1
+                            standings_map[team_b_id]["ties"] += 1
+            
+            # Sort standings: worst team first (lower wins, lower points)
+            standings_list = list(standings_map.values())
+            standings_list.sort(key=lambda r: (r["wins"], r["total_points"], r["team"].name))
+            # Extract teams in reverse standings order (worst to best)
+            draft_order_teams = [s["team"] for s in standings_list]
+            logger.info(f"Draft order determined from previous season standings")
+        else:
+            # No previous season data - use team creation order
+            logger.info(f"No completed weeks from season {prev_season}, using team creation order for draft")
+            draft_order_teams = teams
+        
         # Create the rookie draft
         rookie_draft = RookieDraft.objects.create(
             league=league,
@@ -399,23 +522,15 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
             completed=False,
         )
         
-        # Get teams for this league and sort by ID for consistent ordering
-        teams = list(Team.objects.filter(league=league).order_by('id'))
-        num_teams = len(teams)
-        
-        if num_teams == 0:
-            logger.warning(f"No teams found for league {league.name}")
-            return rookie_draft
-        
-        # Create draft picks for 2 rounds
+        # Create draft picks for 2 rounds using draft_order_teams
         pick_number = 1
         for round_num in range(1, 3):  # 2 rounds for rookie draft
             if draft_style == "snake" and round_num == 2:
                 # Snake draft: reverse order in round 2
-                round_teams = list(reversed(teams))
+                round_teams = list(reversed(draft_order_teams))
             else:
-                # Linear draft or round 1: normal order
-                round_teams = teams
+                # Linear draft or round 1: normal order (worst to best)
+                round_teams = draft_order_teams
             
             for pick_in_round, team in enumerate(round_teams, 1):
                 RookieDraftPick.objects.create(
@@ -427,7 +542,7 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
                 )
                 pick_number += 1
         
-        logger.info(f"Created rookie draft for {league.name} (season {season_year}) with {pick_number - 1} total picks")
+        logger.info(f"Created rookie draft for {league.name} (season {season_year}) with {pick_number - 1} total picks (reverse standings)")
         
         return rookie_draft
         
