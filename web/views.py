@@ -4269,11 +4269,25 @@ def get_available_slots(request, team_id):
             num_slots = 0
             slot_prefix = ''
         
-        # Check how many slots are filled for this position
-        filled_count = all_roster.count()
+        # Check which specific slots are already filled for this position
+        # and find which numbered slots are empty
+        filled_slot_numbers = set()
+        for roster_entry in all_roster:
+            slot_assign = roster_entry.slot_assignment
+            # Extract the slot number from slot designations like 'starter_o1', 'starter_d2', etc.
+            if position == 'G' and slot_assign == 'starter_g':
+                filled_slot_numbers.add(1)  # Treat goalie slot as slot 1
+            elif slot_assign.startswith(slot_prefix) and len(slot_assign) > len(slot_prefix):
+                try:
+                    slot_num = int(slot_assign[len(slot_prefix):])
+                    filled_slot_numbers.add(slot_num)
+                except ValueError:
+                    pass
+        
+        # Generate empty slots - only include slots 1..num_slots that are NOT in filled_slot_numbers
         empty_slots = []
-        if filled_count < num_slots:
-            for i in range(filled_count + 1, num_slots + 1):
+        for i in range(1, num_slots + 1):
+            if i not in filled_slot_numbers:
                 # For single goalie slot, use just 'starter_g', otherwise 'starter_o1', etc.
                 if position == 'G':
                     slot_designation = slot_prefix
