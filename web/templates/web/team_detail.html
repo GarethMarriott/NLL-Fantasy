@@ -980,7 +980,7 @@
     function submitPositionMove(playerId, targetPosition) {
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = '/teams/{{ team.id }}/move-transition-player/';
+      form.action = '/teams/{{ team.id }}/move-transition/';
       
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
       const csrfInput = document.createElement('input');
