@@ -4166,7 +4166,13 @@ def get_available_slots(request, team_id):
         
         # Map position to valid player positions
         # Transition (T) players can fill any position slot (O, D, or G)
-        position_map = {'O': ['O', 'T'], 'D': ['D', 'T'], 'G': ['G', 'T']}
+        # When viewing as T player, show all positions they can fill
+        position_map = {
+            'O': ['O', 'T'],
+            'D': ['D', 'T'],
+            'G': ['G', 'T'],
+            'T': ['O', 'D', 'G', 'T']  # T players can swap with any position
+        }
         if position not in position_map:
             return JsonResponse({'error': 'Invalid position'}, status=400)
         
