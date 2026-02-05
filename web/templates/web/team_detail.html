@@ -1004,37 +1004,6 @@
       document.body.appendChild(form);
       form.submit();
     }
-    
-    // Add click handlers to position badges
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOMContentLoaded: Looking for position badges...');
-      const badges = document.querySelectorAll('.position-badge');
-      console.log('Found ' + badges.length + ' position badges');
-      
-      badges.forEach(badge => {
-        console.log('Adding click handler to badge:', badge.getAttribute('data-player-name'));
-        badge.addEventListener('click', function(e) {
-          console.log('Badge clicked!', {
-            playerId: this.getAttribute('data-player-id'),
-            playerName: this.getAttribute('data-player-name'),
-            canMove: this.getAttribute('data-can-move')
-          });
-          
-          // Check if this player can be moved
-          const canMove = this.getAttribute('data-can-move') === 'true';
-          if (!canMove) {
-            alert('Roster changes are not allowed at this time.');
-            return;
-          }
-          
-          const playerId = this.getAttribute('data-player-id');
-          const playerName = this.getAttribute('data-player-name');
-          const currentPos = this.getAttribute('data-current-position');
-          console.log('Calling showPositionMoveModal...');
-          showPositionMoveModal(playerId, playerName, currentPos);
-        });
-      });
-    });
 
     function submitWaiverClaim(playerId, slotGroup) {
       if (!playerId) {
