@@ -979,18 +979,11 @@
             menu.appendChild(button);
           });
           
-          console.log('Modal display setting to flex');
-          console.log('Modal element:', modal);
-          console.log('Modal computed style before:', window.getComputedStyle(modal).display);
-          console.log('Modal visibility before:', window.getComputedStyle(modal).visibility);
-          console.log('Modal opacity before:', window.getComputedStyle(modal).opacity);
+          console.log('Showing modal - computed style before:', window.getComputedStyle(modal).display);
           modal.style.setProperty('display', 'flex', 'important');
-          console.log('Modal display is now:', modal.style.display);
           console.log('Modal computed style after:', window.getComputedStyle(modal).display);
-          console.log('Modal visibility after:', window.getComputedStyle(modal).visibility);
-          console.log('Modal opacity after:', window.getComputedStyle(modal).opacity);
-          console.log('Modal offsetParent:', modal.offsetParent);
-          console.log('Modal offsetHeight:', modal.offsetHeight);
+          console.log('Modal offsetHeight after:', modal.offsetHeight);
+          console.log('Modal clientHeight after:', modal.clientHeight);
         })
         .catch(error => {
           console.error('Error fetching slots:', error);
@@ -1072,13 +1065,13 @@
   </script>
 
 <!-- Position Move Modal -->
-<div id="positionMoveModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" style="display: none !important; visibility: visible !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; position: fixed !important; z-index: 9999 !important;" onclick="if(event.target.id === 'positionMoveModal') closePositionMoveModal();">
-  <div class="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-auto" style="position: relative; z-index: 10000;">
-    <div class="flex justify-between items-center mb-4">
-      <h3 id="positionMoveTitle" class="text-lg font-semibold text-gray-800">Move Player</h3>
-      <button onclick="closePositionMoveModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+<div id="positionMoveModal" style="display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background-color: rgba(0, 0, 0, 0.5) !important; z-index: 9999 !important; justify-content: center !important; align-items: center !important; visibility: visible !important;" onclick="if(event.target.id === 'positionMoveModal') closePositionMoveModal();">
+  <div style="position: absolute !important; background: white !important; border-radius: 8px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; padding: 24px !important; max-width: 400px !important; width: 90% !important; z-index: 10000 !important; max-height: 80vh !important; overflow-y: auto !important;">
+    <div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 16px !important;">
+      <h3 id="positionMoveTitle" style="font-size: 18px !important; font-weight: 600 !important; color: #1f2937 !important; margin: 0 !important;">Move Player</h3>
+      <button onclick="closePositionMoveModal()" style="background: none !important; border: none !important; color: #9ca3af !important; font-size: 28px !important; cursor: pointer !important; padding: 0 !important;">×</button>
     </div>
-    <div id="positionMoveMenu" class="space-y-2">
+    <div id="positionMoveMenu" style="display: flex !important; flex-direction: column !important; gap: 8px !important;">
       <!-- Options will be inserted here by JavaScript -->
     </div>
   </div>
