@@ -981,9 +981,12 @@ def assign_player(request, team_id):
         # Swap two players on the roster (both same position)
         target_player_id = request.POST.get("target_slot")  # Actually the target player ID in our case
         
+        print(f"DEBUG swap_slots: playerId={player_id}, targetPlayerId={target_player_id}")
+        
         try:
             target_player = Player.objects.get(id=int(target_player_id))
-        except (Player.DoesNotExist, ValueError, TypeError):
+        except (Player.DoesNotExist, ValueError, TypeError) as e:
+            print(f"DEBUG: Target player not found: {e}")
             messages.error(request, "Target player not found.")
             return redirect("team_detail", team_id=team.id)
         
@@ -1002,20 +1005,26 @@ def assign_player(request, team_id):
             week_dropped__isnull=True
         ).first()
         
+        print(f"DEBUG: player_roster={player_roster}, target_roster={target_roster}")
+        
         if not player_roster or not target_roster:
+            print(f"DEBUG: Roster entries not found")
             messages.error(request, "One or both players not found on roster.")
             return redirect("team_detail", team_id=team.id)
         
         # Swap their slot assignments
+        print(f"DEBUG: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
         player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
         player_roster.save()
         target_roster.save()
+        print(f"DEBUG: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
         
         messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
     
     elif action == "move_to_empty_slot":
         # Move a player - currently just keeps them on roster (slot already empty)
         # This is a placeholder - in a real implementation, you'd move them to a specific empty slot
+        print(f"DEBUG move_to_empty_slot: player={player.last_name}")
         messages.info(request, f"{player.last_name} is already on the roster.")
 
 
