@@ -934,9 +934,9 @@
       
       // Define valid target positions based on current position
       const validTargets = {
-        'O': ['D', 'G'],  // Offense can move to Defense or Goalie
-        'D': ['O', 'G'],  // Defense can move to Offense or Goalie
-        'G': ['O', 'D'],  // Goalie can move to Offense or Defense
+        'O': ['O', 'D', 'G'],  // Offense can move to any position (including swap with other O slots)
+        'D': ['O', 'D', 'G'],  // Defense can move to any position (including swap with other D slots)
+        'G': ['O', 'D', 'G'],  // Goalie can move to any position (including swap with other G slots)
         'T': ['O', 'D', 'G']  // Transition can move to any position
       };
       
