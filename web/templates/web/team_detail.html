@@ -923,87 +923,69 @@
     }
     // Position move modal - for clicking on position badges
     function showPositionMoveModal(playerId, playerName, currentPosition) {
-      console.log('showPositionMoveModal called with:', {playerId, playerName, currentPosition});
       const modal = document.getElementById('positionMoveModal');
       const title = document.getElementById('positionMoveTitle');
+      const instructions = document.getElementById('positionMoveInstructions');
       const menu = document.getElementById('positionMoveMenu');
       
-      if (!modal) {
-        console.error('Modal not found!');
-        return;
-      }
-      
-      title.textContent = `Swap ${playerName} (${currentPosition})`;
-      menu.innerHTML = '<p class="text-gray-600 text-sm">Loading available slots...</p>';
+      title.textContent = `Move ${playerName} (${currentPosition})`;
+      instructions.textContent = 'Select a player to swap with:';
+      menu.innerHTML = '';
       
       // Fetch available slots from backend
       const teamId = new URL(window.location.href).pathname.split('/')[2];
       const weekNum = new URL(window.location.href).searchParams.get('week') || 1;
       
-      console.log('Fetching slots for:', {teamId, currentPosition, weekNum, playerId});
-      
       fetch(`/teams/${teamId}/available-slots/?position=${currentPosition}&week=${weekNum}&current_player_id=${playerId}`)
-        .then(response => {
-          console.log('Fetch response status:', response.status);
-          return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-          console.log('Slots data received:', data);
           menu.innerHTML = '';
           
           if (!data.slots || data.slots.length === 0) {
-            menu.innerHTML = '<p class="text-gray-600 text-sm">No slots available.</p>';
+            menu.innerHTML = '<p class="text-sm text-gray-500">No other players available for this position.</p>';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
             return;
           }
           
           data.slots.forEach(slot => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.style.cssText = `width: 100% !important; padding: 8px 16px !important; text-align: left !important; font-size: 14px !important; font-weight: 500 !important; border-radius: 4px !important; margin-bottom: 8px !important; border: none !important; cursor: pointer !important; height: 44px !important; display: flex !important; align-items: center !important; ${
-              slot.is_current 
-                ? 'background-color: #e5e7eb !important; cursor: not-allowed !important; color: #666 !important;' 
-                : 'background-color: #f3f4f6 !important; color: #333 !important;'
-            }`;
-            
             if (slot.is_current) {
-              button.disabled = true;
-              button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> ${slot.player_name} (current)`;
-            } else if (slot.is_empty) {
-              button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> Empty`;
-              button.onclick = () => submitPositionMove(playerId, slot.player_id, true);
+              // Show current player as disabled/info
+              const currentDiv = document.createElement('div');
+              currentDiv.className = 'w-full px-4 py-2 text-left bg-blue-50 rounded border border-blue-200 text-blue-900 font-semibold';
+              currentDiv.textContent = `${slot.player_name} (current)`;
+              menu.appendChild(currentDiv);
             } else {
-              button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> Swap with ${slot.player_name}`;
+              // Swap option button
+              const button = document.createElement('button');
+              button.className = 'w-full px-4 py-2 text-left bg-gray-100 hover:bg-gray-200 rounded border border-gray-300';
+              button.textContent = `Swap with ${slot.player_name}`;
               button.onclick = () => submitPositionMove(playerId, slot.player_id, false);
+              menu.appendChild(button);
             }
-            
-            menu.appendChild(button);
           });
           
-          console.log('Showing modal - computed style before:', window.getComputedStyle(modal).display);
-          modal.style.setProperty('display', 'flex', 'important');
-          setTimeout(() => {
-            console.log('Modal computed style after:', window.getComputedStyle(modal).display);
-            const innerBox = modal.querySelector('div');
-            console.log('Inner box element:', innerBox);
-            console.log('Inner box computed display:', innerBox ? window.getComputedStyle(innerBox).display : 'not found');
-            console.log('Inner box offsetHeight:', innerBox ? innerBox.offsetHeight : 'not found');
-            console.log('Inner box computed width:', innerBox ? window.getComputedStyle(innerBox).width : 'not found');
-            console.log('Modal offsetHeight after:', modal.offsetHeight);
-            console.log('Modal clientHeight after:', modal.clientHeight);
-          }, 100);
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
         })
         .catch(error => {
           console.error('Error fetching slots:', error);
-          menu.innerHTML = '<p class="text-red-600 text-sm">Error loading slots.</p>';
-          modal.style.display = 'flex';
+          menu.innerHTML = '<p class="text-sm text-red-500">Error loading players.</p>';
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
         });
     }
     
     function closePositionMoveModal() {
       const modal = document.getElementById('positionMoveModal');
-      console.log('Closing position move modal, display was:', modal.style.display);
-      modal.style.setProperty('display', 'none', 'important');
-      console.log('Closed position move modal, display is now:', modal.style.display);
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    
+    function closeModal(event) {
+      if (event.target.id === 'positionMoveModal') {
+        closePositionMoveModal();
+      }
     }
     
     function submitPositionMove(playerId, targetSlot, isEmpty) {
@@ -1081,16 +1063,17 @@
   </script>
 </div>
 
-<!-- Position Move Modal - OUTSIDE container for fixed positioning -->
-<div id="positionMoveModal" style="display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background-color: rgba(0, 0, 0, 0.5) !important; z-index: 9999 !important; visibility: visible !important; overflow-y: auto !important;" onclick="if(event.target.id === 'positionMoveModal') closePositionMoveModal();">
-  <div style="background: white !important; border-radius: 8px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; padding: 24px !important; max-width: 400px !important; width: 90% !important; z-index: 10000 !important; max-height: 80vh !important; overflow-y: auto !important; height: auto !important; min-height: 200px !important; margin: 20% auto !important;">
-    <div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 16px !important;">
-      <h3 id="positionMoveTitle" style="font-size: 18px !important; font-weight: 600 !important; color: #1f2937 !important; margin: 0 !important;">Move Player</h3>
-      <button onclick="closePositionMoveModal()" style="background: none !important; border: none !important; color: #9ca3af !important; font-size: 28px !important; cursor: pointer !important; padding: 0 !important; height: 32px !important; width: 32px !important; flex-shrink: 0 !important;">×</button>
+<!-- Position Move Modal - Tailwind styled to match players page -->
+<div id="positionMoveModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" onclick="closeModal(event)">
+  <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4" onclick="event.stopPropagation()">
+    <h3 id="positionMoveTitle" class="text-lg font-semibold mb-4">Move Player</h3>
+    <p id="positionMoveInstructions" class="mb-4 text-sm text-gray-600">Select a player to swap with:</p>
+    <div id="positionMoveMenu" class="space-y-2 mb-4">
+      <!-- Options will be populated by JavaScript -->
     </div>
-    <div id="positionMoveMenu" style="display: flex !important; flex-direction: column !important; gap: 8px !important; min-height: 100px !important;">
-      <!-- Options will be inserted here by JavaScript -->
-    </div>
+    <button onclick="closePositionMoveModal()" class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+      Cancel
+    </button>
   </div>
 </div>
 
