@@ -926,9 +926,12 @@
   <script>
     // Position move modal - for clicking on position badges
     function showPositionMoveModal(playerId, playerName, currentPosition) {
+      console.log('showPositionMoveModal called with:', {playerId, playerName, currentPosition});
       const modal = document.getElementById('positionMoveModal');
       const title = document.getElementById('positionMoveTitle');
       const menu = document.getElementById('positionMoveMenu');
+      
+      console.log('Modal element:', modal);
       
       title.textContent = `Move ${playerName}`;
       menu.innerHTML = '';
@@ -942,6 +945,7 @@
       };
       
       const targets = validTargets[currentPosition] || [];
+      console.log('Valid targets for position ' + currentPosition + ':', targets);
       
       if (targets.length === 0) {
         menu.innerHTML = '<p class="text-gray-600 text-sm">This player cannot be moved.</p>';
@@ -957,7 +961,7 @@
           button.innerHTML = `<span class="inline-block px-2 py-1 ${targetBadgeColors[target]} rounded text-xs font-semibold mr-2">${target}</span> Move to ${targetNames[target]}`;
           
           button.onclick = (e) => {
-            e.preventDefault();
+            console.log('Move button clicked for target:', target);
             submitPositionMove(playerId, target);
           };
           
@@ -965,6 +969,7 @@
         });
       }
       
+      console.log('Showing modal...');
       modal.classList.remove('hidden');
       modal.style.pointerEvents = 'auto';
     }
@@ -1006,9 +1011,18 @@
     
     // Add click handlers to position badges
     document.addEventListener('DOMContentLoaded', function() {
-      document.querySelectorAll('.position-badge').forEach(badge => {
+      console.log('DOMContentLoaded: Looking for position badges...');
+      const badges = document.querySelectorAll('.position-badge');
+      console.log('Found ' + badges.length + ' position badges');
+      
+      badges.forEach(badge => {
+        console.log('Adding click handler to badge:', badge.getAttribute('data-player-name'));
         badge.addEventListener('click', function(e) {
-          e.preventDefault();
+          console.log('Badge clicked!', {
+            playerId: this.getAttribute('data-player-id'),
+            playerName: this.getAttribute('data-player-name'),
+            canMove: this.getAttribute('data-can-move')
+          });
           
           // Check if this player can be moved
           const canMove = this.getAttribute('data-can-move') === 'true';
@@ -1020,6 +1034,7 @@
           const playerId = this.getAttribute('data-player-id');
           const playerName = this.getAttribute('data-player-name');
           const currentPos = this.getAttribute('data-current-position');
+          console.log('Calling showPositionMoveModal...');
           showPositionMoveModal(playerId, playerName, currentPos);
         });
       });
