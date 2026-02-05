@@ -4084,7 +4084,6 @@ def get_available_slots(request, team_id):
     """JSON endpoint returning available slots for a position with their current players"""
     import json
     from django.http import JsonResponse
-    from django.views.decorators.http import require_http_methods
     
     try:
         team = get_object_or_404(Team, id=team_id)
@@ -4108,35 +4107,35 @@ def get_available_slots(request, team_id):
         slot_prefix = slot_info['prefix']
         num_slots = slot_info['count']
         
-        # Get all roster entries for this team in this league that are currently active
-        roster_entries = Roster.objects.filter(
+        # Get ALL active roster entries for this team
+        all_roster = Roster.objects.filter(
             team=team,
             league=league,
             week_dropped__isnull=True  # Currently active
         ).select_related('player')
         
-        # Build slot list
+        print(f"DEBUG: Found {all_roster.count()} active roster entries for team {team.id}")
+        for entry in all_roster:
+            print(f"  - Player {entry.player.id}: {entry.player.last_name}, slot={entry.slot_assignment}")
+        
+        # Build slot list - create all slots (1, 2, 3 for O/D, just 1 for G)
         slots = []
-        occupied_slots = {}
         
-        for entry in roster_entries:
-            # Check if this entry is for the current position
-            if entry.slot_assignment and entry.slot_assignment.startswith(slot_prefix):
-                # Extract slot number (e.g., 'starter_o1' -> 1)
-                slot_num = int(entry.slot_assignment.split('_')[-1])
-                occupied_slots[slot_num] = entry
-        
-        # Build display slots
         for slot_num in range(1, num_slots + 1):
-            if slot_num in occupied_slots:
-                entry = occupied_slots[slot_num]
+            slot_name = f"{slot_prefix}{slot_num}"
+            
+            # Find if anyone is assigned to this slot
+            occupant = all_roster.filter(slot_assignment=slot_name).first()
+            
+            if occupant:
                 slots.append({
                     'slot': slot_num,
-                    'player_id': entry.player.id,
-                    'player_name': f"{entry.player.last_name}, {entry.player.first_name}",
-                    'is_current': str(entry.player.id) == current_player_id,
+                    'player_id': occupant.player.id,
+                    'player_name': f"{occupant.player.last_name}, {occupant.player.first_name}",
+                    'is_current': str(occupant.player.id) == str(current_player_id),
                     'is_empty': False
                 })
+                print(f"  Slot {slot_num}: {occupant.player.last_name} (is_current={str(occupant.player.id) == str(current_player_id)})")
             else:
                 slots.append({
                     'slot': slot_num,
@@ -4145,7 +4144,9 @@ def get_available_slots(request, team_id):
                     'is_current': False,
                     'is_empty': True
                 })
+                print(f"  Slot {slot_num}: Empty")
         
+        print(f"DEBUG: Returning {len(slots)} slots")
         return JsonResponse({'slots': slots})
     
     except Exception as e:
