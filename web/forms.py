@@ -154,6 +154,10 @@ class LeagueSettingsForm(forms.ModelForm):
         # Remove playoff_weeks from form fields entirely
         if 'playoff_weeks' in self.fields:
             self.fields.pop('playoff_weeks')
+        # For traditional leagues, remove roster_size field (it's calculated from allocation)
+        if self.instance and self.instance.roster_format == 'traditional':
+            if 'roster_size' in self.fields:
+                self.fields.pop('roster_size')
 
 # ===== Password Reset Forms =====
 

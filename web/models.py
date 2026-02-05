@@ -191,7 +191,21 @@ class League(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def calculate_roster_size(self):
+        """Calculate roster size for traditional leagues from allocation slots, including taxi squad for dynasty leagues"""
+        if self.roster_format == 'traditional':
+            size = self.roster_forwards + self.roster_defense + self.roster_goalies + self.roster_bench
+            # Include taxi squad size for dynasty traditional leagues
+            if self.league_type == 'dynasty':
+                size += self.taxi_squad_size
+            return size
+        # For best ball, use the manually set roster_size
+        return self.roster_size
+
     def save(self, *args, **kwargs):
+        # For traditional leagues, automatically calculate roster_size
+        if self.roster_format == 'traditional':
+            self.roster_size = self.calculate_roster_size()
         if not self.unique_id:
             self.unique_id = self.generate_unique_id()
         super().save(*args, **kwargs)
