@@ -455,11 +455,11 @@
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
-                  <button class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-green-100 text-green-800 rounded text-xs sm:text-sm font-semibold border border-green-300 cursor-pointer hover:bg-green-200 transition-colors"
+                  <button class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-green-100 text-green-800 rounded text-xs sm:text-sm font-semibold border border-green-300 cursor-pointer hover:bg-green-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
                           data-player-id="{{ slot.player.id }}"
                           data-player-name="{{ slot.player.last_name }}, {{ slot.player.first_name }}"
                           data-current-position="O"
-                          {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}disabled{% endif %}>
+                          data-can-move="{% if user_owns_team and not is_viewing_past_week and roster_status and roster_status.0 %}true{% else %}false{% endif %}">
                     O
                   </button>
                 </td>
@@ -573,11 +573,11 @@
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter|add:6 }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
-                  <button class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-orange-100 text-orange-800 rounded text-xs sm:text-sm font-semibold border border-orange-300 cursor-pointer hover:bg-orange-200 transition-colors"
+                  <button class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-orange-100 text-orange-800 rounded text-xs sm:text-sm font-semibold border border-orange-300 cursor-pointer hover:bg-orange-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
                           data-player-id="{{ slot.player.id }}"
                           data-player-name="{{ slot.player.last_name }}, {{ slot.player.first_name }}"
                           data-current-position="D"
-                          {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}disabled{% endif %}>
+                          data-can-move="{% if user_owns_team and not is_viewing_past_week and roster_status and roster_status.0 %}true{% else %}false{% endif %}">
                     D
                   </button>
                 </td>
@@ -666,11 +666,11 @@
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter|add:12 }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
-                  <button class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-blue-100 text-blue-800 rounded text-xs sm:text-sm font-semibold border border-blue-300 cursor-pointer hover:bg-blue-200 transition-colors"
+                  <button class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-blue-100 text-blue-800 rounded text-xs sm:text-sm font-semibold border border-blue-300 cursor-pointer hover:bg-blue-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
                           data-player-id="{{ slot.player.id }}"
                           data-player-name="{{ slot.player.last_name }}, {{ slot.player.first_name }}"
                           data-current-position="G"
-                          {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}disabled{% endif %}>
+                          data-can-move="{% if user_owns_team and not is_viewing_past_week and roster_status and roster_status.0 %}true{% else %}false{% endif %}">
                     G
                   </button>
                 </td>
@@ -1007,15 +1007,21 @@
     // Add click handlers to position badges
     document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('.position-badge').forEach(badge => {
-        if (!badge.hasAttribute('disabled')) {
-          badge.addEventListener('click', function(e) {
-            e.preventDefault();
-            const playerId = this.getAttribute('data-player-id');
-            const playerName = this.getAttribute('data-player-name');
-            const currentPos = this.getAttribute('data-current-position');
-            showPositionMoveModal(playerId, playerName, currentPos);
-          });
-        }
+        badge.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // Check if this player can be moved
+          const canMove = this.getAttribute('data-can-move') === 'true';
+          if (!canMove) {
+            alert('Roster changes are not allowed at this time.');
+            return;
+          }
+          
+          const playerId = this.getAttribute('data-player-id');
+          const playerName = this.getAttribute('data-player-name');
+          const currentPos = this.getAttribute('data-current-position');
+          showPositionMoveModal(playerId, playerName, currentPos);
+        });
       });
     });
 
