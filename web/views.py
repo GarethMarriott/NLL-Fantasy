@@ -117,6 +117,69 @@ def check_roster_capacity(team, position, exclude_player=None):
     return position_count < max_allowed, position_count, max_allowed
 
 
+def auto_assign_to_starter_slot(roster_entry):
+    """
+    For traditional leagues, automatically assign a player to the first available starter slot.
+    For best ball leagues, keep them on bench.
+    """
+    league = roster_entry.league
+    
+    # Only auto-assign for traditional leagues with starter slots
+    if league.roster_format != 'traditional':
+        return
+    
+    player = roster_entry.player
+    team = roster_entry.team
+    
+    # Determine which position this player occupies
+    if player.assigned_side:
+        position = player.assigned_side
+    else:
+        position = player.position
+    
+    # Map position to slot prefix and max slots
+    slot_map = {
+        'O': ('starter_o', 3),
+        'D': ('starter_d', 3),
+        'G': ('starter_g', 1),
+        'T': (None, 0),  # Transition players need assigned_side
+    }
+    
+    if position not in slot_map or slot_map[position][0] is None:
+        return
+    
+    slot_prefix, max_slots = slot_map[position]
+    
+    # Find which starter slots are already filled for this position
+    filled_slots = set()
+    existing_roster = Roster.objects.filter(
+        team=team,
+        league=league,
+        week_dropped__isnull=True
+    ).select_related('player').exclude(id=roster_entry.id)
+    
+    for entry in existing_roster:
+        if entry.slot_assignment.startswith(slot_prefix):
+            try:
+                if slot_prefix == 'starter_g':
+                    filled_slots.add(1)
+                else:
+                    slot_num = int(entry.slot_assignment.replace(slot_prefix, ''))
+                    filled_slots.add(slot_num)
+            except ValueError:
+                pass
+    
+    # Find first available slot
+    for slot_num in range(1, max_slots + 1):
+        if slot_num not in filled_slots:
+            if slot_prefix == 'starter_g':
+                roster_entry.slot_assignment = slot_prefix
+            else:
+                roster_entry.slot_assignment = f"{slot_prefix}{slot_num}"
+            roster_entry.save()
+            break
+
+
 @login_required
 def my_team(request):
     """Redirect to the user's team in the selected league."""
@@ -898,12 +961,15 @@ def assign_player(request, team_id):
         drop_player.save()
         
         # Add the new player
-        Roster.objects.create(
+        new_roster = Roster.objects.create(
             player=player,
             team=team,
             league=team.league,
             week_added=next_week_number
         )
+        # Auto-assign to starter slot if traditional league
+        auto_assign_to_starter_slot(new_roster)
+        
         player.assigned_side = drop_player.position  # Use same slot
         player.save()
         
@@ -970,6 +1036,9 @@ def assign_player(request, team_id):
                 league=team.league,
                 week_added=next_week_number
             )
+            # Auto-assign to starter slot if traditional league
+            auto_assign_to_starter_slot(roster)
+            
             messages.success(request, f"Added {player.first_name} {player.last_name} to your roster (week {next_week_number})")
         except Exception as e:
             messages.error(request, f"Error adding player: {str(e)}")
@@ -1411,12 +1480,14 @@ def execute_trade(trade):
             old_roster.save()
         
         # Add player to new team
-        Roster.objects.create(
+        new_roster = Roster.objects.create(
             team=to_team,
             player=player,
             league=trade.league,
             week_added=week_number
         )
+        # Auto-assign to starter slot if traditional league
+        auto_assign_to_starter_slot(new_roster)
     
     # Mark trade as executed
     trade.executed_at = timezone.now()
@@ -3854,12 +3925,14 @@ def make_draft_pick(request, draft_id):
                 messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
                 return redirect('draft_room')
             
-            Roster.objects.create(
+            draft_roster = Roster.objects.create(
                 team=pick.team,
                 player=pick.player,
                 league=draft.league,
                 week_added=1  # Assume draft happens before season
             )
+            # Auto-assign to starter slot if traditional league
+            auto_assign_to_starter_slot(draft_roster)
         post_league_message(draft.league, f"🎉 Draft completed! All players have been added to rosters.")
         messages.success(request, f"You selected {player.first_name} {player.last_name}!")
     else:
@@ -4119,13 +4192,15 @@ def move_from_taxi(request, team_id):
         
         week_added = current_week.week_number if current_week else 1
         
-        Roster.objects.create(
+        taxi_roster = Roster.objects.create(
             team=team,
             player=player,
             league=team.league,
             week_added=week_added,
             slot_assignment='bench'
         )
+        # For dynasty taxi squad, may want to auto-assign - but default is bench
+        # auto_assign_to_starter_slot(taxi_roster)  # Commented - keep taxi on bench by default
         
         # Clear player from taxi squad but keep the slot
         taxi_entry.player = None
