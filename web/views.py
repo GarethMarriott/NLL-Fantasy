@@ -989,19 +989,12 @@ def assign_player(request, team_id):
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
     
     if action == "swap_slots":
-        # Swap two players on the roster (both same position)
-        target_player_id = request.POST.get("target_slot")  # Actually the target player ID in our case
+        # Swap a player to another slot (which may be occupied by another player or empty)
+        target_slot = request.POST.get("target_slot")  # Can be a player ID or a slot designation like "O1", "D2", etc.
         
-        print(f"DEBUG swap_slots: playerId={player_id}, targetPlayerId={target_player_id}")
+        print(f"DEBUG swap_slots: playerId={player_id}, targetSlot={target_slot}")
         
-        try:
-            target_player = Player.objects.get(id=int(target_player_id))
-        except (Player.DoesNotExist, ValueError, TypeError) as e:
-            print(f"DEBUG: Target player not found: {e}")
-            messages.error(request, "Target player not found.")
-            return redirect("team_detail", team_id=team.id)
-        
-        # Get both roster entries
+        # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
             player=player,
             team=team,
@@ -1009,39 +1002,68 @@ def assign_player(request, team_id):
             week_dropped__isnull=True
         ).first()
         
-        target_roster = Roster.objects.filter(
-            player=target_player,
-            team=team,
-            league=team.league,
-            week_dropped__isnull=True
-        ).first()
-        
-        print(f"DEBUG: player_roster={player_roster}, target_roster={target_roster}")
-        
-        if not player_roster or not target_roster:
-            print(f"DEBUG: Roster entries not found")
-            messages.error(request, "One or both players not found on roster.")
+        if not player_roster:
+            print(f"DEBUG: Player roster entry not found")
+            messages.error(request, "Player not found on roster.")
             return redirect("team_detail", team_id=team.id)
         
-        # Swap their slot assignments
-        print(f"DEBUG: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
-        player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
-        player_roster.save()
-        target_roster.save()
-        print(f"DEBUG: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+        # Check if target_slot is a player ID (move to occupied slot) or a slot designation (move to empty slot)
+        target_roster = None
+        target_player = None
         
-        # If AJAX request, return JSON so page can update without full reload
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': f"Swapped {player.last_name} and {target_player.last_name}",
-                'player_id': player.id,
-                'player_slot': player_roster.slot_assignment,
-                'target_player_id': target_player.id,
-                'target_player_slot': target_roster.slot_assignment
-            })
-        
-        messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
+        try:
+            # Try to find a player with this ID
+            target_player = Player.objects.get(id=int(target_slot))
+            target_roster = Roster.objects.filter(
+                player=target_player,
+                team=team,
+                league=team.league,
+                week_dropped__isnull=True
+            ).first()
+            
+            if not target_roster:
+                print(f"DEBUG: Target player not found on roster")
+                messages.error(request, "Target player not found on roster.")
+                return redirect("team_detail", team_id=team.id)
+            
+            # Swap their slot assignments
+            print(f"DEBUG: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
+            player_roster.save()
+            target_roster.save()
+            print(f"DEBUG: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            
+            # If AJAX request, return JSON so page can update without full reload
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Swapped {player.last_name} and {target_player.last_name}",
+                    'player_id': player.id,
+                    'player_slot': player_roster.slot_assignment,
+                    'target_player_id': target_player.id,
+                    'target_player_slot': target_roster.slot_assignment
+                })
+            
+            messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
+            
+        except (Player.DoesNotExist, ValueError, TypeError):
+            # Target is a slot designation (empty slot), not a player ID
+            # Just update the moving player's slot assignment
+            old_slot = player_roster.slot_assignment
+            player_roster.slot_assignment = target_slot
+            player_roster.save()
+            print(f"DEBUG: Moved player from slot {old_slot} to slot {target_slot}")
+            
+            # If AJAX request, return JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Moved {player.last_name} to {target_slot}",
+                    'player_id': player.id,
+                    'player_slot': player_roster.slot_assignment
+                })
+            
+            messages.success(request, f"Moved {player.last_name} to {target_slot}")
     
     if action == "move_to_empty_slot":
         # Move a player - currently just keeps them on roster (slot already empty)
@@ -4153,25 +4175,25 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 
 def get_available_slots(request, team_id):
-    """JSON endpoint returning all players for a position that can be swapped with"""
+    """JSON endpoint returning all players and empty slots for a position that can be swapped with"""
     from django.http import JsonResponse
     
     try:
         team = get_object_or_404(Team, id=team_id)
-        position = request.GET.get('position', 'O')  # O, D, or G
+        position = request.GET.get('position', 'O')  # O, D, or G (single letter from slot position)
         current_player_id = request.GET.get('current_player_id')
         
         # Get the league for roster info
         league = team.league
         
-        # Map position to valid player positions
-        # Transition (T) players can fill any position slot (O, D, or G)
-        # When viewing as T player, show all positions they can fill
+        # Map slot position to valid player positions that can fill that slot
+        # O slots can be filled by O or T players
+        # D slots can be filled by D or T players
+        # G slots can be filled by G or T players
         position_map = {
-            'O': ['O', 'T'],
-            'D': ['D', 'T'],
-            'G': ['G', 'T'],
-            'T': ['O', 'D', 'G', 'T']  # T players can swap with any position
+            'O': ['O', 'T'],  # Offense slot: accepts O and T players
+            'D': ['D', 'T'],  # Defense slot: accepts D and T players
+            'G': ['G', 'T'],  # Goalie slot: accepts G and T players
         }
         if position not in position_map:
             return JsonResponse({'error': 'Invalid position'}, status=400)
@@ -4204,12 +4226,44 @@ def get_available_slots(request, team_id):
             })
             print(f"  {idx}. {player.last_name} (ID: {player.id}, current={is_current})")
         
-        # If no players found, return empty
+        # Determine how many slots exist for this position
+        if position == 'O':
+            num_slots = 3  # 3 offense slots
+            slot_prefix = 'starter_o'
+        elif position == 'D':
+            num_slots = 3  # 3 defense slots
+            slot_prefix = 'starter_d'
+        elif position == 'G':
+            num_slots = 1  # 1 goalie slot
+            slot_prefix = 'starter_g'
+        else:
+            num_slots = 0
+            slot_prefix = ''
+        
+        # Check how many slots are filled for this position
+        filled_count = all_roster.count()
+        empty_slots = []
+        if filled_count < num_slots:
+            for i in range(filled_count + 1, num_slots + 1):
+                # For single goalie slot, use just 'starter_g', otherwise 'starter_o1', etc.
+                if position == 'G':
+                    slot_designation = slot_prefix
+                else:
+                    slot_designation = f"{slot_prefix}{i}"
+                empty_slots.append(slot_designation)
+                print(f"  Empty: {slot_designation}")
+        
+        # If no players found, print that
         if not slots:
             print(f"  No players found for position {position}")
         
-        print(f"DEBUG: Returning {len(slots)} players")
-        return JsonResponse({'slots': slots})
+        print(f"DEBUG: Returning {len(slots)} players and {len(empty_slots)} empty slots")
+        return JsonResponse({'slots': slots, 'empty_slots': empty_slots})
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
     
     except Exception as e:
         import traceback
