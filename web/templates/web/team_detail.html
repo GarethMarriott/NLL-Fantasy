@@ -966,7 +966,10 @@
       }
       
       console.log('Showing modal...');
+      console.log('Modal before:', modal.style.display);
       modal.style.display = 'flex';
+      console.log('Modal after:', modal.style.display);
+      console.log('Modal computed:', window.getComputedStyle(modal).display);
     }
     
     function closePositionMoveModal() {
