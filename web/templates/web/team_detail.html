@@ -980,8 +980,17 @@
           });
           
           console.log('Modal display setting to flex');
+          console.log('Modal element:', modal);
+          console.log('Modal computed style before:', window.getComputedStyle(modal).display);
+          console.log('Modal visibility before:', window.getComputedStyle(modal).visibility);
+          console.log('Modal opacity before:', window.getComputedStyle(modal).opacity);
           modal.style.display = 'flex';
           console.log('Modal display is now:', modal.style.display);
+          console.log('Modal computed style after:', window.getComputedStyle(modal).display);
+          console.log('Modal visibility after:', window.getComputedStyle(modal).visibility);
+          console.log('Modal opacity after:', window.getComputedStyle(modal).opacity);
+          console.log('Modal offsetParent:', modal.offsetParent);
+          console.log('Modal offsetHeight:', modal.offsetHeight);
         })
         .catch(error => {
           console.error('Error fetching slots:', error);
