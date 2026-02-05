@@ -917,6 +917,7 @@
   <script>
     // Handle position badge clicks directly
     function handlePositionBadgeClick(playerId, playerName, currentPosition) {
+      event.stopPropagation();
       console.log('Position badge clicked!', {playerId, playerName, currentPosition});
       showPositionMoveModal(playerId, playerName, currentPosition);
     }
