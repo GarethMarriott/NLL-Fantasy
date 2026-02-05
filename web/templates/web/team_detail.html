@@ -10,12 +10,6 @@
       </div>
       <div class="flex gap-3">
         {% if user_owns_team %}
-        {% if league.roster_format == 'traditional' %}
-        <a href="{% url 'manage_lineup' team.id %}"
-           class="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm font-medium">
-          📋 Manage Lineup
-        </a>
-        {% endif %}
         <a href="{% url 'trade_center' team.id %}"
            class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium">
           Trade Center
@@ -316,142 +310,8 @@
           </tr>
         </thead>
         <tbody>
-          {% if is_traditional %}
-            {# TRADITIONAL LEAGUE: Show starters, bench divider, then benches #}
-            {# Starter Offense #}
-            {% for slot in offence_slots %}
-              {% if slot and slot.is_starter %}
-          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
-              <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">1-3</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-green-100 text-green-800 rounded text-xs sm:text-sm font-semibold border border-green-300">O</span></td>
-              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
-                <div class="text-left">
-                  <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
-                  </div>
-                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
-                </div>
-              </td>
-              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}-{% endif %}</td>
-            </tr>
-              {% endif %}
-            {% endfor %}
-            
-            {# Starter Defense #}
-            {% for slot in defence_slots %}
-              {% if slot and slot.is_starter %}
-          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
-              <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">4-6</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-orange-100 text-orange-800 rounded text-xs sm:text-sm font-semibold border border-orange-300">D</span></td>
-              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
-                <div class="text-left">
-                  <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
-                  </div>
-                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
-                </div>
-              </td>
-              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}-{% endif %}</td>
-            </tr>
-              {% endif %}
-            {% endfor %}
-            
-            {# Starter Goalie #}
-            {% for slot in goalie_slots %}
-              {% if slot and slot.is_starter %}
-          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
-              <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">7</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-blue-100 text-blue-800 rounded text-xs sm:text-sm font-semibold border border-blue-300">G</span></td>
-              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
-                <div class="text-left">
-                  <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
-                  </div>
-                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
-                </div>
-              </td>
-              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}-{% endif %}</td>
-            </tr>
-              {% endif %}
-            {% endfor %}
-
-            {# Bench Divider #}
-      <tr class="bg-gray-200 dark:bg-gray-400 h-6">
-        <td colspan="100" class="p-2 text-center font-bold text-gray-700 dark:text-gray-800">BENCH</td>
-      </tr>
-
-            {# Bench Offense #}
-            {% for slot in offence_slots %}
-              {% if slot and not slot.is_starter %}
-          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-50">
-              <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">B</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-gray-100 text-gray-700 rounded text-xs sm:text-sm font-semibold border border-gray-300">O</span></td>
-              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
-                <div class="text-left">
-                  <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
-                  </div>
-                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
-                </div>
-              </td>
-              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{{ slot.selected_week_points }}{% else %}-{% endif %}</td>
-            </tr>
-              {% endif %}
-            {% endfor %}
-
-            {# Bench Defense #}
-            {% for slot in defence_slots %}
-              {% if slot and not slot.is_starter %}
-          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-50">
-              <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">B</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-gray-100 text-gray-700 rounded text-xs sm:text-sm font-semibold border border-gray-300">D</span></td>
-              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
-                <div class="text-left">
-                  <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
-                  </div>
-                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
-                </div>
-              </td>
-              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{{ slot.selected_week_points }}{% else %}-{% endif %}</td>
-            </tr>
-              {% endif %}
-            {% endfor %}
-
-            {# Bench Goalie #}
-            {% for slot in goalie_slots %}
-              {% if slot and not slot.is_starter %}
-          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-50">
-              <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">B</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16"><span class="inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-gray-100 text-gray-700 rounded text-xs sm:text-sm font-semibold border border-gray-300">G</span></td>
-              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
-                <div class="text-left">
-                  <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
-                  </div>
-                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
-                </div>
-              </td>
-              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
-              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{{ slot.selected_week_points }}{% else %}-{% endif %}</td>
-            </tr>
-              {% endif %}
-            {% endfor %}
-
-          {% else %}
-            {# BEST BALL LEAGUE: Show all 14 slots (6 offense, 6 defense, 2 goalie) #}
-            {% for slot in offence_slots %}
+          {# Show all 14 slots (6 offense, 6 defense, 2 goalie) - same for both league types #}
+          {% for slot in offence_slots %}
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
@@ -549,7 +409,9 @@
                     {% elif use_waivers %}
                     <form method="post" action="{% url 'submit_waiver_claim' team.id %}" class="inline-block" style="display: inline-block;">
                       {% csrf_token %}
-                      <select name="player_to_add_id" class="px-1 py-0.5 text-xs border border-gray-300 rounded">
+                      <input type="hidden" name="action" value="add">
+                      <input type="hidden" name="slot_group" value="O">
+                      <select name="player_id" class="px-1 py-0.5 text-xs border border-gray-300 rounded">
                         <option value="">Select player...</option>
                         {% for item in players_for_select %}
                           {% if item.team_in_league is None %}
@@ -557,22 +419,42 @@
                           {% endif %}
                         {% endfor %}
                       </select>
-                      <button type="submit" class="px-1 py-0.5 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600">Waiver</button>
+                      <button type="submit" class="px-1 py-0.5 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600">Claim</button>
                     </form>
                     {% else %}
-                    <span class="text-gray-500 italic text-xs sm:text-sm">Locked</span>
+                    <span class="text-gray-500 italic text-xs">Roster Full</span>
                     {% endif %}
-                    {% else %}
-                    <span class="text-gray-500 italic text-xs sm:text-sm">Past Week</span>
                     {% endif %}
-                  {% else %}
-                  <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
                   {% endif %}
                 </td>
-                <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell">-</td>
+                <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
                 {% endif %}
               </tr>
+            {% endfor %}
+
+            {% for slot in defence_slots %}
+          <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
+                <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter|add:6 }}</td>
+                <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
+                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-orange-100 text-orange-800 rounded text-xs sm:text-sm font-semibold border border-orange-300 cursor-pointer hover:bg-orange-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
+                          onclick="handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'D')">
+                    D
+                  </button>
+                </td>
+              <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
+              <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
+                <div class="text-left">
+                  <div class="font-semibold truncate">
+                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                  </div>
+                  {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
+                </div>
+              </td>
+              <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
+              <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{{ slot.selected_week_points }}{% else %}-{% endif %}</td>
+            </tr>
+              {% endif %}
             {% endfor %}
 
             {% for slot in defence_slots %}
@@ -772,8 +654,6 @@
                 {% endif %}
               </tr>
             {% endfor %}
-
-          {% endif %}
 
       <tr class="border-t-2 border-gray-400 dark:bg-gray-200">
         <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">—</td>
