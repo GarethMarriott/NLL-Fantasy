@@ -4081,8 +4081,7 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 
 def get_available_slots(request, team_id):
-    """JSON endpoint returning available slots for a position with their current players"""
-    import json
+    """JSON endpoint returning all players for a position that can be swapped with"""
     from django.http import JsonResponse
     
     try:
@@ -4093,71 +4092,44 @@ def get_available_slots(request, team_id):
         # Get the league for roster info
         league = team.league
         
-        # Map position to slot prefixes and counts
-        position_slots = {
-            'O': {'prefix': 'starter_o', 'count': 3},
-            'D': {'prefix': 'starter_d', 'count': 3},
-            'G': {'prefix': 'starter_g', 'count': 1}
-        }
-        
-        if position not in position_slots:
+        # Map position to valid player positions
+        position_map = {'O': ['O', 'T'], 'D': ['D', 'T'], 'G': ['G']}
+        if position not in position_map:
             return JsonResponse({'error': 'Invalid position'}, status=400)
         
-        slot_info = position_slots[position]
-        slot_prefix = slot_info['prefix']
-        num_slots = slot_info['count']
+        valid_positions = position_map[position]
         
-        # Get ALL active roster entries for this team
+        # Get ALL active roster entries for players of this position on this team
         all_roster = Roster.objects.filter(
             team=team,
             league=league,
-            week_dropped__isnull=True  # Currently active
-        ).select_related('player')
+            week_dropped__isnull=True,  # Currently active
+            player__position__in=valid_positions
+        ).select_related('player').order_by('player__last_name')
         
-        # Get all players on roster with their positions
-        position_map = {'O': ['O', 'T'], 'D': ['D', 'T'], 'G': ['G']}
-        valid_positions = position_map.get(position, [])
+        print(f"DEBUG get_available_slots: position={position}, found {all_roster.count()} players")
         
-        # Get players who play this position on the roster
-        players_for_position = all_roster.filter(player__position__in=valid_positions)
-        
-        print(f"DEBUG get_available_slots: position={position}, found {players_for_position.count()} players")
-        for entry in players_for_position:
-            print(f"  - {entry.player.last_name}: slot_assignment='{entry.slot_assignment}'")
-        
-        # Build slot list - create all slots (1, 2, 3 for O/D, just 1 for G)
+        # Build response showing all players for this position (not limited to 3 slots)
         slots = []
-        occupied_slots = {}
+        for idx, roster_entry in enumerate(all_roster, 1):
+            player = roster_entry.player
+            is_current = str(player.id) == str(current_player_id)
+            
+            slots.append({
+                'slot': idx,  # Just a sequential number for display
+                'player_id': player.id,
+                'player_name': f"{player.last_name}, {player.first_name}",
+                'is_current': is_current,
+                'is_empty': False,
+                'player_position': player.get_position_display()
+            })
+            print(f"  {idx}. {player.last_name} (ID: {player.id}, current={is_current})")
         
-        # First, collect which players are already in starter slots for this position
-        for slot_num in range(1, num_slots + 1):
-            slot_name = f"{slot_prefix}{slot_num}"
-            occupant = players_for_position.filter(slot_assignment=slot_name).first()
-            if occupant:
-                occupied_slots[slot_num] = occupant
-                print(f"  Slot {slot_num}: Assigned to {occupant.player.last_name}")
+        # If no players found, return empty
+        if not slots:
+            print(f"  No players found for position {position}")
         
-        # Build the slots list, showing occupied or empty
-        for slot_num in range(1, num_slots + 1):
-            if slot_num in occupied_slots:
-                occupant = occupied_slots[slot_num]
-                slots.append({
-                    'slot': slot_num,
-                    'player_id': occupant.player.id,
-                    'player_name': f"{occupant.player.last_name}, {occupant.player.first_name}",
-                    'is_current': str(occupant.player.id) == str(current_player_id),
-                    'is_empty': False
-                })
-            else:
-                slots.append({
-                    'slot': slot_num,
-                    'player_id': None,
-                    'player_name': 'Empty',
-                    'is_current': False,
-                    'is_empty': True
-                })
-        
-        print(f"DEBUG: Returning {len(slots)} slots for position {position}")
+        print(f"DEBUG: Returning {len(slots)} players")
         return JsonResponse({'slots': slots})
     
     except Exception as e:
