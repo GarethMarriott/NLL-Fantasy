@@ -4086,53 +4086,69 @@ def get_available_slots(request, team_id):
     from django.http import JsonResponse
     from django.views.decorators.http import require_http_methods
     
-    team = get_object_or_404(Team, id=team_id)
-    position = request.GET.get('position', 'O')  # O, D, or G
-    week_num = int(request.GET.get('week', 1))
-    current_player_id = request.GET.get('current_player_id')
+    try:
+        team = get_object_or_404(Team, id=team_id)
+        position = request.GET.get('position', 'O')  # O, D, or G
+        current_player_id = request.GET.get('current_player_id')
+        
+        # Get the league for roster info
+        league = team.league
+        
+        # Map position to slot prefixes and counts
+        position_slots = {
+            'O': {'prefix': 'starter_o', 'count': 3},
+            'D': {'prefix': 'starter_d', 'count': 3},
+            'G': {'prefix': 'starter_g', 'count': 1}
+        }
+        
+        if position not in position_slots:
+            return JsonResponse({'error': 'Invalid position'}, status=400)
+        
+        slot_info = position_slots[position]
+        slot_prefix = slot_info['prefix']
+        num_slots = slot_info['count']
+        
+        # Get all roster entries for this team in this league that are currently active
+        roster_entries = Roster.objects.filter(
+            team=team,
+            league=league,
+            week_dropped__isnull=True  # Currently active
+        ).select_related('player')
+        
+        # Build slot list
+        slots = []
+        occupied_slots = {}
+        
+        for entry in roster_entries:
+            # Check if this entry is for the current position
+            if entry.slot_assignment and entry.slot_assignment.startswith(slot_prefix):
+                # Extract slot number (e.g., 'starter_o1' -> 1)
+                slot_num = int(entry.slot_assignment.split('_')[-1])
+                occupied_slots[slot_num] = entry
+        
+        # Build display slots
+        for slot_num in range(1, num_slots + 1):
+            if slot_num in occupied_slots:
+                entry = occupied_slots[slot_num]
+                slots.append({
+                    'slot': slot_num,
+                    'player_id': entry.player.id,
+                    'player_name': f"{entry.player.last_name}, {entry.player.first_name}",
+                    'is_current': str(entry.player.id) == current_player_id,
+                    'is_empty': False
+                })
+            else:
+                slots.append({
+                    'slot': slot_num,
+                    'player_id': None,
+                    'player_name': 'Empty',
+                    'is_current': False,
+                    'is_empty': True
+                })
+        
+        return JsonResponse({'slots': slots})
     
-    # Get the league for roster info
-    league = team.league
-    
-    # Number of slots per position
-    slot_counts = {'O': 6, 'D': 6, 'G': 2}
-    num_slots = slot_counts.get(position, 6)
-    
-    # Get all roster entries for this team's league at this week
-    from django.db.models import Q
-    roster_entries = Roster.objects.filter(
-        team=team,
-        player__position=position,
-        week_dropped__isnull=True  # Current roster
-    ).select_related('player').order_by('slot_number')
-    
-    # Build slot list
-    slots = []
-    occupied_slots = set()
-    
-    for entry in roster_entries:
-        if entry.slot_number and entry.slot_number <= num_slots:
-            occupied_slots.add(entry.slot_number)
-            slots.append({
-                'slot': entry.slot_number,
-                'player_id': entry.player.id,
-                'player_name': f"{entry.player.last_name}, {entry.player.first_name}",
-                'is_current': str(entry.player.id) == current_player_id,
-                'is_empty': False
-            })
-    
-    # Add empty slots
-    for slot_num in range(1, num_slots + 1):
-        if slot_num not in occupied_slots:
-            slots.append({
-                'slot': slot_num,
-                'player_id': None,
-                'player_name': 'Empty',
-                'is_current': False,
-                'is_empty': True
-            })
-    
-    # Sort by slot number
-    slots.sort(key=lambda x: x['slot'])
-    
-    return JsonResponse({'slots': slots})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
