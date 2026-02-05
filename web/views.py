@@ -210,7 +210,9 @@ def team_detail(request, team_id):
     current_date = timezone.now().date()
     current_time = timezone.now()
     
-    # Determine default week based on actual dates first (more reliable than stored current_week)
+    # Always use date-based calculation for determining the current week
+    # This is more reliable than relying on the stored current_week which may be stale
+    
     # Find the currently active week (games in progress)
     # This is where start_date <= now <= end_date
     current_active_week = Week.objects.filter(
@@ -242,8 +244,7 @@ def team_detail(request, team_id):
             if future_week:
                 default_week_num = future_week.week_number
             else:
-                # Final fallback: use league's current_week if set, otherwise week 1
-                default_week_num = league.current_week.week_number if league.current_week else 1
+                default_week_num = 1
     
     # Get selected week from query params
     selected_week_num = request.GET.get('week')
