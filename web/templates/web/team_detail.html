@@ -1007,38 +1007,47 @@
     }
     
     function submitPositionMove(playerId, targetSlot, isEmpty) {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/teams/{{ team.id }}/assign-player/';
+      closePositionMoveModal();
       
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = 'csrfmiddlewaretoken';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
+      const formData = new FormData();
+      formData.append('player_id', playerId);
+      formData.append('target_slot', targetSlot);
+      formData.append('action', isEmpty ? 'move_to_empty_slot' : 'swap_slots');
+      formData.append('csrfmiddlewaretoken', csrfToken);
       
-      const playerInput = document.createElement('input');
-      playerInput.type = 'hidden';
-      playerInput.name = 'player_id';
-      playerInput.value = playerId;
-      form.appendChild(playerInput);
-      
-      const slotInput = document.createElement('input');
-      slotInput.type = 'hidden';
-      slotInput.name = 'target_slot';
-      slotInput.value = targetSlot;
-      form.appendChild(slotInput);
-      
-      const actionInput = document.createElement('input');
-      actionInput.type = 'hidden';
-      actionInput.name = 'action';
-      actionInput.value = isEmpty ? 'move_to_empty_slot' : 'swap_slots';
-      form.appendChild(actionInput);
-      
-      closePositionMoveModal();
-      document.body.appendChild(form);
-      form.submit();
+      fetch('/teams/{{ team.id }}/assign-player/', {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+      })
+      .then(data => {
+        if (data.success) {
+          // Show success message
+          const alertDiv = document.createElement('div');
+          alertDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 16px; border-radius: 4px; z-index: 10001; max-width: 400px;';
+          alertDiv.textContent = data.message;
+          document.body.appendChild(alertDiv);
+          
+          // Remove alert after 3 seconds
+          setTimeout(() => alertDiv.remove(), 3000);
+          
+          // Reload page to show updated roster after 1 second
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error during swap: ' + error.message);
+      });
     }
 
     function submitWaiverClaim(playerId, slotGroup) {

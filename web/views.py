@@ -1020,6 +1020,17 @@ def assign_player(request, team_id):
         target_roster.save()
         print(f"DEBUG: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
         
+        # If AJAX request, return JSON so page can update without full reload
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f"Swapped {player.last_name} and {target_player.last_name}",
+                'player_id': player.id,
+                'player_slot': player_roster.slot_assignment,
+                'target_player_id': target_player.id,
+                'target_player_slot': target_roster.slot_assignment
+            })
+        
         messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
     
     if action == "move_to_empty_slot":
@@ -4144,7 +4155,8 @@ def get_available_slots(request, team_id):
         league = team.league
         
         # Map position to valid player positions
-        position_map = {'O': ['O', 'T'], 'D': ['D', 'T'], 'G': ['G']}
+        # Transition (T) players can fill any position slot (O, D, or G)
+        position_map = {'O': ['O', 'T'], 'D': ['D', 'T'], 'G': ['G', 'T']}
         if position not in position_map:
             return JsonResponse({'error': 'Invalid position'}, status=400)
         
