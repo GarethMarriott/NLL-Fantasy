@@ -293,10 +293,20 @@ def team_detail(request, team_id):
     recent_week = Week.objects.order_by("-season", "-week_number").first()
     season = recent_week.season if recent_week else None
 
-    # Keep players in order of when they were (last) assigned, not alphabetically
+    # Keep players in order of their slot assignment (for traditional leagues)
     # Get players through roster entries for this team's league
     # Filter to show only players who were on the roster during the selected week
-    from django.db.models import Q
+    from django.db.models import Q, Case, When
+    
+    # Define the proper slot order
+    slot_order = [
+        'starter_o1', 'starter_o2', 'starter_o3',
+        'starter_d1', 'starter_d2', 'starter_d3',
+        'starter_g',
+        'bench'
+    ]
+    preserved = Case(*[When(slot_assignment=slot, then=pos) for pos, slot in enumerate(slot_order)])
+    
     roster = team.roster_entries.select_related('player').prefetch_related(
         'player__game_stats__game__week'
     ).filter(
@@ -304,7 +314,7 @@ def team_detail(request, team_id):
         player__active=True
     ).filter(
         Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
-    ).order_by("player__updated_at", "player__id")
+    ).annotate(slot_order_val=preserved).order_by("slot_order_val", "player__updated_at", "player__id")
     
     for roster_entry in roster:
         p = roster_entry.player
