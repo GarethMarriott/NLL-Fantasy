@@ -300,6 +300,12 @@ def renew_league(old_league_id, new_season=None):
         )
         new_league.save()
         
+        # Set the default current_week to the first available week of the new season
+        first_week = Week.objects.filter(season=new_season).order_by('week_number').first()
+        if first_week:
+            new_league.current_week = first_week
+            new_league.save()
+        
         # Get all previous team owners and their teams
         old_teams = Team.objects.filter(league=old_league)
         old_team_owners = FantasyTeamOwner.objects.filter(

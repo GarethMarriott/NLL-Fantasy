@@ -3030,6 +3030,14 @@ def league_create(request):
             league = form.save(commit=False)
             league.commissioner = request.user
             league.save()
+            
+            # Set the default current_week to the first available week of the season
+            current_year = timezone.now().year
+            first_week = Week.objects.filter(season=current_year).order_by('week_number').first()
+            if first_week:
+                league.current_week = first_week
+                league.save()
+            
             messages.success(request, f"League '{league.name}' created successfully!")
             return redirect("league_detail", league_id=league.id)
     else:
