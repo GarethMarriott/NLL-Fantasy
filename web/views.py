@@ -950,7 +950,8 @@ def assign_player(request, team_id):
         )
         
         messages.success(request, f"Added {player.first_name} {player.last_name} to your roster")
-    elif action == "drop":
+    
+    if action == "drop":
         # Soft delete: set week_dropped instead of deleting the roster entry
         roster_entry = Roster.objects.filter(
             player=player,
@@ -977,7 +978,7 @@ def assign_player(request, team_id):
             
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
     
-    elif action == "swap_slots":
+    if action == "swap_slots":
         # Swap two players on the roster (both same position)
         target_player_id = request.POST.get("target_slot")  # Actually the target player ID in our case
         
@@ -1021,7 +1022,7 @@ def assign_player(request, team_id):
         
         messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
     
-    elif action == "move_to_empty_slot":
+    if action == "move_to_empty_slot":
         # Move a player - currently just keeps them on roster (slot already empty)
         # This is a placeholder - in a real implementation, you'd move them to a specific empty slot
         print(f"DEBUG move_to_empty_slot: player={player.last_name}")
