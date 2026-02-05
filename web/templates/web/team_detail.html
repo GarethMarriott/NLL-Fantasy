@@ -981,9 +981,16 @@
           
           console.log('Showing modal - computed style before:', window.getComputedStyle(modal).display);
           modal.style.setProperty('display', 'flex', 'important');
-          console.log('Modal computed style after:', window.getComputedStyle(modal).display);
-          console.log('Modal offsetHeight after:', modal.offsetHeight);
-          console.log('Modal clientHeight after:', modal.clientHeight);
+          setTimeout(() => {
+            console.log('Modal computed style after:', window.getComputedStyle(modal).display);
+            const innerBox = modal.querySelector('div');
+            console.log('Inner box element:', innerBox);
+            console.log('Inner box computed display:', innerBox ? window.getComputedStyle(innerBox).display : 'not found');
+            console.log('Inner box offsetHeight:', innerBox ? innerBox.offsetHeight : 'not found');
+            console.log('Inner box computed width:', innerBox ? window.getComputedStyle(innerBox).width : 'not found');
+            console.log('Modal offsetHeight after:', modal.offsetHeight);
+            console.log('Modal clientHeight after:', modal.clientHeight);
+          }, 100);
         })
         .catch(error => {
           console.error('Error fetching slots:', error);
