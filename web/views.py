@@ -415,7 +415,7 @@ def team_detail(request, team_id):
         else:
             players_by_position["O"].append(entry)
 
-    # Get roster entries with slot assignments for proper ordering (all league types)
+    # Get roster entries with slot assignments for proper ordering
     roster_with_slots = team.roster_entries.select_related('player').filter(
         Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num),
         player__active=True
@@ -426,39 +426,48 @@ def team_detail(request, team_id):
     # Create a mapping of player_id to slot_assignment
     player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
     
-    # Reorder pools by slot assignment for all league types
-    def sort_by_slot_assignment(entries, slot_prefix):
-        """Sort entries by their slot assignment (e.g., starter_o1, starter_o2, starter_o3)"""
-        slots = {}
-        bench = []
-        for entry in entries:
-            player_id = entry['player'].id
-            slot = player_to_slot.get(player_id, 'bench')
-            if slot.startswith(slot_prefix):
-                # Extract slot number
-                try:
-                    slot_num = int(slot.replace(slot_prefix, ''))
-                    slots[slot_num] = entry
-                except ValueError:
-                    # Handle case where slot is just the prefix (e.g., 'starter_g')
-                    slots[1] = entry
-            else:
-                bench.append(entry)
-        
-        # Build ordered list: starter_o1, starter_o2, etc., then bench
-        result = []
-        for i in range(1, 7):  # Max 6 slots per position
-            if i in slots:
-                result.append(slots[i])
-            else:
-                result.append(None)
-        result.extend(bench)
-        return result
+    # Check if this league uses starter slots (traditional and some hybrid leagues)
+    has_starter_slots = any(slot.startswith('starter_') for slot in player_to_slot.values())
     
-    # Sort each position pool by slot assignment
-    offence_pool = sort_by_slot_assignment(players_by_position["O"], 'starter_o')
-    defence_pool = sort_by_slot_assignment(players_by_position["D"], 'starter_d')
-    goalie_pool = sort_by_slot_assignment(players_by_position["G"], 'starter_g')
+    if has_starter_slots:
+        # Reorder pools by slot assignment for leagues with starter slots
+        def sort_by_slot_assignment(entries, slot_prefix):
+            """Sort entries by their slot assignment (e.g., starter_o1, starter_o2, starter_o3)"""
+            slots = {}
+            bench = []
+            for entry in entries:
+                player_id = entry['player'].id
+                slot = player_to_slot.get(player_id, 'bench')
+                if slot.startswith(slot_prefix):
+                    # Extract slot number
+                    try:
+                        slot_num = int(slot.replace(slot_prefix, ''))
+                        slots[slot_num] = entry
+                    except ValueError:
+                        # Handle case where slot is just the prefix (e.g., 'starter_g')
+                        slots[1] = entry
+                else:
+                    bench.append(entry)
+            
+            # Build ordered list: starter_o1, starter_o2, etc., then bench
+            result = []
+            for i in range(1, 7):  # Max 6 slots per position
+                if i in slots:
+                    result.append(slots[i])
+                else:
+                    result.append(None)
+            result.extend(bench)
+            return result
+        
+        # Sort each position pool by slot assignment
+        offence_pool = sort_by_slot_assignment(players_by_position["O"], 'starter_o')
+        defence_pool = sort_by_slot_assignment(players_by_position["D"], 'starter_d')
+        goalie_pool = sort_by_slot_assignment(players_by_position["G"], 'starter_g')
+    else:
+        # For leagues without starter slots (best ball), use position pools as-is
+        offence_pool = players_by_position["O"]
+        defence_pool = players_by_position["D"]
+        goalie_pool = players_by_position["G"]
 
     offence_slots = offence_pool[:6]
     defence_slots = defence_pool[:6]
