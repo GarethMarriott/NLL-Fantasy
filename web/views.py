@@ -976,6 +976,47 @@ def assign_player(request, team_id):
             )
             
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
+    
+    elif action == "swap_slots":
+        # Swap two players on the roster (both same position)
+        target_player_id = request.POST.get("target_slot")  # Actually the target player ID in our case
+        
+        try:
+            target_player = Player.objects.get(id=int(target_player_id))
+        except (Player.DoesNotExist, ValueError, TypeError):
+            messages.error(request, "Target player not found.")
+            return redirect("team_detail", team_id=team.id)
+        
+        # Get both roster entries
+        player_roster = Roster.objects.filter(
+            player=player,
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True
+        ).first()
+        
+        target_roster = Roster.objects.filter(
+            player=target_player,
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True
+        ).first()
+        
+        if not player_roster or not target_roster:
+            messages.error(request, "One or both players not found on roster.")
+            return redirect("team_detail", team_id=team.id)
+        
+        # Swap their slot assignments
+        player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
+        player_roster.save()
+        target_roster.save()
+        
+        messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
+    
+    elif action == "move_to_empty_slot":
+        # Move a player - currently just keeps them on roster (slot already empty)
+        # This is a placeholder - in a real implementation, you'd move them to a specific empty slot
+        messages.info(request, f"{player.last_name} is already on the roster.")
 
 
     return redirect("team_detail", team_id=team.id)

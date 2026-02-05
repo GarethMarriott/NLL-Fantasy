@@ -970,10 +970,10 @@
               button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> ${slot.player_name} (current)`;
             } else if (slot.is_empty) {
               button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> Empty`;
-              button.onclick = () => submitPositionMove(playerId, slot.slot, true);
+              button.onclick = () => submitPositionMove(playerId, slot.player_id, true);
             } else {
               button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> Swap with ${slot.player_name}`;
-              button.onclick = () => submitPositionMove(playerId, slot.slot, false);
+              button.onclick = () => submitPositionMove(playerId, slot.player_id, false);
             }
             
             menu.appendChild(button);
