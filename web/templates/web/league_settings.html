@@ -107,13 +107,21 @@
                 <p class="text-red-500 text-xs mt-1">{{ form.roster_goalies.errors.0 }}</p>
               {% endif %}
             </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-2">Bench Slots</label>
+              {{ form.roster_bench }}
+              {% if form.roster_bench.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ form.roster_bench.errors.0 }}</p>
+              {% endif %}
+            </div>
           </div>
           
           <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <p class="text-xs text-blue-700">
               <span class="font-semibold">Total:</span> 
-              <span id="rosterTotal">{{ form.instance.roster_forwards|default:6 }}+{{ form.instance.roster_defense|default:6 }}+{{ form.instance.roster_goalies|default:2 }}</span> = 
-              <span id="rosterSum">{{ form.instance.roster_forwards|add:form.instance.roster_defense|add:form.instance.roster_goalies|default:14 }}</span>
+              <span id="rosterTotal">{{ form.instance.roster_forwards|default:6 }}+{{ form.instance.roster_defense|default:6 }}+{{ form.instance.roster_goalies|default:2 }}+{{ form.instance.roster_bench|default:6 }}</span> = 
+              <span id="rosterSum">{{ form.instance.roster_forwards|add:form.instance.roster_defense|add:form.instance.roster_goalies|add:form.instance.roster_bench|default:14 }}</span>
             </p>
           </div>
         </div>
@@ -287,9 +295,10 @@
       const forwards = parseInt(document.querySelector('input[name="roster_forwards"]').value) || 0;
       const defense = parseInt(document.querySelector('input[name="roster_defense"]').value) || 0;
       const goalies = parseInt(document.querySelector('input[name="roster_goalies"]').value) || 0;
-      const total = forwards + defense + goalies;
+      const bench = parseInt(document.querySelector('input[name="roster_bench"]').value) || 0;
+      const total = forwards + defense + goalies + bench;
       
-      document.getElementById('rosterTotal').textContent = forwards + '+' + defense + '+' + goalies;
+      document.getElementById('rosterTotal').textContent = forwards + '+' + defense + '+' + goalies + '+' + bench;
       document.getElementById('rosterSum').textContent = total;
       
       // Update color based on match with roster_size
@@ -315,6 +324,7 @@
       const forwardsInput = document.querySelector('input[name="roster_forwards"]');
       const defenseInput = document.querySelector('input[name="roster_defense"]');
       const goaliesInput = document.querySelector('input[name="roster_goalies"]');
+      const benchInput = document.querySelector('input[name="roster_bench"]');
       
       if (forwardsInput) {
         forwardsInput.addEventListener('change', updateRosterTotal);
@@ -327,6 +337,10 @@
       if (goaliesInput) {
         goaliesInput.addEventListener('change', updateRosterTotal);
         goaliesInput.addEventListener('input', updateRosterTotal);
+      }
+      if (benchInput) {
+        benchInput.addEventListener('change', updateRosterTotal);
+        benchInput.addEventListener('input', updateRosterTotal);
       }
       
       updateRosterTotal();

@@ -75,6 +75,11 @@ class League(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(20)],
         help_text="Number of goalie (G) roster spots"
     )
+    roster_bench = models.PositiveSmallIntegerField(
+        default=6,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of bench roster spots (for traditional leagues)"
+    )
     playoff_weeks = models.PositiveSmallIntegerField(
         default=2,
         validators=[MinValueValidator(0), MaxValueValidator(4)],

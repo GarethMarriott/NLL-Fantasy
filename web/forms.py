@@ -89,7 +89,7 @@ class LeagueSettingsForm(forms.ModelForm):
         model = League
         fields = [
             'name', 'description', 'max_teams', 'roster_format', 'league_type', 'is_public', 'roster_size', 
-            'roster_forwards', 'roster_defense', 'roster_goalies', 'taxi_squad_size',
+            'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'taxi_squad_size',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
@@ -114,6 +114,7 @@ class LeagueSettingsForm(forms.ModelForm):
             'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_defense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_goalies': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
+            'roster_bench': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'taxi_squad_size': forms.Select(choices=[
                 (0, '0 slots (disabled)'),
                 (1, '1 slot'),
