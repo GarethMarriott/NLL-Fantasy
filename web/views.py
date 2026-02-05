@@ -4078,3 +4078,61 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
 class CustomPasswordResetCompleteView(PasswordResetCompleteView):
     """Success page after password has been reset"""
     template_name = 'web/password_reset_complete.html'
+
+
+def get_available_slots(request, team_id):
+    """JSON endpoint returning available slots for a position with their current players"""
+    import json
+    from django.http import JsonResponse
+    from django.views.decorators.http import require_http_methods
+    
+    team = get_object_or_404(Team, id=team_id)
+    position = request.GET.get('position', 'O')  # O, D, or G
+    week_num = int(request.GET.get('week', 1))
+    current_player_id = request.GET.get('current_player_id')
+    
+    # Get the league for roster info
+    league = team.league
+    
+    # Number of slots per position
+    slot_counts = {'O': 6, 'D': 6, 'G': 2}
+    num_slots = slot_counts.get(position, 6)
+    
+    # Get all roster entries for this team's league at this week
+    from django.db.models import Q
+    roster_entries = Roster.objects.filter(
+        team=team,
+        player__position=position,
+        week_dropped__isnull=True  # Current roster
+    ).select_related('player').order_by('slot_number')
+    
+    # Build slot list
+    slots = []
+    occupied_slots = set()
+    
+    for entry in roster_entries:
+        if entry.slot_number and entry.slot_number <= num_slots:
+            occupied_slots.add(entry.slot_number)
+            slots.append({
+                'slot': entry.slot_number,
+                'player_id': entry.player.id,
+                'player_name': f"{entry.player.last_name}, {entry.player.first_name}",
+                'is_current': str(entry.player.id) == current_player_id,
+                'is_empty': False
+            })
+    
+    # Add empty slots
+    for slot_num in range(1, num_slots + 1):
+        if slot_num not in occupied_slots:
+            slots.append({
+                'slot': slot_num,
+                'player_id': None,
+                'player_name': 'Empty',
+                'is_current': False,
+                'is_empty': True
+            })
+    
+    # Sort by slot number
+    slots.sort(key=lambda x: x['slot'])
+    
+    return JsonResponse({'slots': slots})

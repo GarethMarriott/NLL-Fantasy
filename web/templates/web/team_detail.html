@@ -927,49 +927,52 @@
       const title = document.getElementById('positionMoveTitle');
       const menu = document.getElementById('positionMoveMenu');
       
-      console.log('Modal element:', modal);
+      title.textContent = `Swap ${playerName} (${currentPosition})`;
+      menu.innerHTML = '<p class="text-gray-600 text-sm">Loading available slots...</p>';
       
-      title.textContent = `Move ${playerName}`;
-      menu.innerHTML = '';
+      // Fetch available slots from backend
+      const teamId = new URL(window.location.href).pathname.split('/')[2];
+      const weekNum = new URL(window.location.href).searchParams.get('week') || 1;
       
-      // Define valid target positions based on current position
-      const validTargets = {
-        'O': ['O', 'D', 'G'],  // Offense can move to any position (including swap with other O slots)
-        'D': ['O', 'D', 'G'],  // Defense can move to any position (including swap with other D slots)
-        'G': ['O', 'D', 'G'],  // Goalie can move to any position (including swap with other G slots)
-        'T': ['O', 'D', 'G']  // Transition can move to any position
-      };
-      
-      const targets = validTargets[currentPosition] || [];
-      console.log('Valid targets for position ' + currentPosition + ':', targets);
-      
-      if (targets.length === 0) {
-        menu.innerHTML = '<p class="text-gray-600 text-sm">This player cannot be moved.</p>';
-      } else {
-        targets.forEach(target => {
-          const targetNames = {'O': 'Offense', 'D': 'Defense', 'G': 'Goalie'};
-          const targetColors = {'O': 'bg-green-100 hover:bg-green-200', 'D': 'bg-orange-100 hover:bg-orange-200', 'G': 'bg-blue-100 hover:bg-blue-200'};
-          const targetBadgeColors = {'O': 'bg-green-100 text-green-800', 'D': 'bg-orange-100 text-orange-800', 'G': 'bg-blue-100 text-blue-800'};
+      fetch(`/teams/${teamId}/available-slots/?position=${currentPosition}&week=${weekNum}&current_player_id=${playerId}`)
+        .then(response => response.json())
+        .then(data => {
+          menu.innerHTML = '';
           
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = `w-full px-4 py-2 text-left text-sm font-medium transition-colors ${targetColors[target]} rounded mb-2`;
-          button.innerHTML = `<span class="inline-block px-2 py-1 ${targetBadgeColors[target]} rounded text-xs font-semibold mr-2">${target}</span> Move to ${targetNames[target]}`;
+          if (!data.slots || data.slots.length === 0) {
+            menu.innerHTML = '<p class="text-gray-600 text-sm">No slots available.</p>';
+            return;
+          }
           
-          button.onclick = (e) => {
-            console.log('Move button clicked for target:', target);
-            submitPositionMove(playerId, target);
-          };
-          
-          menu.appendChild(button);
+          data.slots.forEach(slot => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `w-full px-4 py-2 text-left text-sm font-medium transition-colors rounded mb-2 ${
+              slot.is_current 
+                ? 'bg-gray-200 cursor-not-allowed text-gray-600' 
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`;
+            
+            if (slot.is_current) {
+              button.disabled = true;
+              button.innerHTML = `<span class="inline-block px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs font-semibold mr-2">Slot ${slot.slot}</span> ${slot.player_name} (current)`;
+            } else if (slot.is_empty) {
+              button.innerHTML = `<span class="inline-block px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs font-semibold mr-2">Slot ${slot.slot}</span> Empty`;
+              button.onclick = () => submitPositionMove(playerId, slot.slot, true);
+            } else {
+              button.innerHTML = `<span class="inline-block px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs font-semibold mr-2">Slot ${slot.slot}</span> Swap with ${slot.player_name}`;
+              button.onclick = () => submitPositionMove(playerId, slot.slot, false);
+            }
+            
+            menu.appendChild(button);
+          });
+        })
+        .catch(error => {
+          console.error('Error fetching slots:', error);
+          menu.innerHTML = '<p class="text-red-600 text-sm">Error loading slots.</p>';
         });
-      }
       
-      console.log('Showing modal...');
-      console.log('Modal before:', modal.style.display);
       modal.style.display = 'flex';
-      console.log('Modal after:', modal.style.display);
-      console.log('Modal computed:', window.getComputedStyle(modal).display);
     }
     
     function closePositionMoveModal() {
@@ -977,10 +980,10 @@
       modal.style.display = 'none';
     }
     
-    function submitPositionMove(playerId, targetPosition) {
+    function submitPositionMove(playerId, targetSlot, isEmpty) {
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = '/teams/{{ team.id }}/move-transition/';
+      form.action = '/teams/{{ team.id }}/assign-player/';
       
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
       const csrfInput = document.createElement('input');
@@ -995,11 +998,17 @@
       playerInput.value = playerId;
       form.appendChild(playerInput);
       
-      const targetInput = document.createElement('input');
-      targetInput.type = 'hidden';
-      targetInput.name = 'target_side';
-      targetInput.value = targetPosition;
-      form.appendChild(targetInput);
+      const slotInput = document.createElement('input');
+      slotInput.type = 'hidden';
+      slotInput.name = 'target_slot';
+      slotInput.value = targetSlot;
+      form.appendChild(slotInput);
+      
+      const actionInput = document.createElement('input');
+      actionInput.type = 'hidden';
+      actionInput.name = 'action';
+      actionInput.value = isEmpty ? 'move_to_empty_slot' : 'swap_slots';
+      form.appendChild(actionInput);
       
       closePositionMoveModal();
       document.body.appendChild(form);
