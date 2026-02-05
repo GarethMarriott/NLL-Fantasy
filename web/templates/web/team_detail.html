@@ -959,20 +959,20 @@
           data.slots.forEach(slot => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = `w-full px-4 py-2 text-left text-sm font-medium transition-colors rounded mb-2 ${
+            button.style.cssText = `width: 100% !important; padding: 8px 16px !important; text-align: left !important; font-size: 14px !important; font-weight: 500 !important; border-radius: 4px !important; margin-bottom: 8px !important; border: none !important; cursor: pointer !important; height: 44px !important; display: flex !important; align-items: center !important; ${
               slot.is_current 
-                ? 'bg-gray-200 cursor-not-allowed text-gray-600' 
-                : 'bg-gray-100 hover:bg-gray-200'
+                ? 'background-color: #e5e7eb !important; cursor: not-allowed !important; color: #666 !important;' 
+                : 'background-color: #f3f4f6 !important; color: #333 !important;'
             }`;
             
             if (slot.is_current) {
               button.disabled = true;
-              button.innerHTML = `<span class="inline-block px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs font-semibold mr-2">Slot ${slot.slot}</span> ${slot.player_name} (current)`;
+              button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> ${slot.player_name} (current)`;
             } else if (slot.is_empty) {
-              button.innerHTML = `<span class="inline-block px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs font-semibold mr-2">Slot ${slot.slot}</span> Empty`;
+              button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> Empty`;
               button.onclick = () => submitPositionMove(playerId, slot.slot, true);
             } else {
-              button.innerHTML = `<span class="inline-block px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs font-semibold mr-2">Slot ${slot.slot}</span> Swap with ${slot.player_name}`;
+              button.innerHTML = `<span style="display: inline-block; padding: 2px 8px; background-color: #d1d5db !important; color: #374151 !important; border-radius: 3px !important; font-size: 12px !important; font-weight: 600 !important; margin-right: 8px !important;">Slot ${slot.slot}</span> Swap with ${slot.player_name}`;
               button.onclick = () => submitPositionMove(playerId, slot.slot, false);
             }
             
@@ -1066,12 +1066,12 @@
 
 <!-- Position Move Modal -->
 <div id="positionMoveModal" style="display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background-color: rgba(0, 0, 0, 0.5) !important; z-index: 9999 !important; justify-content: center !important; align-items: center !important; visibility: visible !important; flex-wrap: wrap !important;" onclick="if(event.target.id === 'positionMoveModal') closePositionMoveModal();">
-  <div style="background: white !important; border-radius: 8px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; padding: 24px !important; max-width: 400px !important; width: 90% !important; z-index: 10000 !important; max-height: 80vh !important; overflow-y: auto !important;">
+  <div style="background: white !important; border-radius: 8px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; padding: 24px !important; max-width: 400px !important; width: 90% !important; z-index: 10000 !important; max-height: 80vh !important; overflow-y: auto !important; height: auto !important; min-height: 200px !important;">
     <div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 16px !important;">
       <h3 id="positionMoveTitle" style="font-size: 18px !important; font-weight: 600 !important; color: #1f2937 !important; margin: 0 !important;">Move Player</h3>
-      <button onclick="closePositionMoveModal()" style="background: none !important; border: none !important; color: #9ca3af !important; font-size: 28px !important; cursor: pointer !important; padding: 0 !important;">×</button>
+      <button onclick="closePositionMoveModal()" style="background: none !important; border: none !important; color: #9ca3af !important; font-size: 28px !important; cursor: pointer !important; padding: 0 !important; height: 32px !important; width: 32px !important; flex-shrink: 0 !important;">×</button>
     </div>
-    <div id="positionMoveMenu" style="display: flex !important; flex-direction: column !important; gap: 8px !important;">
+    <div id="positionMoveMenu" style="display: flex !important; flex-direction: column !important; gap: 8px !important; min-height: 100px !important;">
       <!-- Options will be inserted here by JavaScript -->
     </div>
   </div>
