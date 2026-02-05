@@ -966,14 +966,12 @@
       }
       
       console.log('Showing modal...');
-      modal.classList.remove('hidden');
-      modal.classList.remove('pointer-events-none');
+      modal.style.display = 'flex';
     }
     
     function closePositionMoveModal() {
       const modal = document.getElementById('positionMoveModal');
-      modal.classList.add('hidden');
-      modal.classList.add('pointer-events-none');
+      modal.style.display = 'none';
     }
     
     function submitPositionMove(playerId, targetPosition) {
@@ -1036,8 +1034,8 @@
   </script>
 
 <!-- Position Move Modal -->
-<div id="positionMoveModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center pointer-events-none">
-  <div class="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-auto pointer-events-auto">
+<div id="positionMoveModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" style="display: none;">
+  <div class="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-auto">
     <div class="flex justify-between items-center mb-4">
       <h3 id="positionMoveTitle" class="text-lg font-semibold text-gray-800">Move Player</h3>
       <button onclick="closePositionMoveModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
