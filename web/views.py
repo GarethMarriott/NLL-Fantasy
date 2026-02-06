@@ -1134,20 +1134,12 @@ def assign_player(request, team_id):
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
     
     if action == "swap_slots":
-        # Swap a player to another slot (only for traditional leagues)
+        # Swap a player to another slot (for traditional leagues)
         target_slot = request.POST.get("target_slot")  # Can be a player ID or a slot designation like "O1", "D2", etc.
         
         import logging
         logger = logging.getLogger('django')
         logger.warning(f"SWAP_SLOTS START: playerId={player_id}, targetSlot={target_slot}, league_format={team.league.roster_format}")
-        
-        # Only allow swaps in traditional leagues
-        if team.league.roster_format != 'traditional':
-            logger.warning(f"SWAP_SLOTS: Swap not allowed in {team.league.roster_format} league")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': 'Player swaps only available in traditional leagues.'}, status=400)
-            messages.error(request, "Player swaps only available in traditional leagues.")
-            return redirect("team_detail", team_id=team.id)
         
         # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
@@ -1181,12 +1173,15 @@ def assign_player(request, team_id):
                 messages.error(request, "Target player not found on roster.")
                 return redirect("team_detail", team_id=team.id)
             
-            # Swap their slot assignments
-            logger.warning(f"SWAP_SLOTS: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
-            player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
-            player_roster.save()
-            target_roster.save()
-            logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            # Only swap slot assignments for traditional leagues
+            if team.league.roster_format == 'traditional':
+                logger.warning(f"SWAP_SLOTS: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+                player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
+                player_roster.save()
+                target_roster.save()
+                logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            else:
+                logger.warning(f"SWAP_SLOTS: Best ball league - swap allowed but slot_assignment not changed")
             
             # If AJAX request, return JSON so page can update without full reload
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1204,22 +1199,25 @@ def assign_player(request, team_id):
             
         except (Player.DoesNotExist, ValueError, TypeError):
             # Target is a slot designation (empty slot), not a player ID
-            # Just update the moving player's slot assignment
-            old_slot = player_roster.slot_assignment
-            logger.warning(f"SWAP_SLOTS (as move): Moving player from {old_slot} to {target_slot}")
-            player_roster.slot_assignment = target_slot
-            player_roster.save()
-            
-            # If player is a Transition player, update assigned_side based on target slot
-            if player.position == 'T':
-                if 'starter_o' in target_slot:
-                    player.assigned_side = 'O'
-                elif 'starter_d' in target_slot:
-                    player.assigned_side = 'D'
-                elif 'starter_g' in target_slot:
-                    player.assigned_side = 'G'
-                player.save()
-                logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
+            # Just update the moving player's slot assignment (for traditional leagues only)
+            if team.league.roster_format == 'traditional':
+                old_slot = player_roster.slot_assignment
+                logger.warning(f"SWAP_SLOTS (as move): Moving player from {old_slot} to {target_slot}")
+                player_roster.slot_assignment = target_slot
+                player_roster.save()
+                
+                # If player is a Transition player, update assigned_side based on target slot
+                if player.position == 'T':
+                    if 'starter_o' in target_slot:
+                        player.assigned_side = 'O'
+                    elif 'starter_d' in target_slot:
+                        player.assigned_side = 'D'
+                    elif 'starter_g' in target_slot:
+                        player.assigned_side = 'G'
+                    player.save()
+                    logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
+            else:
+                logger.warning(f"SWAP_SLOTS (as move): Best ball league - move allowed but slot_assignment not changed")
             
             logger.warning(f"SWAP_SLOTS (as move): After save - player now in {player_roster.slot_assignment}")
             
@@ -1228,27 +1226,19 @@ def assign_player(request, team_id):
                 logger.warning(f"SWAP_SLOTS (as move): Returning JSON response - success")
                 return JsonResponse({
                     'success': True,
-                    'message': f"Moved {player.last_name} to {target_slot}",
+                    'message': f"Moved {player.last_name}",
                     'player_id': player.id,
                     'player_slot': player_roster.slot_assignment
                 })
             
-            messages.success(request, f"Moved {player.last_name} to {target_slot}")
+            messages.success(request, f"Moved {player.last_name}")
     
     if action == "move_to_empty_slot":
-        # Move a player to an empty slot (only for traditional leagues)
+        # Move a player to an empty slot (for traditional leagues)
         target_slot = request.POST.get("target_slot")  # Slot designation like "starter_o1", "starter_d2", etc.
         import logging
         logger = logging.getLogger('django')
         logger.warning(f"MOVE_TO_EMPTY_SLOT START: player={player.last_name}, target_slot={target_slot}, league_format={team.league.roster_format}")
-        
-        # Only allow moves in traditional leagues
-        if team.league.roster_format != 'traditional':
-            logger.warning(f"MOVE_TO_EMPTY_SLOT: Move not allowed in {team.league.roster_format} league")
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': 'Player moves only available in traditional leagues.'}, status=400)
-            messages.error(request, "Player moves only available in traditional leagues.")
-            return redirect("team_detail", team_id=team.id)
         
         # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
@@ -1265,22 +1255,25 @@ def assign_player(request, team_id):
             messages.error(request, "Player not found on roster.")
             return redirect("team_detail", team_id=team.id)
         
-        # Move the player to the target slot
-        old_slot = player_roster.slot_assignment
-        logger.warning(f"MOVE_TO_EMPTY_SLOT: Before save - {player.last_name} from {old_slot} to {target_slot}")
-        player_roster.slot_assignment = target_slot
-        player_roster.save()
-        
-        # If player is a Transition player, update assigned_side based on target slot
-        if player.position == 'T':
-            if 'starter_o' in target_slot:
-                player.assigned_side = 'O'
-            elif 'starter_d' in target_slot:
-                player.assigned_side = 'D'
-            elif 'starter_g' in target_slot:
-                player.assigned_side = 'G'
-            player.save()
-            logger.warning(f"MOVE_TO_EMPTY_SLOT: Updated transition player assigned_side to {player.assigned_side}")
+        # Only update slot_assignment for traditional leagues
+        if team.league.roster_format == 'traditional':
+            old_slot = player_roster.slot_assignment
+            logger.warning(f"MOVE_TO_EMPTY_SLOT: Before save - {player.last_name} from {old_slot} to {target_slot}")
+            player_roster.slot_assignment = target_slot
+            player_roster.save()
+            
+            # If player is a Transition player, update assigned_side based on target slot
+            if player.position == 'T':
+                if 'starter_o' in target_slot:
+                    player.assigned_side = 'O'
+                elif 'starter_d' in target_slot:
+                    player.assigned_side = 'D'
+                elif 'starter_g' in target_slot:
+                    player.assigned_side = 'G'
+                player.save()
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Updated transition player assigned_side to {player.assigned_side}")
+        else:
+            logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - move allowed but slot_assignment not changed")
         
         logger.warning(f"MOVE_TO_EMPTY_SLOT: After save - {player.last_name} now in {player_roster.slot_assignment}")
         
@@ -1289,12 +1282,12 @@ def assign_player(request, team_id):
             logger.warning(f"MOVE_TO_EMPTY_SLOT: Returning JSON response - success")
             return JsonResponse({
                 'success': True,
-                'message': f"Moved {player.last_name} to {target_slot}",
+                'message': f"Moved {player.last_name}",
                 'player_id': player.id,
                 'player_slot': player_roster.slot_assignment
             })
         
-        messages.success(request, f"Moved {player.last_name} to {target_slot}")
+        messages.success(request, f"Moved {player.last_name}")
 
 
     return redirect("team_detail", team_id=team.id)

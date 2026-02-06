@@ -915,12 +915,6 @@
     function handlePositionBadgeClick(playerId, playerName, currentPosition) {
       event.stopPropagation();
       console.log('Position badge clicked!', {playerId, playerName, currentPosition});
-      // Only show move modal for traditional leagues
-      const isTraditional = {{ is_traditional|lower }};
-      if (!isTraditional) {
-        alert('Player moves are only available in traditional format leagues.');
-        return;
-      }
       showPositionMoveModal(playerId, playerName, currentPosition);
     }
     // Position move modal - for clicking on position badges
