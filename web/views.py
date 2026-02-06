@@ -4664,7 +4664,8 @@ def get_available_slots(request, team_id):
             if 'bench' not in response_data['empty_slot_options']:
                 response_data['empty_slot_options']['Bench'] = ['bench']
         
-        print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options")
+        print(f"DEBUG: Returning response_data: {response_data}")
+        print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options, empty_slot_options={response_data.get('empty_slot_options', {})}")
         return JsonResponse(response_data)
     
     except Exception as e:
