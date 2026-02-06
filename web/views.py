@@ -863,7 +863,10 @@ def assign_player(request, team_id):
     # Get action early to check if it's a drop (which bypasses waiver redirect)
     action = request.POST.get("action")
     player_id = request.POST.get("player_id")
-    print(f"DEBUG assign_player: action={action}, player_id={player_id}")
+    
+    import logging
+    logger = logging.getLogger('django')
+    logger.warning(f"ASSIGN_PLAYER VIEW: action={action}, player_id={player_id}, method={request.method}")
     
     if not player_id:
         messages.error(request, "No player specified.")
@@ -1134,7 +1137,9 @@ def assign_player(request, team_id):
         # Swap a player to another slot (which may be occupied by another player or empty)
         target_slot = request.POST.get("target_slot")  # Can be a player ID or a slot designation like "O1", "D2", etc.
         
-        print(f"DEBUG swap_slots: playerId={player_id}, targetSlot={target_slot}")
+        import logging
+        logger = logging.getLogger('django')
+        logger.warning(f"SWAP_SLOTS START: playerId={player_id}, targetSlot={target_slot}")
         
         # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
@@ -1145,7 +1150,7 @@ def assign_player(request, team_id):
         ).first()
         
         if not player_roster:
-            print(f"DEBUG: Player roster entry not found")
+            logger.warning(f"SWAP_SLOTS: Player roster entry not found")
             messages.error(request, "Player not found on roster.")
             return redirect("team_detail", team_id=team.id)
         
@@ -1164,19 +1169,20 @@ def assign_player(request, team_id):
             ).first()
             
             if not target_roster:
-                print(f"DEBUG: Target player not found on roster")
+                logger.warning(f"SWAP_SLOTS: Target player not found on roster")
                 messages.error(request, "Target player not found on roster.")
                 return redirect("team_detail", team_id=team.id)
             
             # Swap their slot assignments
-            print(f"DEBUG: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            logger.warning(f"SWAP_SLOTS: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
             player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
             player_roster.save()
             target_roster.save()
-            print(f"DEBUG: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
             
             # If AJAX request, return JSON so page can update without full reload
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                logger.warning(f"SWAP_SLOTS: Returning JSON response - success")
                 return JsonResponse({
                     'success': True,
                     'message': f"Swapped {player.last_name} and {target_player.last_name}",
@@ -1192,12 +1198,14 @@ def assign_player(request, team_id):
             # Target is a slot designation (empty slot), not a player ID
             # Just update the moving player's slot assignment
             old_slot = player_roster.slot_assignment
+            logger.warning(f"SWAP_SLOTS (as move): Moving player from {old_slot} to {target_slot}")
             player_roster.slot_assignment = target_slot
             player_roster.save()
-            print(f"DEBUG: Moved player from slot {old_slot} to slot {target_slot}")
+            logger.warning(f"SWAP_SLOTS (as move): After save - player now in {player_roster.slot_assignment}")
             
             # If AJAX request, return JSON
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                logger.warning(f"SWAP_SLOTS (as move): Returning JSON response - success")
                 return JsonResponse({
                     'success': True,
                     'message': f"Moved {player.last_name} to {target_slot}",
@@ -1210,7 +1218,9 @@ def assign_player(request, team_id):
     if action == "move_to_empty_slot":
         # Move a player to an empty slot
         target_slot = request.POST.get("target_slot")  # Slot designation like "starter_o1", "starter_d2", etc.
-        print(f"DEBUG move_to_empty_slot: player={player.last_name}, target_slot={target_slot}")
+        import logging
+        logger = logging.getLogger('django')
+        logger.warning(f"MOVE_TO_EMPTY_SLOT START: player={player.last_name}, target_slot={target_slot}")
         
         # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
@@ -1221,6 +1231,7 @@ def assign_player(request, team_id):
         ).first()
         
         if not player_roster:
+            logger.warning(f"MOVE_TO_EMPTY_SLOT: Player roster entry not found for {player.last_name}")
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': False, 'error': 'Player not found on roster.'}, status=400)
             messages.error(request, "Player not found on roster.")
@@ -1228,12 +1239,14 @@ def assign_player(request, team_id):
         
         # Move the player to the target slot
         old_slot = player_roster.slot_assignment
+        logger.warning(f"MOVE_TO_EMPTY_SLOT: Before save - {player.last_name} from {old_slot} to {target_slot}")
         player_roster.slot_assignment = target_slot
         player_roster.save()
-        print(f"DEBUG: Moved {player.last_name} from {old_slot} to {target_slot}")
+        logger.warning(f"MOVE_TO_EMPTY_SLOT: After save - {player.last_name} now in {player_roster.slot_assignment}")
         
         # If AJAX request, return JSON
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            logger.warning(f"MOVE_TO_EMPTY_SLOT: Returning JSON response - success")
             return JsonResponse({
                 'success': True,
                 'message': f"Moved {player.last_name} to {target_slot}",
