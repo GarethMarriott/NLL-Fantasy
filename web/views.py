@@ -4600,15 +4600,36 @@ def get_available_slots(request, team_id):
                             pass
                 
                 # Find empty slots for this type
+                # But only show them if this is the same slot type OR if moving to this type won't exceed capacity
                 empty_slots = []
-                for i in range(1, num_slots + 1):
-                    if i not in filled_slot_numbers:
-                        if slot_type == 'G':
-                            slot_designation = 'starter_g'
-                        else:
-                            slot_designation = f"{slot_prefix}{i}"
-                        empty_slots.append(slot_designation)
-                        print(f"    Empty slot: {slot_designation}")
+                
+                # If moving to a different position type (e.g., T in D moving to O), check capacity
+                if slot_type != current_slot_type:
+                    # Count players currently assigned to this position type
+                    filled_by_position = roster_in_slots.count()
+                    if filled_by_position < num_slots:
+                        # Only show empty slots if not at capacity
+                        for i in range(1, num_slots + 1):
+                            if i not in filled_slot_numbers:
+                                if slot_type == 'G':
+                                    slot_designation = 'starter_g'
+                                else:
+                                    slot_designation = f"{slot_prefix}{i}"
+                                empty_slots.append(slot_designation)
+                                print(f"    Empty slot: {slot_designation}")
+                        print(f"  {slot_type} has capacity ({filled_by_position}/{num_slots}), showing empty slots")
+                    else:
+                        print(f"  {slot_type} at capacity ({filled_by_position}/{num_slots}), hiding empty slots")
+                else:
+                    # Same position type - always show empty slots (swaps within position don't increase total)
+                    for i in range(1, num_slots + 1):
+                        if i not in filled_slot_numbers:
+                            if slot_type == 'G':
+                                slot_designation = 'starter_g'
+                            else:
+                                slot_designation = f"{slot_prefix}{i}"
+                            empty_slots.append(slot_designation)
+                            print(f"    Empty slot: {slot_designation}")
                 
                 response_data['empty_slot_options'][slot_type] = empty_slots
             
