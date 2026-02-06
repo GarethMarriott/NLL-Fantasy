@@ -617,22 +617,6 @@
                   </div>
                   {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
                 </div>
-                {% if user_owns_team %}
-                <div class="flex flex-col gap-0.5 flex-shrink-0">
-                  <form method="post" action="{% url 'assign_player' team.id %}" class="inline w-full">
-                    {% csrf_token %}
-                    <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                    <input type="hidden" name="action" value="drop">
-                    <button type="submit"
-                            {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                            onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', null, this.closest('form'));{% endif %} return false;"
-                            class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
-                      <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-                      </svg>
-                    </button>
-                  </form>
-                </div>
                 {% endif %}
             </td>
             <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
