@@ -489,8 +489,10 @@ def team_detail(request, team_id):
     # Create a mapping of player_id to slot_assignment
     player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
     
-    # Check if this league uses starter slots (traditional and some hybrid leagues)
-    has_starter_slots = any(slot.startswith('starter_') for slot in player_to_slot.values())
+    # Check if this league uses starter slots (traditional leagues only)
+    # Best ball leagues should NEVER use starter slots, even if somehow a player has one assigned
+    is_traditional = league.roster_format == 'traditional' if hasattr(league, 'roster_format') else False
+    has_starter_slots = is_traditional and any(slot.startswith('starter_') for slot in player_to_slot.values())
     
     if has_starter_slots:
         # Reorder pools by slot assignment for leagues with starter slots
@@ -582,7 +584,6 @@ def team_detail(request, team_id):
             bench_slots.append(None)
 
     # Mark starter status based on slot assignment for all league types
-    is_traditional = league.roster_format == 'traditional'
     for slot_group in [offence_slots, defence_slots, goalie_slots]:
         for slot in slot_group:
             if slot:
