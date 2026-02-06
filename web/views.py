@@ -727,6 +727,16 @@ def team_detail(request, team_id):
     # Check if team is over roster limit
     current_roster_count, is_over_limit = team.is_over_roster_limit()
     roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
+    
+    # Calculate position-specific capacity for UI display
+    position_capacities = {}
+    for position in ['O', 'D', 'G']:
+        can_add, current_count, max_slots = check_roster_capacity(team, position)
+        position_capacities[position] = {
+            'current': current_count,
+            'max': max_slots,
+            'is_full': not can_add
+        }
 
     return render(
         request,
@@ -759,6 +769,7 @@ def team_detail(request, team_id):
             "is_over_roster_limit": is_over_limit,
             "current_roster_count": current_roster_count,
             "roster_limit": roster_limit,
+            "position_capacities": position_capacities,
         },
     )
 
@@ -1255,6 +1266,29 @@ def assign_player(request, team_id):
                 return JsonResponse({'success': False, 'error': 'Player not found on roster.'}, status=400)
             messages.error(request, "Player not found on roster.")
             return redirect("team_detail", team_id=team.id)
+        
+        # Check if target position is full (exclude current player from capacity count)
+        # Determine target position group from target_slot
+        target_position = None
+        if team.league.roster_format == 'traditional':
+            if 'starter_o' in target_slot:
+                target_position = 'O'
+            elif 'starter_d' in target_slot:
+                target_position = 'D'
+            elif 'starter_g' in target_slot:
+                target_position = 'G'
+        else:  # best ball
+            if target_slot in ['O', 'D', 'G']:
+                target_position = target_slot
+        
+        # Check capacity for target position (excluding current player)
+        if target_position:
+            can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, target_position, exclude_player=player)
+            if not can_add:
+                position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(target_position, 'Unknown')
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: {position_name} slots are full for {player.last_name}")
+                messages.error(request, f"Cannot move {player.first_name} {player.last_name} - {position_name} slots are full ({current_pos_count}/{max_pos_slots} spots).")
+                return redirect("team_detail", team_id=team.id)
         
         # Handle traditional league moves (update slot_assignment)
         if team.league.roster_format == 'traditional':
