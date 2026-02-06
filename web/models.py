@@ -127,6 +127,12 @@ class League(models.Model):
         help_text="Semifinal matchup: 1 seed plays winner of 3 vs 6 (fixed) or lowest remaining seed (reseed)"
     )
     
+    # Transition Player Rules
+    allow_transition_in_goalies = models.BooleanField(
+        default=False,
+        help_text="Allow Transition (T) players to be placed in Goalie (G) roster slots"
+    )
+    
     # Custom Scoring Settings
     scoring_goals = models.DecimalField(
         max_digits=5, decimal_places=2, default=4.00,

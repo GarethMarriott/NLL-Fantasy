@@ -1265,6 +1265,12 @@ def assign_player(request, team_id):
             
             # If player is a Transition player, update assigned_side based on target slot
             if player.position == 'T':
+                # Check if transition player is being moved to goalie slot
+                if 'starter_g' in target_slot and not team.league.allow_transition_in_goalies:
+                    logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
+                    messages.error(request, "This league does not allow Transition players in Goalie slots")
+                    return redirect("team_detail", team_id=team.id)
+                
                 if 'starter_o' in target_slot:
                     player.assigned_side = 'O'
                 elif 'starter_d' in target_slot:
@@ -1275,10 +1281,17 @@ def assign_player(request, team_id):
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: Updated transition player assigned_side to {player.assigned_side}")
         # Handle best ball league moves (update assigned_side for position moves)
         else:
-            if player.position == 'T' and target_slot in ['O', 'D', 'G']:
-                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - updating assigned_side to {target_slot}")
-                player.assigned_side = target_slot
-                player.save()
+            if player.position == 'T':
+                # Check if transition player is being moved to goalie slot
+                if target_slot == 'G' and not team.league.allow_transition_in_goalies:
+                    logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
+                    messages.error(request, "This league does not allow Transition players in Goalie slots")
+                    return redirect("team_detail", team_id=team.id)
+                
+                if target_slot in ['O', 'D', 'G']:
+                    logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - updating assigned_side to {target_slot}")
+                    player.assigned_side = target_slot
+                    player.save()
             else:
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - no changes needed")
         

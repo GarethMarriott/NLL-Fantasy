@@ -90,7 +90,7 @@ class LeagueSettingsForm(forms.ModelForm):
         fields = [
             'name', 'description', 'max_teams', 'is_public',
             'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'taxi_squad_size',
-            'playoff_teams', 'playoff_reseed', 'use_waivers',
+            'playoff_teams', 'playoff_reseed', 'use_waivers', 'allow_transition_in_goalies',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
             'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers',
@@ -128,6 +128,7 @@ class LeagueSettingsForm(forms.ModelForm):
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'playoff_reseed': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'use_waivers': forms.CheckboxInput(attrs={'class': 'rounded'}),
+            'allow_transition_in_goalies': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'multigame_scoring': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'scoring_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
