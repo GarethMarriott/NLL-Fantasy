@@ -4587,47 +4587,26 @@ def get_available_slots(request, team_id):
                     if g_count < league.roster_goalies:
                         response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
             else:
-                # For redraft best ball leagues, check league-configured position capacity limits
-                print(f"DEBUG best ball (redraft): checking league position limits", file=sys.stderr)
-                
-                # Count O position players: pure O players + T players assigned to O
-                o_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                    Q(player__position='O') | Q(player__position='T', player__assigned_side='O')
-                ).count()
-                
-                # Count D position players: pure D players + T players assigned to D
-                d_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                    Q(player__position='D') | Q(player__position='T', player__assigned_side='D')
-                ).count()
-                
-                # Count G position players: pure G players + T players assigned to G
-                g_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                    Q(player__position='G') | Q(player__position='T', player__assigned_side='G')
-                ).count()
-                
-                print(f"DEBUG best ball (redraft): o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
-                
+                # For redraft best ball leagues, show all position moves without capacity restrictions
+                # Redraft leagues don't enforce position-based roster limits
+                # (3-3-1 is only for scoring, not roster capacity)
+                print(f"DEBUG best ball (redraft): allowing all position moves", file=sys.stderr)
                 if player_position == 'T':
-                    # T players can move to O, D, or G - but check league's position limits
-                    if o_count < league.roster_forwards:
-                        response_data['empty_slot_options']['O'] = ['O']
-                    if d_count < league.roster_defense:
-                        response_data['empty_slot_options']['D'] = ['D']
-                    if g_count < league.roster_goalies and league.allow_transition_in_goalies:
+                    # T players can move to O, D, or G - but check if league allows T in G slots
+                    response_data['empty_slot_options']['O'] = ['O']
+                    response_data['empty_slot_options']['D'] = ['D']
+                    if league.allow_transition_in_goalies:
                         response_data['empty_slot_options']['G'] = ['G']
-                    print(f"    T player: O={o_count}/{league.roster_forwards}, D={d_count}/{league.roster_defense}, G={g_count}/{league.roster_goalies}", file=sys.stderr)
+                    print(f"    Added O, D slot options for T player, G={'included' if league.allow_transition_in_goalies else 'excluded'}", file=sys.stderr)
                 elif player_position == 'O':
-                    # O players can stay in O position if there's an empty slot
-                    if o_count < league.roster_forwards:
-                        response_data['empty_slot_options']['O'] = ['O']
+                    # O players can stay in O position
+                    response_data['empty_slot_options']['O'] = ['O']
                 elif player_position == 'D':
-                    # D players can stay in D position if there's an empty slot
-                    if d_count < league.roster_defense:
-                        response_data['empty_slot_options']['D'] = ['D']
+                    # D players can stay in D position
+                    response_data['empty_slot_options']['D'] = ['D']
                 elif player_position == 'G':
-                    # G players can stay in G position if there's an empty slot
-                    if g_count < league.roster_goalies:
-                        response_data['empty_slot_options']['G'] = ['G']
+                    # G players can stay in G position
+                    response_data['empty_slot_options']['G'] = ['G']
         else:
             # For traditional leagues, find starter slots
             # Only show swap options for players in the SAME slot type (same position)
