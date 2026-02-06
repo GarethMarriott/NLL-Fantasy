@@ -4491,22 +4491,23 @@ def get_available_slots(request, team_id):
             
             # For best ball, also show "empty slot" options for eligible positions
             # Count players currently assigned to each position (excluding the current player)
-            # For T players, their assigned_side might be 'O', 'D', 'G', or None
+            # Need to count both base position (O, D, G) AND T players assigned to that position
             # Capacity: 3 for O, 3 for D, 1 for G
             
-            # Count O position players (including T players assigned to O)
+            # Count O position players: pure O players + T players assigned to O
+            from django.db.models import Q
             o_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                player__assigned_side='O'
+                Q(player__position='O') | Q(player__position='T', player__assigned_side='O')
             ).count()
             
-            # Count D position players (including T players assigned to D) 
+            # Count D position players: pure D players + T players assigned to D
             d_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                player__assigned_side='D'
+                Q(player__position='D') | Q(player__position='T', player__assigned_side='D')
             ).count()
             
-            # Count G position players (including T players assigned to G)
+            # Count G position players: pure G players + T players assigned to G
             g_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                player__assigned_side='G'
+                Q(player__position='G') | Q(player__position='T', player__assigned_side='G')
             ).count()
             
             
