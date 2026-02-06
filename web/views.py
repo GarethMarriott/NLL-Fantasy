@@ -4428,7 +4428,8 @@ def get_available_slots(request, team_id):
         # Get the league for roster info
         league = team.league
         is_best_ball = league.roster_format == 'bestball'
-        print(f"DEBUG: get_available_slots called - league={league.name}, is_best_ball={is_best_ball}, current_player_id={current_player_id}", file=sys.stderr)
+        is_dynasty = league.league_type == 'dynasty' if hasattr(league, 'league_type') else False
+        print(f"DEBUG: get_available_slots called - league={league.name}, is_best_ball={is_best_ball}, is_dynasty={is_dynasty}, current_player_id={current_player_id}", file=sys.stderr)
         
         # First, get the current player to determine what positions they can fill
         current_player = Player.objects.get(id=current_player_id)
@@ -4460,7 +4461,7 @@ def get_available_slots(request, team_id):
         ).select_related('player')
         
         if is_best_ball:
-            print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}", file=sys.stderr)
+            print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}, is_dynasty={is_dynasty}", file=sys.stderr)
             # For best ball leagues, list players that can be swapped based on position compatibility
             # T players can ONLY swap with other T players
             # O players can swap with O and T players
@@ -4493,53 +4494,73 @@ def get_available_slots(request, team_id):
                     })
             
             # For best ball, also show "empty slot" options for eligible positions
-            # Count players currently assigned to each position (excluding the current player)
-            # Need to count both base position (O, D, G) AND T players assigned to that position
-            # Capacity: 3 for O, 3 for D, 1 for G
-            
-            # Count O position players: pure O players + T players assigned to O
-            from django.db.models import Q
-            o_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                Q(player__position='O') | Q(player__position='T', player__assigned_side='O')
-            ).count()
-            
-            # Count D position players: pure D players + T players assigned to D
-            d_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                Q(player__position='D') | Q(player__position='T', player__assigned_side='D')
-            ).count()
-            
-            # Count G position players: pure G players + T players assigned to G
-            g_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                Q(player__position='G') | Q(player__position='T', player__assigned_side='G')
-            ).count()
-            
-            
-            print(f"DEBUG best ball: player_position={player_position}, o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
-            
-            if player_position == 'T':
-                # T players can move to O, D, or G positions - show options only if there are empty slots
-                print(f"  T player: checking O({o_count}<3), D({d_count}<3), G({g_count}<1)", file=sys.stderr)
-                if o_count < 3:
-                    response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
-                    print(f"    Added O slot option", file=sys.stderr)
-                if d_count < 3:
-                    response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
-                    print(f"    Added D slot option", file=sys.stderr)
-                if g_count < 1:
-                    response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
-                    print(f"    Added G slot option", file=sys.stderr)
-            elif player_position == 'O':
-                # O players can stay in O position if there's an empty slot
-                if o_count < 3:
-                    response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
-            elif player_position == 'D':
-                # D players can stay in D position if there's an empty slot
-                if d_count < 3:
-                    response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
-            elif player_position == 'G':
-                # G players can stay in G position if there's an empty slot
-                if g_count < 1:
-                    response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
+            # Only apply capacity limits for dynasty leagues - redraft leagues don't have position restrictions
+            if is_dynasty:
+                # Count players currently assigned to each position (excluding the current player)
+                # Need to count both base position (O, D, G) AND T players assigned to that position
+                # Capacity: 3 for O, 3 for D, 1 for G
+                
+                # Count O position players: pure O players + T players assigned to O
+                from django.db.models import Q
+                o_count = all_active_roster.exclude(player_id=current_player_id).filter(
+                    Q(player__position='O') | Q(player__position='T', player__assigned_side='O')
+                ).count()
+                
+                # Count D position players: pure D players + T players assigned to D
+                d_count = all_active_roster.exclude(player_id=current_player_id).filter(
+                    Q(player__position='D') | Q(player__position='T', player__assigned_side='D')
+                ).count()
+                
+                # Count G position players: pure G players + T players assigned to G
+                g_count = all_active_roster.exclude(player_id=current_player_id).filter(
+                    Q(player__position='G') | Q(player__position='T', player__assigned_side='G')
+                ).count()
+                
+                
+                print(f"DEBUG best ball (dynasty): player_position={player_position}, o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
+                
+                if player_position == 'T':
+                    # T players can move to O, D, or G positions - show options only if there are empty slots
+                    print(f"  T player: checking O({o_count}<3), D({d_count}<3), G({g_count}<1)", file=sys.stderr)
+                    if o_count < 3:
+                        response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
+                        print(f"    Added O slot option", file=sys.stderr)
+                    if d_count < 3:
+                        response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
+                        print(f"    Added D slot option", file=sys.stderr)
+                    if g_count < 1:
+                        response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
+                        print(f"    Added G slot option", file=sys.stderr)
+                elif player_position == 'O':
+                    # O players can stay in O position if there's an empty slot
+                    if o_count < 3:
+                        response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
+                elif player_position == 'D':
+                    # D players can stay in D position if there's an empty slot
+                    if d_count < 3:
+                        response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
+                elif player_position == 'G':
+                    # G players can stay in G position if there's an empty slot
+                    if g_count < 1:
+                        response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
+            else:
+                # For redraft best ball leagues, show all position slots regardless of capacity
+                print(f"DEBUG best ball (redraft): allowing all position moves", file=sys.stderr)
+                if player_position == 'T':
+                    # T players can move to O, D, or G
+                    response_data['empty_slot_options']['O'] = ['O']
+                    response_data['empty_slot_options']['D'] = ['D']
+                    response_data['empty_slot_options']['G'] = ['G']
+                    print(f"    Added O, D, G slot options for T player", file=sys.stderr)
+                elif player_position == 'O':
+                    # O players can stay in O position
+                    response_data['empty_slot_options']['O'] = ['O']
+                elif player_position == 'D':
+                    # D players can stay in D position
+                    response_data['empty_slot_options']['D'] = ['D']
+                elif player_position == 'G':
+                    # G players can stay in G position
+                    response_data['empty_slot_options']['G'] = ['G']
         else:
             # For traditional leagues, find starter slots
             # Only show swap options for players in the SAME slot type (same position)
