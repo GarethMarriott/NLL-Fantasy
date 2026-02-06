@@ -1174,15 +1174,12 @@ def assign_player(request, team_id):
                 messages.error(request, "Target player not found on roster.")
                 return redirect("team_detail", team_id=team.id)
             
-            # Only swap slot assignments for traditional leagues
-            if team.league.roster_format == 'traditional':
-                logger.warning(f"SWAP_SLOTS: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
-                player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
-                player_roster.save()
-                target_roster.save()
-                logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
-            else:
-                logger.warning(f"SWAP_SLOTS: Best ball league - swap allowed but slot_assignment not changed")
+            # Swap their slot assignments (for all league types)
+            logger.warning(f"SWAP_SLOTS: Before swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
+            player_roster.slot_assignment, target_roster.slot_assignment = target_roster.slot_assignment, player_roster.slot_assignment
+            player_roster.save()
+            target_roster.save()
+            logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
             
             # If AJAX request, return JSON so page can update without full reload
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1200,25 +1197,22 @@ def assign_player(request, team_id):
             
         except (Player.DoesNotExist, ValueError, TypeError):
             # Target is a slot designation (empty slot), not a player ID
-            # Just update the moving player's slot assignment (for traditional leagues only)
-            if team.league.roster_format == 'traditional':
-                old_slot = player_roster.slot_assignment
-                logger.warning(f"SWAP_SLOTS (as move): Moving player from {old_slot} to {target_slot}")
-                player_roster.slot_assignment = target_slot
-                player_roster.save()
-                
-                # If player is a Transition player, update assigned_side based on target slot
-                if player.position == 'T':
-                    if 'starter_o' in target_slot:
-                        player.assigned_side = 'O'
-                    elif 'starter_d' in target_slot:
-                        player.assigned_side = 'D'
-                    elif 'starter_g' in target_slot:
-                        player.assigned_side = 'G'
-                    player.save()
-                    logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
-            else:
-                logger.warning(f"SWAP_SLOTS (as move): Best ball league - move allowed but slot_assignment not changed")
+            # Update the moving player's slot assignment (for all league types)
+            old_slot = player_roster.slot_assignment
+            logger.warning(f"SWAP_SLOTS (as move): Moving player from {old_slot} to {target_slot}")
+            player_roster.slot_assignment = target_slot
+            player_roster.save()
+            
+            # If player is a Transition player in traditional league, update assigned_side based on target slot
+            if team.league.roster_format == 'traditional' and player.position == 'T':
+                if 'starter_o' in target_slot:
+                    player.assigned_side = 'O'
+                elif 'starter_d' in target_slot:
+                    player.assigned_side = 'D'
+                elif 'starter_g' in target_slot:
+                    player.assigned_side = 'G'
+                player.save()
+                logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
             
             logger.warning(f"SWAP_SLOTS (as move): After save - player now in {player_roster.slot_assignment}")
             
