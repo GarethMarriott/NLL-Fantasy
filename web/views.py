@@ -1201,6 +1201,18 @@ def assign_player(request, team_id):
             logger.warning(f"SWAP_SLOTS (as move): Moving player from {old_slot} to {target_slot}")
             player_roster.slot_assignment = target_slot
             player_roster.save()
+            
+            # If player is a Transition player, update assigned_side based on target slot
+            if player.position == 'T':
+                if 'starter_o' in target_slot:
+                    player.assigned_side = 'O'
+                elif 'starter_d' in target_slot:
+                    player.assigned_side = 'D'
+                elif 'starter_g' in target_slot:
+                    player.assigned_side = 'G'
+                player.save()
+                logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
+            
             logger.warning(f"SWAP_SLOTS (as move): After save - player now in {player_roster.slot_assignment}")
             
             # If AJAX request, return JSON
@@ -1242,6 +1254,18 @@ def assign_player(request, team_id):
         logger.warning(f"MOVE_TO_EMPTY_SLOT: Before save - {player.last_name} from {old_slot} to {target_slot}")
         player_roster.slot_assignment = target_slot
         player_roster.save()
+        
+        # If player is a Transition player, update assigned_side based on target slot
+        if player.position == 'T':
+            if 'starter_o' in target_slot:
+                player.assigned_side = 'O'
+            elif 'starter_d' in target_slot:
+                player.assigned_side = 'D'
+            elif 'starter_g' in target_slot:
+                player.assigned_side = 'G'
+            player.save()
+            logger.warning(f"MOVE_TO_EMPTY_SLOT: Updated transition player assigned_side to {player.assigned_side}")
+        
         logger.warning(f"MOVE_TO_EMPTY_SLOT: After save - {player.last_name} now in {player_roster.slot_assignment}")
         
         # If AJAX request, return JSON
