@@ -4444,17 +4444,24 @@ def get_available_slots(request, team_id):
         
         if is_best_ball:
             # For best ball leagues, list players that can be swapped based on position compatibility
-            # O/T players can swap with O and T players
-            # D/T players can swap with D and T players  
-            # G/T players can swap with G and T players
+            # T players can ONLY swap with other T players
+            # O players can swap with O and T players
+            # D players can swap with D and T players  
+            # G players can swap with G and T players
             eligible_positions = set()
-            if player_position in ['O', 'T']:
+            if player_position == 'T':
+                # T players only swap with T players
+                eligible_positions.add('T')
+            elif player_position == 'O':
+                # O players can swap with O and T players
                 eligible_positions.add('O')
                 eligible_positions.add('T')
-            if player_position in ['D', 'T']:
+            elif player_position == 'D':
+                # D players can swap with D and T players
                 eligible_positions.add('D')
                 eligible_positions.add('T')
-            if player_position in ['G', 'T']:
+            elif player_position == 'G':
+                # G players can swap with G and T players
                 eligible_positions.add('G')
                 eligible_positions.add('T')
             
