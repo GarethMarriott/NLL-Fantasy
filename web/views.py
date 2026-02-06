@@ -1203,16 +1203,23 @@ def assign_player(request, team_id):
             player_roster.slot_assignment = target_slot
             player_roster.save()
             
-            # If player is a Transition player in traditional league, update assigned_side based on target slot
-            if team.league.roster_format == 'traditional' and player.position == 'T':
-                if 'starter_o' in target_slot:
-                    player.assigned_side = 'O'
-                elif 'starter_d' in target_slot:
-                    player.assigned_side = 'D'
-                elif 'starter_g' in target_slot:
-                    player.assigned_side = 'G'
-                player.save()
-                logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
+            # Handle assigned_side updates for Transition players
+            if player.position == 'T':
+                # In traditional league, update assigned_side based on slot designation
+                if team.league.roster_format == 'traditional':
+                    if 'starter_o' in target_slot:
+                        player.assigned_side = 'O'
+                    elif 'starter_d' in target_slot:
+                        player.assigned_side = 'D'
+                    elif 'starter_g' in target_slot:
+                        player.assigned_side = 'G'
+                    player.save()
+                    logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side}")
+                # In best ball league, update assigned_side based on position name (O, D, G)
+                elif team.league.roster_format == 'bestball' and target_slot in ['O', 'D', 'G']:
+                    player.assigned_side = target_slot
+                    player.save()
+                    logger.warning(f"SWAP_SLOTS (as move): Updated transition player assigned_side to {player.assigned_side} (best ball)")
             
             logger.warning(f"SWAP_SLOTS (as move): After save - player now in {player_roster.slot_assignment}")
             
@@ -4474,6 +4481,23 @@ def get_available_slots(request, team_id):
                         'slot_assignment': roster_entry.slot_assignment
                     })
             print(f"  Best ball league: {len(response_data['swap_options'])} eligible players to swap from positions {eligible_positions}")
+            
+            # For best ball, also show "empty slot" options for eligible positions
+            # This represents conceptual position slots the player can move to
+            if player_position == 'T':
+                # T players can move to O, D, or G positions
+                response_data['empty_slot_options']['O'] = ['O']
+                response_data['empty_slot_options']['D'] = ['D']
+                response_data['empty_slot_options']['G'] = ['G']
+            elif player_position == 'O':
+                # O players can stay in O position
+                response_data['empty_slot_options']['O'] = ['O']
+            elif player_position == 'D':
+                # D players can stay in D position
+                response_data['empty_slot_options']['D'] = ['D']
+            elif player_position == 'G':
+                # G players can stay in G position
+                response_data['empty_slot_options']['G'] = ['G']
         else:
             # For traditional leagues, find starter slots
             # For each position the player can move to, find swap and empty slot options
