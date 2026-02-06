@@ -980,14 +980,23 @@
       .then(response => {
         console.log('Response status:', response.status);
         if (!response.ok) {
-          return response.text().then(text => {
-            throw new Error(`HTTP ${response.status}: ${text}`);
+          return response.json().then(data => {
+            throw new Error(data.error || `HTTP ${response.status}`);
+          }).catch(e => {
+            if (e instanceof SyntaxError) {
+              throw new Error(`HTTP ${response.status}: Invalid response`);
+            }
+            throw e;
           });
         }
         return response.json();
       })
       .then(data => {
         console.log('Response data:', data);
+        if (data.error) {
+          alert('Error: ' + data.error);
+          return;
+        }
         if (data.success) {
           // Show success message
           const alertDiv = document.createElement('div');

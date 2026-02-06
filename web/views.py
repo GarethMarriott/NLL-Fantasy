@@ -1279,8 +1279,11 @@ def assign_player(request, team_id):
             can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, target_position, exclude_player=player)
             if not can_add:
                 position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(target_position, 'Unknown')
+                error_msg = f"Cannot move {player.first_name} {player.last_name} - {position_name} slots are full ({current_pos_count}/{max_pos_slots} spots)."
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: {position_name} slots are full for {player.last_name}")
-                messages.error(request, f"Cannot move {player.first_name} {player.last_name} - {position_name} slots are full ({current_pos_count}/{max_pos_slots} spots).")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                messages.error(request, error_msg)
                 return redirect("team_detail", team_id=team.id)
         
         # Handle traditional league moves (update slot_assignment)
@@ -1294,8 +1297,11 @@ def assign_player(request, team_id):
             if player.position == 'T':
                 # Check if transition player is being moved to goalie slot
                 if 'starter_g' in target_slot and not team.league.allow_transition_in_goalies:
+                    error_msg = f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league."
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
-                    messages.error(request, f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league.")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                    messages.error(request, error_msg)
                     return redirect("team_detail", team_id=team.id)
                 
                 if 'starter_o' in target_slot:
@@ -1311,8 +1317,11 @@ def assign_player(request, team_id):
             if player.position == 'T':
                 # Check if transition player is being moved to goalie slot
                 if target_slot == 'G' and not team.league.allow_transition_in_goalies:
+                    error_msg = f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league."
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
-                    messages.error(request, f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league.")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                    messages.error(request, error_msg)
                     return redirect("team_detail", team_id=team.id)
                 
                 if target_slot in ['O', 'D', 'G']:
