@@ -137,11 +137,11 @@ def auto_assign_to_starter_slot(roster_entry):
     else:
         position = player.position
     
-    # Map position to slot prefix and max slots
+    # Map position to slot prefix and max slots (use league configuration)
     slot_map = {
-        'O': ('starter_o', 3),
-        'D': ('starter_d', 3),
-        'G': ('starter_g', 1),
+        'O': ('starter_o', league.roster_forwards or 6),
+        'D': ('starter_d', league.roster_defense or 6),
+        'G': ('starter_g', league.roster_goalies or 2),
         'T': (None, 0),  # Transition players need assigned_side
     }
     
@@ -1054,7 +1054,36 @@ def assign_player(request, team_id):
                 return redirect("team_detail", team_id=team.id)
             
             # Check position-specific capacity
-            can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
+            # For traditional leagues, only count players in starter slots (not bench)
+            if team.league.roster_format == 'traditional':
+                slot_map_starter = {
+                    'O': f"starter_o[1-{team.league.roster_forwards}]",
+                    'D': f"starter_d[1-{team.league.roster_defense}]",
+                    'G': 'starter_g'
+                }
+                # Build slot list for this position
+                if slot_group == 'O':
+                    starter_slots = [f'starter_o{i}' for i in range(1, team.league.roster_forwards + 1)]
+                elif slot_group == 'D':
+                    starter_slots = [f'starter_d{i}' for i in range(1, team.league.roster_defense + 1)]
+                elif slot_group == 'G':
+                    starter_slots = [f'starter_g{i}' for i in range(1, team.league.roster_goalies + 1)]
+                else:
+                    starter_slots = []
+                
+                starter_count = Roster.objects.filter(
+                    team=team,
+                    league=team.league,
+                    week_dropped__isnull=True,
+                    slot_assignment__in=starter_slots
+                ).count()
+                max_pos_slots = len(starter_slots)
+                can_add = starter_count < max_pos_slots
+                current_pos_count = starter_count
+            else:
+                # For best ball, use general capacity check
+                can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
+            
             if not can_add:
                 position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(slot_group, 'Unknown')
                 messages.error(request, f"Your {position_name} roster is full ({current_pos_count}/{max_pos_slots} spots).")
@@ -1276,10 +1305,34 @@ def assign_player(request, team_id):
         
         # Check capacity for target position (excluding current player)
         if target_position:
-            can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, target_position, exclude_player=player)
+            # For traditional leagues, only count players in starter slots (not bench)
+            if team.league.roster_format == 'traditional':
+                if 'starter_o' in target_slot:
+                    starter_slots = [f'starter_o{i}' for i in range(1, team.league.roster_forwards + 1)]
+                elif 'starter_d' in target_slot:
+                    starter_slots = [f'starter_d{i}' for i in range(1, team.league.roster_defense + 1)]
+                elif 'starter_g' in target_slot:
+                    starter_slots = [f'starter_g{i}' for i in range(1, team.league.roster_goalies + 1)]
+                else:
+                    starter_slots = []
+                
+                # Count players in starter slots for this position
+                starter_count = Roster.objects.filter(
+                    team=team,
+                    league=team.league,
+                    week_dropped__isnull=True,
+                    slot_assignment__in=starter_slots
+                ).exclude(player=player).count()
+                max_allowed = len(starter_slots)
+                can_add = starter_count < max_allowed
+                current_pos_count = starter_count
+            else:
+                # For best ball, use general capacity check
+                can_add, current_pos_count, max_allowed = check_roster_capacity(team, target_position, exclude_player=player)
+            
             if not can_add:
                 position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(target_position, 'Unknown')
-                error_msg = f"Cannot move {player.first_name} {player.last_name} - {position_name} slots are full ({current_pos_count}/{max_pos_slots} spots)."
+                error_msg = f"Cannot move {player.first_name} {player.last_name} - {position_name} slots are full ({current_pos_count}/{max_allowed} spots)."
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: {position_name} slots are full for {player.last_name}")
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'success': False, 'error': error_msg}, status=400)
