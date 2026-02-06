@@ -1268,7 +1268,7 @@ def assign_player(request, team_id):
                 # Check if transition player is being moved to goalie slot
                 if 'starter_g' in target_slot and not team.league.allow_transition_in_goalies:
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
-                    messages.error(request, "This league does not allow Transition players in Goalie slots")
+                    messages.error(request, f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league.")
                     return redirect("team_detail", team_id=team.id)
                 
                 if 'starter_o' in target_slot:
@@ -1285,7 +1285,7 @@ def assign_player(request, team_id):
                 # Check if transition player is being moved to goalie slot
                 if target_slot == 'G' and not team.league.allow_transition_in_goalies:
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
-                    messages.error(request, "This league does not allow Transition players in Goalie slots")
+                    messages.error(request, f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league.")
                     return redirect("team_detail", team_id=team.id)
                 
                 if target_slot in ['O', 'D', 'G']:
