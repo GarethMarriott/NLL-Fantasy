@@ -1208,10 +1208,40 @@ def assign_player(request, team_id):
             messages.success(request, f"Moved {player.last_name} to {target_slot}")
     
     if action == "move_to_empty_slot":
-        # Move a player - currently just keeps them on roster (slot already empty)
-        # This is a placeholder - in a real implementation, you'd move them to a specific empty slot
-        print(f"DEBUG move_to_empty_slot: player={player.last_name}")
-        messages.info(request, f"{player.last_name} is already on the roster.")
+        # Move a player to an empty slot
+        target_slot = request.POST.get("target_slot")  # Slot designation like "starter_o1", "starter_d2", etc.
+        print(f"DEBUG move_to_empty_slot: player={player.last_name}, target_slot={target_slot}")
+        
+        # Get the moving player's roster entry
+        player_roster = Roster.objects.filter(
+            player=player,
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True
+        ).first()
+        
+        if not player_roster:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': 'Player not found on roster.'}, status=400)
+            messages.error(request, "Player not found on roster.")
+            return redirect("team_detail", team_id=team.id)
+        
+        # Move the player to the target slot
+        old_slot = player_roster.slot_assignment
+        player_roster.slot_assignment = target_slot
+        player_roster.save()
+        print(f"DEBUG: Moved {player.last_name} from {old_slot} to {target_slot}")
+        
+        # If AJAX request, return JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f"Moved {player.last_name} to {target_slot}",
+                'player_id': player.id,
+                'player_slot': player_roster.slot_assignment
+            })
+        
+        messages.success(request, f"Moved {player.last_name} to {target_slot}")
 
 
     return redirect("team_detail", team_id=team.id)
