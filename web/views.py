@@ -4415,12 +4415,13 @@ def get_available_slots(request, team_id):
         
         # Get the league for roster info
         league = team.league
+        is_best_ball = league.roster_format == 'bestball'
         
         # First, get the current player to determine what positions they can fill
         current_player = Player.objects.get(id=int(current_player_id))
-        player_position = current_player.position  # F, D, T, or G
+        player_position = current_player.position  # O, D, T, or G
         
-        print(f"DEBUG get_available_slots: slot_position={slot_position}, player_position={player_position}, current_player_id={current_player_id}")
+        print(f"DEBUG get_available_slots: slot_position={slot_position}, player_position={player_position}, current_player_id={current_player_id}, is_best_ball={is_best_ball}")
         
         # Determine which positions this player can move to
         # O and T players can move to O slots
@@ -4447,74 +4448,88 @@ def get_available_slots(request, team_id):
             week_dropped__isnull=True
         ).select_related('player')
         
-        # For each position the player can move to, find swap and empty slot options
-        for slot_type in ['O', 'D', 'G']:
-            if slot_type not in can_move_to:
-                continue
-            
-            # Determine slot designations for this type
-            if slot_type == 'O':
-                slot_designations = ['starter_o1', 'starter_o2', 'starter_o3']
-                num_slots = 3
-                slot_prefix = 'starter_o'
-            elif slot_type == 'D':
-                slot_designations = ['starter_d1', 'starter_d2', 'starter_d3']
-                num_slots = 3
-                slot_prefix = 'starter_d'
-            else:  # G
-                slot_designations = ['starter_g']
-                num_slots = 1
-                slot_prefix = 'starter_g'
-            
-            # Get players currently in these slots
-            roster_in_slots = all_active_roster.filter(
-                slot_assignment__in=slot_designations
-            ).order_by('slot_assignment')
-            
-            print(f"  {slot_type} slots: found {roster_in_slots.count()} players")
-            
-            # Add swap options (players in these slots that aren't the current player)
-            for roster_entry in roster_in_slots:
+        if is_best_ball:
+            # For best ball leagues, just list all other players as swap options regardless of position
+            # In best ball, moves are organizational only and don't affect scoring
+            for roster_entry in all_active_roster:
                 if str(roster_entry.player.id) != str(current_player_id):
                     response_data['swap_options'].append({
                         'player_id': roster_entry.player.id,
                         'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                        'slot_type': slot_type,
+                        'slot_type': roster_entry.player.position,
                         'slot_assignment': roster_entry.slot_assignment
                     })
-                    print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+            print(f"  Best ball league: {len(response_data['swap_options'])} players available to swap")
+        else:
+            # For traditional leagues, find starter slots
+            # For each position the player can move to, find swap and empty slot options
+            for slot_type in ['O', 'D', 'G']:
+                if slot_type not in can_move_to:
+                    continue
+                
+                # Determine slot designations for this type
+                if slot_type == 'O':
+                    slot_designations = ['starter_o1', 'starter_o2', 'starter_o3']
+                    num_slots = 3
+                    slot_prefix = 'starter_o'
+                elif slot_type == 'D':
+                    slot_designations = ['starter_d1', 'starter_d2', 'starter_d3']
+                    num_slots = 3
+                    slot_prefix = 'starter_d'
+                else:  # G
+                    slot_designations = ['starter_g']
+                    num_slots = 1
+                    slot_prefix = 'starter_g'
+                
+                # Get players currently in these slots
+                roster_in_slots = all_active_roster.filter(
+                    slot_assignment__in=slot_designations
+                ).order_by('slot_assignment')
+                
+                print(f"  {slot_type} slots: found {roster_in_slots.count()} players")
+                
+                # Add swap options (players in these slots that aren't the current player)
+                for roster_entry in roster_in_slots:
+                    if str(roster_entry.player.id) != str(current_player_id):
+                        response_data['swap_options'].append({
+                            'player_id': roster_entry.player.id,
+                            'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                            'slot_type': slot_type,
+                            'slot_assignment': roster_entry.slot_assignment
+                        })
+                        print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                
+                # Find which slots are filled
+                filled_slot_numbers = set()
+                for roster_entry in roster_in_slots:
+                    slot_assign = roster_entry.slot_assignment
+                    if slot_type == 'G' and slot_assign == 'starter_g':
+                        filled_slot_numbers.add(1)
+                    elif slot_assign.startswith(slot_prefix) and len(slot_assign) > len(slot_prefix):
+                        try:
+                            slot_num = int(slot_assign[len(slot_prefix):])
+                            filled_slot_numbers.add(slot_num)
+                        except ValueError:
+                            pass
+                
+                # Find empty slots for this type
+                empty_slots = []
+                for i in range(1, num_slots + 1):
+                    if i not in filled_slot_numbers:
+                        if slot_type == 'G':
+                            slot_designation = 'starter_g'
+                        else:
+                            slot_designation = f"{slot_prefix}{i}"
+                        empty_slots.append(slot_designation)
+                        print(f"    Empty slot: {slot_designation}")
+                
+                response_data['empty_slot_options'][slot_type] = empty_slots
             
-            # Find which slots are filled
-            filled_slot_numbers = set()
-            for roster_entry in roster_in_slots:
-                slot_assign = roster_entry.slot_assignment
-                if slot_type == 'G' and slot_assign == 'starter_g':
-                    filled_slot_numbers.add(1)
-                elif slot_assign.startswith(slot_prefix) and len(slot_assign) > len(slot_prefix):
-                    try:
-                        slot_num = int(slot_assign[len(slot_prefix):])
-                        filled_slot_numbers.add(slot_num)
-                    except ValueError:
-                        pass
-            
-            # Find empty slots for this type
-            empty_slots = []
-            for i in range(1, num_slots + 1):
-                if i not in filled_slot_numbers:
-                    if slot_type == 'G':
-                        slot_designation = 'starter_g'
-                    else:
-                        slot_designation = f"{slot_prefix}{i}"
-                    empty_slots.append(slot_designation)
-                    print(f"    Empty slot: {slot_designation}")
-            
-            response_data['empty_slot_options'][slot_type] = empty_slots
-        
-        # Also check if bench is available (always available as a move destination)
-        bench_count = all_active_roster.filter(slot_assignment='bench').count()
-        # Bench is always available as a destination
-        if 'bench' not in response_data['empty_slot_options']:
-            response_data['empty_slot_options']['Bench'] = ['bench']
+            # Also check if bench is available (always available as a move destination)
+            bench_count = all_active_roster.filter(slot_assignment='bench').count()
+            # Bench is always available as a destination
+            if 'bench' not in response_data['empty_slot_options']:
+                response_data['empty_slot_options']['Bench'] = ['bench']
         
         print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options")
         return JsonResponse(response_data)
