@@ -4333,74 +4333,94 @@ def get_available_slots(request, team_id):
     
     try:
         team = get_object_or_404(Team, id=team_id)
-        position = request.GET.get('position', 'O')  # O, D, or G (single letter from slot position)
+        slot_position = request.GET.get('position', 'O')  # O, D, G, or B (slot position)
         current_player_id = request.GET.get('current_player_id')
         
         # Get the league for roster info
         league = team.league
         
-        # Map slot position to valid player positions that can fill that slot
-        # O slots can be filled by O or T players
-        # D slots can be filled by D or T players
-        # G slots can be filled by G or T players
-        position_map = {
-            'O': ['O', 'T'],  # Offense slot: accepts O and T players
-            'D': ['D', 'T'],  # Defense slot: accepts D and T players
-            'G': ['G', 'T'],  # Goalie slot: accepts G and T players
-        }
-        if position not in position_map:
-            return JsonResponse({'error': 'Invalid position'}, status=400)
+        # First, get the current player to determine what positions they can fill
+        current_player = Player.objects.get(id=int(current_player_id))
+        player_position = current_player.position  # F, D, T, or G
         
-        valid_positions = position_map[position]
+        print(f"DEBUG get_available_slots: slot_position={slot_position}, player_position={player_position}, current_player_id={current_player_id}")
         
-        # Get ALL active roster entries for players of this position on this team
+        # Determine which slot prefixes we should search for based on the player's position
+        # A player's position determines what slots they can fill
+        # O (offense/forwards) players → starter_o1, starter_o2, starter_o3
+        # D (defense) players → starter_d1, starter_d2, starter_d3
+        # G (goalie) players → starter_g
+        # T (transition) players → can go in any position slot OR bench
+        # Bench players → can go to any starter slot their position allows
+        
+        if player_position == 'O' or (player_position == 'T' and slot_position == 'B'):
+            # Offense or transition from bench: can swap with any O slot (starter_o1, starter_o2, starter_o3)
+            searchable_slots = ['starter_o1', 'starter_o2', 'starter_o3']
+            num_slots = 3
+            slot_prefix = 'starter_o'
+        elif player_position == 'D' or (player_position == 'T' and slot_position == 'B'):
+            # Defense or transition from bench: can swap with any D slot
+            searchable_slots = ['starter_d1', 'starter_d2', 'starter_d3']
+            num_slots = 3
+            slot_prefix = 'starter_d'
+        elif player_position == 'G' or (player_position == 'T' and slot_position == 'B'):
+            # Goalie or transition from bench: can swap with goalie slot
+            searchable_slots = ['starter_g']
+            num_slots = 1
+            slot_prefix = 'starter_g'
+        elif player_position == 'T':
+            # Transition player already in a starter slot: can swap with any slot
+            if slot_position == 'O':
+                searchable_slots = ['starter_o1', 'starter_o2', 'starter_o3']
+                num_slots = 3
+                slot_prefix = 'starter_o'
+            elif slot_position == 'D':
+                searchable_slots = ['starter_d1', 'starter_d2', 'starter_d3']
+                num_slots = 3
+                slot_prefix = 'starter_d'
+            elif slot_position == 'G':
+                searchable_slots = ['starter_g']
+                num_slots = 1
+                slot_prefix = 'starter_g'
+            else:
+                return JsonResponse({'error': 'Invalid slot position for transition player'}, status=400)
+        else:
+            return JsonResponse({'error': 'Invalid position combination'}, status=400)
+        
+        # Get active roster entries for players in these specific slots
         all_roster = Roster.objects.filter(
             team=team,
             league=league,
             week_dropped__isnull=True,  # Currently active
-            player__position__in=valid_positions
-        ).select_related('player').order_by('player__last_name')
+            slot_assignment__in=searchable_slots
+        ).select_related('player').order_by('slot_assignment')
         
-        print(f"DEBUG get_available_slots: position={position}, found {all_roster.count()} players")
+        print(f"DEBUG get_available_slots: found {all_roster.count()} players in searchable_slots")
         
-        # Build response showing all players for this position (not limited to 3 slots)
+        # Build response showing all players currently in these slots
         slots = []
         for idx, roster_entry in enumerate(all_roster, 1):
             player = roster_entry.player
             is_current = str(player.id) == str(current_player_id)
             
             slots.append({
-                'slot': idx,  # Just a sequential number for display
+                'slot': idx,
                 'player_id': player.id,
                 'player_name': f"{player.last_name}, {player.first_name}",
                 'is_current': is_current,
                 'is_empty': False,
-                'player_position': player.get_position_display()
+                'player_position': player.get_position_display(),
+                'slot_assignment': roster_entry.slot_assignment
             })
-            print(f"  {idx}. {player.last_name} (ID: {player.id}, current={is_current})")
+            print(f"  {idx}. {player.last_name} (ID: {player.id}, slot: {roster_entry.slot_assignment}, current={is_current})")
         
-        # Determine how many slots exist for this position
-        if position == 'O':
-            num_slots = 3  # 3 offense slots
-            slot_prefix = 'starter_o'
-        elif position == 'D':
-            num_slots = 3  # 3 defense slots
-            slot_prefix = 'starter_d'
-        elif position == 'G':
-            num_slots = 1  # 1 goalie slot
-            slot_prefix = 'starter_g'
-        else:
-            num_slots = 0
-            slot_prefix = ''
-        
-        # Check which specific slots are already filled for this position
-        # and find which numbered slots are empty
+        # Find which specific slots are already filled and which are empty
         filled_slot_numbers = set()
         for roster_entry in all_roster:
             slot_assign = roster_entry.slot_assignment
             # Extract the slot number from slot designations like 'starter_o1', 'starter_d2', etc.
-            if position == 'G' and slot_assign == 'starter_g':
-                filled_slot_numbers.add(1)  # Treat goalie slot as slot 1
+            if slot_position == 'G' and slot_assign == 'starter_g':
+                filled_slot_numbers.add(1)
             elif slot_assign.startswith(slot_prefix) and len(slot_assign) > len(slot_prefix):
                 try:
                     slot_num = int(slot_assign[len(slot_prefix):])
@@ -4413,7 +4433,7 @@ def get_available_slots(request, team_id):
         for i in range(1, num_slots + 1):
             if i not in filled_slot_numbers:
                 # For single goalie slot, use just 'starter_g', otherwise 'starter_o1', etc.
-                if position == 'G':
+                if slot_position == 'G' or slot_prefix == 'starter_g':
                     slot_designation = slot_prefix
                 else:
                     slot_designation = f"{slot_prefix}{i}"
@@ -4422,15 +4442,10 @@ def get_available_slots(request, team_id):
         
         # If no players found, print that
         if not slots:
-            print(f"  No players found for position {position}")
+            print(f"  No players found in searchable slots")
         
         print(f"DEBUG: Returning {len(slots)} players and {len(empty_slots)} empty slots")
         return JsonResponse({'slots': slots, 'empty_slots': empty_slots})
-    
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'error': str(e)}, status=500)
     
     except Exception as e:
         import traceback
