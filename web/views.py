@@ -4422,17 +4422,15 @@ def get_available_slots(request, team_id):
     try:
         team = get_object_or_404(Team, id=team_id)
         slot_position = request.GET.get('position', 'O')  # O, D, G, or B (slot position)
-        current_player_id = request.GET.get('current_player_id')
+        current_player_id = int(request.GET.get('current_player_id', 0))
         
         # Get the league for roster info
         league = team.league
         is_best_ball = league.roster_format == 'bestball'
         
         # First, get the current player to determine what positions they can fill
-        current_player = Player.objects.get(id=int(current_player_id))
+        current_player = Player.objects.get(id=current_player_id)
         player_position = current_player.position  # O, D, T, or G
-        
-        print(f"DEBUG get_available_slots: slot_position={slot_position}, player_position={player_position}, current_player_id={current_player_id}, is_best_ball={is_best_ball}")
         
         # Determine which positions this player can move to
         # O and T players can move to O slots
@@ -4490,14 +4488,26 @@ def get_available_slots(request, team_id):
                         'slot_type': roster_entry.player.position,
                         'slot_assignment': roster_entry.slot_assignment
                     })
-            print(f"  Best ball league: {len(response_data['swap_options'])} eligible players to swap from positions {eligible_positions}")
             
             # For best ball, also show "empty slot" options for eligible positions
             # Count players currently assigned to each position (excluding the current player)
+            # For T players, their assigned_side might be 'O', 'D', 'G', or None
             # Capacity: 3 for O, 3 for D, 1 for G
-            o_count = all_active_roster.exclude(player_id=current_player_id).filter(player__assigned_side='O').count()
-            d_count = all_active_roster.exclude(player_id=current_player_id).filter(player__assigned_side='D').count()
-            g_count = all_active_roster.exclude(player_id=current_player_id).filter(player__assigned_side='G').count()
+            
+            # Count O position players (including T players assigned to O)
+            o_count = all_active_roster.exclude(player_id=current_player_id).filter(
+                player__assigned_side='O'
+            ).count()
+            
+            # Count D position players (including T players assigned to D) 
+            d_count = all_active_roster.exclude(player_id=current_player_id).filter(
+                player__assigned_side='D'
+            ).count()
+            
+            # Count G position players (including T players assigned to G)
+            g_count = all_active_roster.exclude(player_id=current_player_id).filter(
+                player__assigned_side='G'
+            ).count()
             
             
             if player_position == 'T':
