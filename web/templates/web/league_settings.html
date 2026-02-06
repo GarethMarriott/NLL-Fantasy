@@ -61,6 +61,20 @@
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
+            <label class="block text-sm font-medium mb-2">League Type</label>
+            <div class="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700">
+              {% if form.instance.league_type == 'dynasty' %}Dynasty{% else %}Redraft{% endif %}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Roster Format</label>
+            <div class="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700">
+              {% if form.instance.roster_format == 'traditional' %}Traditional{% else %}Best Ball{% endif %}
+            </div>
+          </div>
+
+          <div>
             <label class="block text-sm font-medium mb-2">Max Teams</label>
             {{ form.max_teams }}
             {% if form.max_teams.errors %}

@@ -157,6 +157,10 @@ class LeagueSettingsForm(forms.ModelForm):
         if self.instance and self.instance.roster_format == 'traditional':
             if 'roster_size' in self.fields:
                 self.fields.pop('roster_size')
+        # For non-dynasty leagues, remove taxi_squad_size field
+        if self.instance and self.instance.league_type != 'dynasty':
+            if 'taxi_squad_size' in self.fields:
+                self.fields.pop('taxi_squad_size')
 
 # ===== Password Reset Forms =====
 
