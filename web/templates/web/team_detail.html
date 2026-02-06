@@ -978,8 +978,8 @@
             emptyHeader.textContent = '2. Move to empty slot';
             menu.appendChild(emptyHeader);
             
-            // Group by slot type
-            const slotTypes = ['O', 'D', 'G'];
+            // Group by slot type - handle O, D, G, and Bench
+            const slotTypes = ['O', 'D', 'G', 'Bench'];
             for (const slotType of slotTypes) {
               const emptySlots = data.empty_slot_options[slotType] || [];
               if (emptySlots.length === 0) continue;
@@ -995,7 +995,13 @@
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 rounded border-b border-green-200 text-sm text-green-900';
-                button.textContent = slotDesignation.replace('starter_', '').replace('o', 'O').replace('d', 'D').replace('g', 'G');
+                let displayText = slotDesignation;
+                if (slotDesignation === 'bench') {
+                  displayText = 'Bench';
+                } else {
+                  displayText = slotDesignation.replace('starter_', '').replace('o', 'O').replace('d', 'D').replace('g', 'G');
+                }
+                button.textContent = displayText;
                 button.onclick = () => submitPositionMove(playerId, slotDesignation, true);
                 menu.appendChild(button);
               });

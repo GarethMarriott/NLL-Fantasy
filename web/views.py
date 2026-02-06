@@ -4500,6 +4500,12 @@ def get_available_slots(request, team_id):
             
             response_data['empty_slot_options'][slot_type] = empty_slots
         
+        # Also check if bench is available (always available as a move destination)
+        bench_count = all_active_roster.filter(slot_assignment='bench').count()
+        # Bench is always available as a destination
+        if 'bench' not in response_data['empty_slot_options']:
+            response_data['empty_slot_options']['Bench'] = ['bench']
+        
         print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options")
         return JsonResponse(response_data)
     
