@@ -4624,7 +4624,7 @@ def get_available_slots(request, team_id):
                 empty_slots = []
                 
                 # If moving to a different position type (e.g., T in D moving to O), check capacity
-                if slot_type != current_slot_type:
+                if slot_type != current_slot_type and current_slot_type is not None:
                     # Count players currently assigned to this position type
                     filled_by_position = roster_in_slots.count()
                     if filled_by_position < num_slots:
@@ -4641,7 +4641,7 @@ def get_available_slots(request, team_id):
                     else:
                         print(f"  {slot_type} at capacity ({filled_by_position}/{num_slots}), hiding empty slots")
                 else:
-                    # Same position type - always show empty slots (swaps within position don't increase total)
+                    # Same position type OR current_slot_type is unknown - always show available empty slots
                     for i in range(1, num_slots + 1):
                         if i not in filled_slot_numbers:
                             if slot_type == 'G':
