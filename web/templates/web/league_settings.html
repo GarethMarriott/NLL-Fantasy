@@ -82,20 +82,19 @@
             {% endif %}
           </div>
 
-          {% if form.instance.roster_format != 'traditional' %}
-          <div>
-            <label class="block text-sm font-medium mb-2">Roster Size</label>
-            {{ form.roster_size }}
-            <p class="text-xs text-gray-500 mt-1">Players per team (6-20)</p>
-            {% if form.roster_size.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.roster_size.errors.0 }}</p>
-            {% endif %}
-          </div>
-          {% else %}
+          {% if form.instance.roster_format == 'traditional' %}
           <div>
             <label class="block text-sm font-medium mb-2">Roster Size (Calculated)</label>
             <div class="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-medium">{{ form.instance.calculate_roster_size }}</div>
             <p class="text-xs text-gray-500 mt-1">Automatically calculated from allocation slots + taxi squad</p>
+          </div>
+          {% else %}
+          <div>
+            <label class="block text-sm font-medium mb-2">Roster Size (Calculated)</label>
+            <div class="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-medium">
+              <span id="bestballRosterSize">{{ form.instance.roster_forwards|add:form.instance.roster_defense|add:form.instance.roster_goalies|default:14 }}</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Automatically calculated from position allocations</p>
           </div>
           {% endif %}
 
@@ -349,6 +348,13 @@
         document.getElementById('rosterTotal').textContent = forwards + '+' + defense + '+' + goalies;
       }
       document.getElementById('rosterSum').textContent = total;
+      
+      // Update best ball roster size display if it exists
+      const bestballRosterSizeDisplay = document.getElementById('bestballRosterSize');
+      if (bestballRosterSizeDisplay) {
+        const bestballTotal = forwards + defense + goalies;
+        bestballRosterSizeDisplay.textContent = bestballTotal;
+      }
       
       // For traditional leagues with taxi squad, update the taxi total
       const taxiInput = document.querySelector('select[name="taxi_squad_size"]');

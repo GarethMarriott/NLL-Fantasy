@@ -3466,6 +3466,13 @@ def league_settings(request, league_id):
                 league_obj.playoff_weeks = 3
             elif int(form.cleaned_data.get('playoff_teams', 0)) == 4:
                 league_obj.playoff_weeks = 2
+            # For best ball leagues, automatically set roster_size as sum of position allocations
+            if league_obj.roster_format == 'bestball':
+                league_obj.roster_size = (
+                    (league_obj.roster_forwards or 0) +
+                    (league_obj.roster_defense or 0) +
+                    (league_obj.roster_goalies or 0)
+                )
             league_obj.save()
             form.save_m2m() if hasattr(form, 'save_m2m') else None
             messages.success(request, "League settings updated successfully!")

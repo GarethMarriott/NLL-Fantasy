@@ -152,9 +152,9 @@ class LeagueSettingsForm(forms.ModelForm):
         # Remove playoff_weeks from form fields entirely
         if 'playoff_weeks' in self.fields:
             self.fields.pop('playoff_weeks')
-        # For traditional leagues, remove roster_size field (it's calculated from allocation)
-        # For best ball, keep it editable
-        if self.instance and self.instance.roster_format == 'traditional':
+        # For traditional leagues, remove roster_size field (it's calculated from allocation + taxi)
+        # For best ball, also remove roster_size field (it's calculated from allocation only)
+        if self.instance and self.instance.roster_format in ['traditional', 'bestball']:
             if 'roster_size' in self.fields:
                 self.fields.pop('roster_size')
         # For non-dynasty leagues, remove taxi_squad_size field
