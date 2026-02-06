@@ -617,7 +617,6 @@
                   </div>
                   {% if slot.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ slot.player.nll_team }}</strong></div>{% endif %}
                 </div>
-                {% endif %}
             </td>
             <td class="p-1 sm:p-2 md:p-3 hidden lg:table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{% if slot.selected_week_counts %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}<span class="text-gray-600">{{ slot.selected_week_points }}</span>{% endif %}{% else %}-{% endif %}</td>
