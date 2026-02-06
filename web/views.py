@@ -4506,6 +4506,33 @@ def get_available_slots(request, team_id):
                 response_data['empty_slot_options']['G'] = ['G']
         else:
             # For traditional leagues, find starter slots
+            # Only show swap options for players in the SAME slot type (same position)
+            # Only show empty slots for other positions the player can move to
+            
+            # First, determine what slot the moving player is currently in
+            player_roster = Roster.objects.filter(
+                player=current_player,
+                team=team,
+                league=league,
+                week_dropped__isnull=True
+            ).first()
+            
+            if player_roster:
+                current_slot = player_roster.slot_assignment
+                # Determine the slot type from the current slot assignment
+                if 'starter_o' in current_slot:
+                    current_slot_type = 'O'
+                elif 'starter_d' in current_slot:
+                    current_slot_type = 'D'
+                elif 'starter_g' in current_slot:
+                    current_slot_type = 'G'
+                else:
+                    current_slot_type = None
+                
+                print(f"  Current player in slot: {current_slot}, slot_type: {current_slot_type}")
+            else:
+                current_slot_type = None
+            
             # For each position the player can move to, find swap and empty slot options
             for slot_type in ['O', 'D', 'G']:
                 if slot_type not in can_move_to:
@@ -4532,16 +4559,20 @@ def get_available_slots(request, team_id):
                 
                 print(f"  {slot_type} slots: found {roster_in_slots.count()} players")
                 
-                # Add swap options (players in these slots that aren't the current player)
-                for roster_entry in roster_in_slots:
-                    if str(roster_entry.player.id) != str(current_player_id):
-                        response_data['swap_options'].append({
-                            'player_id': roster_entry.player.id,
-                            'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                            'slot_type': slot_type,
-                            'slot_assignment': roster_entry.slot_assignment
-                        })
-                        print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                # Add swap options ONLY if this is the same slot type as current position
+                # This ensures you can only swap with eligible players for that slot
+                if slot_type == current_slot_type:
+                    for roster_entry in roster_in_slots:
+                        if str(roster_entry.player.id) != str(current_player_id):
+                            response_data['swap_options'].append({
+                                'player_id': roster_entry.player.id,
+                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'slot_type': slot_type,
+                                'slot_assignment': roster_entry.slot_assignment
+                            })
+                            print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                else:
+                    print(f"  Skipping {slot_type} slots for swap options (current player in {current_slot_type})")
                 
                 # Find which slots are filled
                 filled_slot_numbers = set()
