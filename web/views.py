@@ -1134,12 +1134,20 @@ def assign_player(request, team_id):
             messages.success(request, f"Dropped {player.first_name} {player.last_name} from your roster")
     
     if action == "swap_slots":
-        # Swap a player to another slot (which may be occupied by another player or empty)
+        # Swap a player to another slot (only for traditional leagues)
         target_slot = request.POST.get("target_slot")  # Can be a player ID or a slot designation like "O1", "D2", etc.
         
         import logging
         logger = logging.getLogger('django')
-        logger.warning(f"SWAP_SLOTS START: playerId={player_id}, targetSlot={target_slot}")
+        logger.warning(f"SWAP_SLOTS START: playerId={player_id}, targetSlot={target_slot}, league_format={team.league.roster_format}")
+        
+        # Only allow swaps in traditional leagues
+        if team.league.roster_format != 'traditional':
+            logger.warning(f"SWAP_SLOTS: Swap not allowed in {team.league.roster_format} league")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': 'Player swaps only available in traditional leagues.'}, status=400)
+            messages.error(request, "Player swaps only available in traditional leagues.")
+            return redirect("team_detail", team_id=team.id)
         
         # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
@@ -1228,11 +1236,19 @@ def assign_player(request, team_id):
             messages.success(request, f"Moved {player.last_name} to {target_slot}")
     
     if action == "move_to_empty_slot":
-        # Move a player to an empty slot
+        # Move a player to an empty slot (only for traditional leagues)
         target_slot = request.POST.get("target_slot")  # Slot designation like "starter_o1", "starter_d2", etc.
         import logging
         logger = logging.getLogger('django')
-        logger.warning(f"MOVE_TO_EMPTY_SLOT START: player={player.last_name}, target_slot={target_slot}")
+        logger.warning(f"MOVE_TO_EMPTY_SLOT START: player={player.last_name}, target_slot={target_slot}, league_format={team.league.roster_format}")
+        
+        # Only allow moves in traditional leagues
+        if team.league.roster_format != 'traditional':
+            logger.warning(f"MOVE_TO_EMPTY_SLOT: Move not allowed in {team.league.roster_format} league")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': 'Player moves only available in traditional leagues.'}, status=400)
+            messages.error(request, "Player moves only available in traditional leagues.")
+            return redirect("team_detail", team_id=team.id)
         
         # Get the moving player's roster entry
         player_roster = Roster.objects.filter(
