@@ -3389,6 +3389,11 @@ def league_settings(request, league_id):
             form.save_m2m() if hasattr(form, 'save_m2m') else None
             messages.success(request, "League settings updated successfully!")
             return redirect("league_detail", league_id=league.id)
+        else:
+            # Form is not valid - show the errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = LeagueSettingsForm(instance=league)
     
