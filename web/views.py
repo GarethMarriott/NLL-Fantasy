@@ -4489,20 +4489,32 @@ def get_available_slots(request, team_id):
             print(f"  Best ball league: {len(response_data['swap_options'])} eligible players to swap from positions {eligible_positions}")
             
             # For best ball, also show "empty slot" options for eligible positions
-            # This represents conceptual position slots the player can move to
+            # But only if that position group isn't at capacity
+            # Capacity: 3 for O, 3 for D, 1 for G
+            
+            # Count players currently assigned to each position
+            o_count = all_active_roster.filter(player__assigned_side='O').count()
+            d_count = all_active_roster.filter(player__assigned_side='D').count()
+            g_count = all_active_roster.filter(player__assigned_side='G').count()
+            
+            print(f"  Best ball position counts: O={o_count}, D={d_count}, G={g_count}")
+            
             if player_position == 'T':
-                # T players can move to O, D, or G positions
-                response_data['empty_slot_options']['O'] = ['O']
-                response_data['empty_slot_options']['D'] = ['D']
-                response_data['empty_slot_options']['G'] = ['G']
+                # T players can move to O, D, or G positions - but only if not full
+                if o_count < 3:
+                    response_data['empty_slot_options']['O'] = ['O']
+                if d_count < 3:
+                    response_data['empty_slot_options']['D'] = ['D']
+                if g_count < 1:
+                    response_data['empty_slot_options']['G'] = ['G']
             elif player_position == 'O':
-                # O players can stay in O position
+                # O players can stay in O position (always available for their own position)
                 response_data['empty_slot_options']['O'] = ['O']
             elif player_position == 'D':
-                # D players can stay in D position
+                # D players can stay in D position (always available for their own position)
                 response_data['empty_slot_options']['D'] = ['D']
             elif player_position == 'G':
-                # G players can stay in G position
+                # G players can stay in G position (always available for their own position)
                 response_data['empty_slot_options']['G'] = ['G']
         else:
             # For traditional leagues, find starter slots
