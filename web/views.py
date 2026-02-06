@@ -554,6 +554,33 @@ def team_detail(request, team_id):
     while len(goalie_slots) < num_goalie:
         goalie_slots.append(None)
 
+    # Create bench slots for traditional leagues
+    bench_slots = []
+    if league.roster_format == 'traditional':
+        num_bench = league.roster_bench or 6
+        # Collect all unassigned players (those in bench position across all position pools)
+        bench_players = []
+        
+        # Get bench players from each position pool (they're appended after starters in sort_by_slot_assignment)
+        if has_starter_slots:
+            # Bench players are those after the first num_offence/num_defence/num_goalie in the pool
+            bench_players.extend(offence_pool[num_offence:])
+            bench_players.extend(defence_pool[num_defence:])
+            bench_players.extend(goalie_pool[num_goalie:])
+        else:
+            # No starters, all players could be bench
+            bench_players.extend(offence_pool)
+            bench_players.extend(defence_pool)
+            bench_players.extend(goalie_pool)
+        
+        # Remove None entries and create bench slots
+        bench_players = [p for p in bench_players if p is not None]
+        bench_slots = bench_players[:num_bench]
+        
+        # Pad with None to reach desired bench count
+        while len(bench_slots) < num_bench:
+            bench_slots.append(None)
+
     # Mark starter status based on slot assignment for all league types
     is_traditional = league.roster_format == 'traditional'
     for slot_group in [offence_slots, defence_slots, goalie_slots]:
@@ -721,6 +748,7 @@ def team_detail(request, team_id):
             "offence_slots": offence_slots,
             "defence_slots": defence_slots,
             "goalie_slots": goalie_slots,
+            "bench_slots": bench_slots,
             "week_range": [selected_week_num],  # Only show selected week
             "selected_week": selected_week_num,
             "selected_week_obj": selected_week_obj,
