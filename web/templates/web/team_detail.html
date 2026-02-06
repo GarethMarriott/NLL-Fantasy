@@ -1196,35 +1196,31 @@ function dropPlayerFromModal() {
   
   // Show drop confirmation
   showConfirmModal(`Drop ${currentModalPlayerName}?`, function() {
-    // Submit the drop action
-    const teamId = new URL(window.location.href).pathname.split('/')[2];
-    const weekNum = new URL(window.location.href).searchParams.get('week') || 1;
+    // Create a form to submit the drop action
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/teams/${new URL(window.location.href).pathname.split('/')[2]}/assign-player/`;
     
-    fetch(`/teams/${teamId}/assign-player/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-      },
-      body: JSON.stringify({
-        player_id: currentModalPlayerId,
-        action: 'drop',
-        week: weekNum
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Drop response:', data);
-      if (data.success) {
-        location.reload();
-      } else {
-        alert('Error: ' + (data.error || 'Failed to drop player'));
-      }
-    })
-    .catch(error => {
-      console.error('Drop error:', error);
-      alert('Error dropping player: ' + error.message);
-    });
+    const playerIdInput = document.createElement('input');
+    playerIdInput.type = 'hidden';
+    playerIdInput.name = 'player_id';
+    playerIdInput.value = currentModalPlayerId;
+    
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = 'drop';
+    
+    const csrfTokenInput = document.createElement('input');
+    csrfTokenInput.type = 'hidden';
+    csrfTokenInput.name = 'csrfmiddlewaretoken';
+    csrfTokenInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    form.appendChild(playerIdInput);
+    form.appendChild(actionInput);
+    form.appendChild(csrfTokenInput);
+    document.body.appendChild(form);
+    form.submit();
   });
 }
 
