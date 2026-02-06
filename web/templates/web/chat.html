@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load custom_filters %}
 
 {% block title %}
   {% if chat_type == 'league' %}League Chat{% else %}Team Chat with {{ current_chat_with.name }}{% endif %} - NLL Fantasy
@@ -35,15 +36,21 @@
     <!-- Chat Selector Tabs -->
     <div class="flex flex-wrap gap-2 mt-4">
       <a href="{% url 'chat' %}?chat_type=league" 
-         class="px-4 py-2 rounded-lg {% if chat_type == 'league' %}bg-blue-500 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
-        🏟️ League Chat
+         class="px-4 py-2 rounded-lg flex items-center gap-2 {% if chat_type == 'league' %}bg-blue-500 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
+        <span>🏟️ League Chat</span>
+        {% if league_unread > 0 %}
+          <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full {% if chat_type == 'league' %}bg-white text-blue-500{% else %}bg-red-500 text-white{% endif %}">{{ league_unread }}</span>
+        {% endif %}
       </a>
       
       {% if available_team_chats %}
         {% for team in available_team_chats %}
           <a href="{% url 'chat' %}?chat_type=team&team_chat_id={{ team.id }}" 
-             class="px-4 py-2 rounded-lg {% if chat_type == 'team' and current_chat_with.id == team.id %}bg-green-500 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
-            🤝 {{ team.name }}
+             class="px-4 py-2 rounded-lg flex items-center gap-2 {% if chat_type == 'team' and current_chat_with.id == team.id %}bg-green-500 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
+            <span>🤝 {{ team.name }}</span>
+            {% if team_unread_counts|lookup:team.id %}
+              <span class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full {% if chat_type == 'team' and current_chat_with.id == team.id %}bg-white text-green-500{% else %}bg-red-500 text-white{% endif %}">{{ team_unread_counts|lookup:team.id }}</span>
+            {% endif %}
           </a>
         {% endfor %}
       {% endif %}

@@ -65,3 +65,10 @@ def get_index(lst, index):
         return lst[int(index)]
     except (IndexError, TypeError, ValueError, KeyError):
         return None
+
+@register.filter
+def lookup(dict_obj, key):
+    """Get value from dictionary by key"""
+    if isinstance(dict_obj, dict):
+        return dict_obj.get(key, 0)
+    return 0

@@ -3091,6 +3091,7 @@ def logout_view(request):
 def chat_view(request):
     """Display chat with option to view league chat or team chats"""
     from web.models import TeamChatMessage
+    from datetime import datetime, timedelta
     
     selected_league_id = request.session.get('selected_league_id')
     
@@ -3115,6 +3116,10 @@ def chat_view(request):
         if owner:
             user_team = owner.team
     
+    # Initialize chat read tracking in session
+    if 'chat_last_read' not in request.session:
+        request.session['chat_last_read'] = {}
+    
     # Determine which chat to display
     chat_type = request.GET.get('chat_type', 'league')  # 'league' or 'team'
     team_chat_id = request.GET.get('team_chat_id', None)  # ID of other team for team chats
@@ -3122,6 +3127,7 @@ def chat_view(request):
     messages_list = []
     available_team_chats = []
     current_chat_with = None
+    chat_key_viewed = f"league_{selected_league_id}"  # Default to league chat
     
     if chat_type == 'league':
         # Display league chat
@@ -3130,6 +3136,7 @@ def chat_view(request):
         ).select_related(
             'sender', 'player', 'team', 'league'
         ).all()[:100]  # Last 100 messages
+        chat_key_viewed = f"league_{selected_league_id}"
     
     elif chat_type == 'team' and team_chat_id and user_team:
         # Display team-to-team chat
@@ -3147,8 +3154,10 @@ def chat_view(request):
         
         # Get the other team
         current_chat_with = Team.objects.get(id=other_team_id)
+        chat_key_viewed = f"team_{team1_id}_{team2_id}"
     
     # Get all other teams in the league for chat options
+    team_unread_counts = {}
     if user_team:
         # Show all other teams in the league (not just existing chats)
         available_team_chats = Team.objects.filter(
@@ -3156,8 +3165,53 @@ def chat_view(request):
         ).exclude(
             id=user_team.id
         ).order_by('name')
+        
+        # Calculate unread counts for each team chat
+        for other_team in available_team_chats:
+            team1_id = min(user_team.id, other_team.id)
+            team2_id = max(user_team.id, other_team.id)
+            chat_key = f"team_{team1_id}_{team2_id}"
+            
+            last_read = request.session['chat_last_read'].get(chat_key)
+            if last_read:
+                # Count messages after last read time
+                last_read_dt = datetime.fromisoformat(last_read)
+                unread = TeamChatMessage.objects.filter(
+                    team1_id=team1_id,
+                    team2_id=team2_id,
+                    created_at__gt=last_read_dt
+                ).count()
+            else:
+                # No read history, count recent messages (last 7 days)
+                cutoff = datetime.now() - timedelta(days=7)
+                unread = TeamChatMessage.objects.filter(
+                    team1_id=team1_id,
+                    team2_id=team2_id,
+                    created_at__gt=cutoff
+                ).count()
+            
+            team_unread_counts[other_team.id] = unread
     else:
         available_team_chats = []
+    
+    # Calculate unread count for league chat
+    league_unread = 0
+    league_chat_key = f"league_{selected_league_id}"
+    last_read = request.session['chat_last_read'].get(league_chat_key)
+    if last_read:
+        last_read_dt = datetime.fromisoformat(last_read)
+        league_unread = ChatMessage.objects.filter(
+            league_id=selected_league_id,
+            created_at__gt=last_read_dt
+        ).count()
+    
+    # Mark current chat as read by updating session
+    if messages_list:
+        request.session['chat_last_read'][chat_key_viewed] = datetime.now().isoformat()
+        request.session.modified = True
+    
+    # Calculate total unread chats for badge
+    total_chats_with_unread = (1 if league_unread > 0 else 0) + sum(1 for count in team_unread_counts.values() if count > 0)
     
     return render(request, "web/chat.html", {
         "messages": messages_list,
@@ -3165,7 +3219,10 @@ def chat_view(request):
         "current_chat_with": current_chat_with,
         "available_team_chats": available_team_chats,
         "user_team": user_team,
-        "is_team_chat": chat_type == 'team'
+        "is_team_chat": chat_type == 'team',
+        "league_unread": league_unread,
+        "team_unread_counts": team_unread_counts,
+        "total_chats_with_unread": total_chats_with_unread,
     })
 
 
