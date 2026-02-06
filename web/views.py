@@ -532,15 +532,26 @@ def team_detail(request, team_id):
         defence_pool = players_by_position["D"]
         goalie_pool = players_by_position["G"]
 
-    offence_slots = offence_pool[:6]
-    defence_slots = defence_pool[:6]
-    goalie_slots = goalie_pool[:2]
+    # Get slot counts from league configuration for traditional leagues, use defaults for best ball
+    if league.roster_format == 'traditional':
+        num_offence = league.roster_forwards or 6
+        num_defence = league.roster_defense or 6
+        num_goalie = league.roster_goalies or 2
+    else:
+        # Best ball uses fixed counts
+        num_offence = 6
+        num_defence = 6
+        num_goalie = 2
 
-    while len(offence_slots) < 6:
+    offence_slots = offence_pool[:num_offence]
+    defence_slots = defence_pool[:num_defence]
+    goalie_slots = goalie_pool[:num_goalie]
+
+    while len(offence_slots) < num_offence:
         offence_slots.append(None)
-    while len(defence_slots) < 6:
+    while len(defence_slots) < num_defence:
         defence_slots.append(None)
-    while len(goalie_slots) < 2:
+    while len(goalie_slots) < num_goalie:
         goalie_slots.append(None)
 
     # Mark starter status based on slot assignment for all league types
@@ -583,10 +594,15 @@ def team_detail(request, team_id):
     
     if is_traditional:
         # For traditional leagues, only mark assigned starters as counting
-        # Get the 3 assigned offense starters
-        starter_offense = [slot for slot in offence_slots if slot and slot.get('is_starter')][:3]
-        starter_defense = [slot for slot in defence_slots if slot and slot.get('is_starter')][:3]
-        starter_goalie = [slot for slot in goalie_slots if slot and slot.get('is_starter')][:1]
+        # Use league's configured starter counts
+        num_starter_offense = league.roster_forwards or 6
+        num_starter_defense = league.roster_defense or 6
+        num_starter_goalie = league.roster_goalies or 2
+        
+        # Get the assigned offense starters
+        starter_offense = [slot for slot in offence_slots if slot and slot.get('is_starter')][:num_starter_offense]
+        starter_defense = [slot for slot in defence_slots if slot and slot.get('is_starter')][:num_starter_defense]
+        starter_goalie = [slot for slot in goalie_slots if slot and slot.get('is_starter')][:num_starter_goalie]
         
         # Mark these specific slots as counting
         for slot in starter_offense + starter_defense + starter_goalie:
@@ -617,10 +633,10 @@ def team_detail(request, team_id):
     overall_total = 0
     for week_idx_all in range(18):
         if is_traditional:
-            # For traditional, sum all starter scores across all weeks
-            starter_offense_all = [slot for slot in offence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:3]
-            starter_defense_all = [slot for slot in defence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:3]
-            starter_goalie_all = [slot for slot in goalie_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:1]
+            # For traditional, sum all starter scores across all weeks using league's configured counts
+            starter_offense_all = [slot for slot in offence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:num_starter_offense]
+            starter_defense_all = [slot for slot in defence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:num_starter_defense]
+            starter_goalie_all = [slot for slot in goalie_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:num_starter_goalie]
             
             week_total_all = sum(slot["weekly_points"][week_idx_all] for slot in starter_offense_all + starter_defense_all + starter_goalie_all)
         else:
