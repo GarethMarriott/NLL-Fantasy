@@ -799,8 +799,9 @@ def manage_lineup(request, team_id):
             slot_assignment__startswith='starter_'
         ).count()
         
-        if starter_slots != 7:
-            messages.error(request, "You must have exactly 7 starters (3 Offense, 3 Defense, 1 Goalie).")
+        required_starters = league.roster_forwards + league.roster_defense + league.roster_goalies
+        if starter_slots != required_starters:
+            messages.error(request, f"You must have exactly {required_starters} starters ({league.roster_forwards} Offense, {league.roster_defense} Defense, {league.roster_goalies} Goalie).")
             return redirect('manage_lineup', team_id=team_id)
         
         messages.success(request, "Lineup updated successfully!")
@@ -809,9 +810,12 @@ def manage_lineup(request, team_id):
     # GET request - show lineup management page
     roster_items = Roster.objects.filter(team=team).select_related('player')
     
-    # Separate players by slot assignment
-    starter_offense = roster_items.filter(slot_assignment__in=['starter_o1', 'starter_o2', 'starter_o3'])
-    starter_defense = roster_items.filter(slot_assignment__in=['starter_d1', 'starter_d2', 'starter_d3'])
+    # Separate players by slot assignment - use league configuration
+    offense_slots = [f'starter_o{i}' for i in range(1, league.roster_forwards + 1)]
+    defense_slots = [f'starter_d{i}' for i in range(1, league.roster_defense + 1)]
+    
+    starter_offense = roster_items.filter(slot_assignment__in=offense_slots)
+    starter_defense = roster_items.filter(slot_assignment__in=defense_slots)
     starter_goalie = roster_items.filter(slot_assignment='starter_g')
     bench_players = roster_items.filter(slot_assignment='bench')
     
@@ -4651,8 +4655,8 @@ def get_available_slots(request, team_id):
                     slot_designations = [f'starter_d{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_d'
                 else:  # G
-                    num_slots = 1
-                    slot_designations = ['starter_g']
+                    num_slots = league.roster_goalies
+                    slot_designations = [f'starter_g{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_g'
                 
                 # Get players currently in these slots
