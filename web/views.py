@@ -4508,22 +4508,25 @@ def get_available_slots(request, team_id):
             print(f"  Best ball position counts: O={o_count}, D={d_count}, G={g_count}")
             
             if player_position == 'T':
-                # T players can move to O, D, or G positions - but only if not full
+                # T players can move to O, D, or G positions - show options only if there are empty slots
                 if o_count < 3:
-                    response_data['empty_slot_options']['O'] = ['O']
+                    response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
                 if d_count < 3:
-                    response_data['empty_slot_options']['D'] = ['D']
+                    response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
                 if g_count < 1:
-                    response_data['empty_slot_options']['G'] = ['G']
+                    response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
             elif player_position == 'O':
-                # O players can stay in O position (always available for their own position)
-                response_data['empty_slot_options']['O'] = ['O']
+                # O players can stay in O position if there's an empty slot
+                if o_count < 3:
+                    response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
             elif player_position == 'D':
-                # D players can stay in D position (always available for their own position)
-                response_data['empty_slot_options']['D'] = ['D']
+                # D players can stay in D position if there's an empty slot
+                if d_count < 3:
+                    response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
             elif player_position == 'G':
-                # G players can stay in G position (always available for their own position)
-                response_data['empty_slot_options']['G'] = ['G']
+                # G players can stay in G position if there's an empty slot
+                if g_count < 1:
+                    response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
         else:
             # For traditional leagues, find starter slots
             # Only show swap options for players in the SAME slot type (same position)
@@ -4606,6 +4609,10 @@ def get_available_slots(request, team_id):
                 else:
                     print(f"  Skipping {slot_type} slots for swap options (current player in {current_slot_type})")
                 
+                # Find empty slots for this type
+                # Only show them if empty slots actually exist for this position
+                empty_slots = []
+                
                 # Find which slots are filled
                 filled_slot_numbers = set()
                 for roster_entry in roster_in_slots:
@@ -4619,37 +4626,14 @@ def get_available_slots(request, team_id):
                         except ValueError:
                             pass
                 
-                # Find empty slots for this type
-                # But only show them if this is the same slot type OR if moving to this type won't exceed capacity
-                empty_slots = []
-                
-                # If moving to a different position type (e.g., T in D moving to O), check capacity
-                if slot_type != current_slot_type and current_slot_type is not None:
-                    # Count players currently assigned to this position type
-                    filled_by_position = roster_in_slots.count()
-                    if filled_by_position < num_slots:
-                        # Only show empty slots if not at capacity
-                        for i in range(1, num_slots + 1):
-                            if i not in filled_slot_numbers:
-                                if slot_type == 'G':
-                                    slot_designation = 'starter_g'
-                                else:
-                                    slot_designation = f"{slot_prefix}{i}"
-                                empty_slots.append(slot_designation)
-                                print(f"    Empty slot: {slot_designation}")
-                        print(f"  {slot_type} has capacity ({filled_by_position}/{num_slots}), showing empty slots")
-                    else:
-                        print(f"  {slot_type} at capacity ({filled_by_position}/{num_slots}), hiding empty slots")
-                else:
-                    # Same position type OR current_slot_type is unknown - always show available empty slots
-                    for i in range(1, num_slots + 1):
-                        if i not in filled_slot_numbers:
-                            if slot_type == 'G':
-                                slot_designation = 'starter_g'
-                            else:
-                                slot_designation = f"{slot_prefix}{i}"
-                            empty_slots.append(slot_designation)
-                            print(f"    Empty slot: {slot_designation}")
+                # Add empty slots only if they exist
+                for i in range(1, num_slots + 1):
+                    if i not in filled_slot_numbers:
+                        if slot_type == 'G':
+                            slot_designation = 'starter_g'
+                        else:
+                            slot_designation = f"{slot_prefix}{i}"
+                        empty_slots.append(slot_designation)
                 
                 response_data['empty_slot_options'][slot_type] = empty_slots
             
