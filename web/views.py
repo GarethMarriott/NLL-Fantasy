@@ -1237,7 +1237,7 @@ def assign_player(request, team_id):
     
     if action == "move_to_empty_slot":
         # Move a player to an empty slot (for traditional leagues)
-        target_slot = request.POST.get("target_slot")  # Slot designation like "starter_o1", "starter_d2", etc.
+        target_slot = request.POST.get("target_slot")  # Slot designation like "starter_o1", "starter_d2", etc., or position like "O", "D", "G"
         import logging
         logger = logging.getLogger('django')
         logger.warning(f"MOVE_TO_EMPTY_SLOT START: player={player.last_name}, target_slot={target_slot}, league_format={team.league.roster_format}")
@@ -1257,7 +1257,7 @@ def assign_player(request, team_id):
             messages.error(request, "Player not found on roster.")
             return redirect("team_detail", team_id=team.id)
         
-        # Only update slot_assignment for traditional leagues
+        # Handle traditional league moves (update slot_assignment)
         if team.league.roster_format == 'traditional':
             old_slot = player_roster.slot_assignment
             logger.warning(f"MOVE_TO_EMPTY_SLOT: Before save - {player.last_name} from {old_slot} to {target_slot}")
@@ -1274,8 +1274,14 @@ def assign_player(request, team_id):
                     player.assigned_side = 'G'
                 player.save()
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: Updated transition player assigned_side to {player.assigned_side}")
+        # Handle best ball league moves (update assigned_side for position moves)
         else:
-            logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - move allowed but slot_assignment not changed")
+            if player.position == 'T' and target_slot in ['O', 'D', 'G']:
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - updating assigned_side to {target_slot}")
+                player.assigned_side = target_slot
+                player.save()
+            else:
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - no changes needed")
         
         logger.warning(f"MOVE_TO_EMPTY_SLOT: After save - {player.last_name} now in {player_roster.slot_assignment}")
         
