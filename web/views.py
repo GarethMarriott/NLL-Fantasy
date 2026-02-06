@@ -4418,6 +4418,7 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 def get_available_slots(request, team_id):
     """JSON endpoint returning all players and empty slots for a position that can be swapped with"""
     from django.http import JsonResponse
+    import sys
     
     try:
         team = get_object_or_404(Team, id=team_id)
@@ -4427,6 +4428,7 @@ def get_available_slots(request, team_id):
         # Get the league for roster info
         league = team.league
         is_best_ball = league.roster_format == 'bestball'
+        print(f"DEBUG: get_available_slots called - league={league.name}, is_best_ball={is_best_ball}, current_player_id={current_player_id}", file=sys.stderr)
         
         # First, get the current player to determine what positions they can fill
         current_player = Player.objects.get(id=current_player_id)
@@ -4458,7 +4460,7 @@ def get_available_slots(request, team_id):
         ).select_related('player')
         
         if is_best_ball:
-            print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}")
+            print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}", file=sys.stderr)
             # For best ball leagues, list players that can be swapped based on position compatibility
             # T players can ONLY swap with other T players
             # O players can swap with O and T players
@@ -4512,20 +4514,20 @@ def get_available_slots(request, team_id):
             ).count()
             
             
-            print(f"DEBUG best ball: player_position={player_position}, o_count={o_count}, d_count={d_count}, g_count={g_count}")
+            print(f"DEBUG best ball: player_position={player_position}, o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
             
             if player_position == 'T':
                 # T players can move to O, D, or G positions - show options only if there are empty slots
-                print(f"  T player: checking O({o_count}<3), D({d_count}<3), G({g_count}<1)")
+                print(f"  T player: checking O({o_count}<3), D({d_count}<3), G({g_count}<1)", file=sys.stderr)
                 if o_count < 3:
                     response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
-                    print(f"    Added O slot option")
+                    print(f"    Added O slot option", file=sys.stderr)
                 if d_count < 3:
                     response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
-                    print(f"    Added D slot option")
+                    print(f"    Added D slot option", file=sys.stderr)
                 if g_count < 1:
                     response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
-                    print(f"    Added G slot option")
+                    print(f"    Added G slot option", file=sys.stderr)
             elif player_position == 'O':
                 # O players can stay in O position if there's an empty slot
                 if o_count < 3:
@@ -4664,8 +4666,8 @@ def get_available_slots(request, team_id):
             if 'bench' not in response_data['empty_slot_options']:
                 response_data['empty_slot_options']['Bench'] = ['bench']
         
-        print(f"DEBUG: Returning response_data: {response_data}")
-        print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options, empty_slot_options={response_data.get('empty_slot_options', {})}")
+        print(f"DEBUG: Returning response_data: {response_data}", file=sys.stderr)
+        print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options, empty_slot_options={response_data.get('empty_slot_options', {})}", file=sys.stderr)
         return JsonResponse(response_data)
     
     except Exception as e:
