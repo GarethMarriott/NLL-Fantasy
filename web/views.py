@@ -4449,17 +4449,30 @@ def get_available_slots(request, team_id):
         ).select_related('player')
         
         if is_best_ball:
-            # For best ball leagues, just list all other players as swap options regardless of position
-            # In best ball, moves are organizational only and don't affect scoring
+            # For best ball leagues, list players that can be swapped based on position compatibility
+            # O/T players can swap with O and T players
+            # D/T players can swap with D and T players  
+            # G/T players can swap with G and T players
+            eligible_positions = set()
+            if player_position in ['O', 'T']:
+                eligible_positions.add('O')
+                eligible_positions.add('T')
+            if player_position in ['D', 'T']:
+                eligible_positions.add('D')
+                eligible_positions.add('T')
+            if player_position in ['G', 'T']:
+                eligible_positions.add('G')
+                eligible_positions.add('T')
+            
             for roster_entry in all_active_roster:
-                if str(roster_entry.player.id) != str(current_player_id):
+                if str(roster_entry.player.id) != str(current_player_id) and roster_entry.player.position in eligible_positions:
                     response_data['swap_options'].append({
                         'player_id': roster_entry.player.id,
                         'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                         'slot_type': roster_entry.player.position,
                         'slot_assignment': roster_entry.slot_assignment
                     })
-            print(f"  Best ball league: {len(response_data['swap_options'])} players available to swap")
+            print(f"  Best ball league: {len(response_data['swap_options'])} eligible players to swap from positions {eligible_positions}")
         else:
             # For traditional leagues, find starter slots
             # For each position the player can move to, find swap and empty slot options
