@@ -88,8 +88,8 @@ class LeagueSettingsForm(forms.ModelForm):
     class Meta:
         model = League
         fields = [
-            'name', 'description', 'max_teams', 'roster_format', 'league_type', 'is_public', 'roster_size', 
-            'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'taxi_squad_size',
+            'name', 'description', 'max_teams', 'roster_format', 'league_type', 'is_public',
+            'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'taxi_squad_size',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
@@ -155,6 +155,7 @@ class LeagueSettingsForm(forms.ModelForm):
         if 'playoff_weeks' in self.fields:
             self.fields.pop('playoff_weeks')
         # For traditional leagues, remove roster_size field (it's calculated from allocation)
+        # For best ball, keep it editable
         if self.instance and self.instance.roster_format == 'traditional':
             if 'roster_size' in self.fields:
                 self.fields.pop('roster_size')

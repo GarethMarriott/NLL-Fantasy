@@ -21,6 +21,14 @@
     </p>
 
     <form method="post" class="space-y-6">
+      {% if form.non_field_errors %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p class="font-bold">Form Errors:</p>
+          {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
             <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
               <label class="block text-sm font-medium mb-2">Multi-Game Week Scoring</label>
               {{ form.multigame_scoring }}
