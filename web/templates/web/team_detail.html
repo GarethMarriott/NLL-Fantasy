@@ -650,10 +650,17 @@
       <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
             <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">B{{ forloop.counter }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
+              {% if slot %}
               <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-gray-300 text-gray-800 rounded text-xs sm:text-sm font-semibold border border-gray-400 cursor-pointer hover:bg-gray-400 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
-                      onclick="handlePositionBadgeClick('{{ slot.player.id if slot }}', '{{ slot.player.last_name if slot }}, {{ slot.player.first_name if slot }}', 'B')">
+                      onclick="handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'B')">
                 B
               </button>
+              {% else %}
+              <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-gray-300 text-gray-800 rounded text-xs sm:text-sm font-semibold border border-gray-400 cursor-not-allowed opacity-50"
+                      disabled>
+                B
+              </button>
+              {% endif %}
             </td>
             {% if slot %}
             <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">{{ slot.player.number }}</td>
