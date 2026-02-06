@@ -315,9 +315,8 @@
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
-                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-green-100 text-green-800 rounded text-xs sm:text-sm font-semibold border border-green-300 cursor-pointer hover:bg-green-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 or position_capacities.O.is_full %}opacity-50 cursor-not-allowed{% endif %}"
-                          onclick="{% if position_capacities.O.is_full %}alert('Offence slots are full');return false;{% else %}handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'O'){% endif %}"
-                          title="{% if position_capacities.O.is_full %}Offence slots are full ({{ position_capacities.O.current }}/{{ position_capacities.O.max }}){% endif %}">
+                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-green-100 text-green-800 rounded text-xs sm:text-sm font-semibold border border-green-300 cursor-pointer hover:bg-green-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
+                          onclick="handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'O')">
                     O
                   </button>
                 </td>
@@ -400,9 +399,8 @@
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter|add:6 }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
-                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-orange-100 text-orange-800 rounded text-xs sm:text-sm font-semibold border border-orange-300 cursor-pointer hover:bg-orange-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 or position_capacities.D.is_full %}opacity-50 cursor-not-allowed{% endif %}"
-                          onclick="{% if position_capacities.D.is_full %}alert('Defence slots are full');return false;{% else %}handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'D'){% endif %}"
-                          title="{% if position_capacities.D.is_full %}Defence slots are full ({{ position_capacities.D.current }}/{{ position_capacities.D.max }}){% endif %}">
+                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-orange-100 text-orange-800 rounded text-xs sm:text-sm font-semibold border border-orange-300 cursor-pointer hover:bg-orange-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
+                          onclick="handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'D')">
                     D
                   </button>
                 </td>
@@ -487,9 +485,8 @@
           <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
                 <td class="p-1 sm:p-2 md:p-3 hidden md:table-cell">{{ forloop.counter|add:12 }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">
-                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-blue-100 text-blue-800 rounded text-xs sm:text-sm font-semibold border border-blue-300 cursor-pointer hover:bg-blue-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 or position_capacities.G.is_full %}opacity-50 cursor-not-allowed{% endif %}"
-                          onclick="{% if position_capacities.G.is_full %}alert('Goalie slots are full');return false;{% else %}handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'G'){% endif %}"
-                          title="{% if position_capacities.G.is_full %}Goalie slots are full ({{ position_capacities.G.current }}/{{ position_capacities.G.max }}){% endif %}">
+                  <button type="button" class="position-badge inline-block px-1 py-0.5 sm:px-2 sm:py-1 md:px-3 bg-blue-100 text-blue-800 rounded text-xs sm:text-sm font-semibold border border-blue-300 cursor-pointer hover:bg-blue-200 transition-colors {% if not user_owns_team or is_viewing_past_week or not roster_status or not roster_status.0 %}opacity-50 cursor-not-allowed{% endif %}"
+                          onclick="handlePositionBadgeClick('{{ slot.player.id }}', '{{ slot.player.last_name }}, {{ slot.player.first_name }}', 'G')">
                     G
                   </button>
                 </td>
