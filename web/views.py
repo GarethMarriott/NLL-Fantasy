@@ -1181,9 +1181,9 @@ def assign_player(request, team_id):
             target_roster.save()
             logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
             
-            # For Transition players, also swap assigned_side in best ball
-            if team.league.roster_format == 'bestball' and player.position == 'T' and target_player.position == 'T':
-                logger.warning(f"SWAP_SLOTS: Best ball T-T swap - before assigned_side swap: player={player.assigned_side}, target={target_player.assigned_side}")
+            # For Transition players, swap assigned_side if they're moving to different position groups
+            if player.position == 'T' and target_player.position == 'T':
+                logger.warning(f"SWAP_SLOTS: T-T swap - before assigned_side swap: player={player.assigned_side}, target={target_player.assigned_side}")
                 player.assigned_side, target_player.assigned_side = target_player.assigned_side, player.assigned_side
                 player.save()
                 target_player.save()
