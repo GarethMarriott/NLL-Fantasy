@@ -341,44 +341,6 @@
                     </div>
                     {% if user_owns_team %}
                     <div class="flex flex-col gap-0.5 flex-shrink-0">
-                      <form method="post" action="{% url 'assign_player' team.id %}" class="inline w-full">
-                        {% csrf_token %}
-                        <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                        <input type="hidden" name="action" value="drop">
-                        <button type="submit"
-                                {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="console.log('Offense drop clicked'); event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', null, this.closest('form'));{% endif %} return false;"
-                                class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
-                          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-                          </svg>
-                        </button>
-                      </form>
-                      {% if slot.player.position == 'T' %}
-                      <div class="flex gap-0.5 w-full">
-                        <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline flex-1">
-                          {% csrf_token %}
-                          <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                          <input type="hidden" name="target_side" value="D">
-                          <button type="submit"
-                                  {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                  class="w-full px-1 py-0.5 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-orange-500 hover:bg-orange-600{% endif %} rounded text-white shadow text-center"
-                                  title="Move to Defense">
-                            D
-                          </button>
-                        </form>
-                        <form method="post" action="{% url 'move_transition_player' team.id %}" class="inline flex-1">
-                          {% csrf_token %}
-                          <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                          <input type="hidden" name="target_side" value="G">
-                          <button type="submit"
-                                  {% if roster_status and not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                  class="w-full px-1 py-0.5 text-xs {% if roster_status and not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 hover:bg-blue-600{% endif %} rounded text-white shadow text-center"
-                                  title="Move to Goalie">
-                            G
-                          </button>
-                      </form>
-                      {% endif %}
                     </div>
                     {% endif %}
                 </td>
@@ -463,19 +425,6 @@
                     </div>
                     {% if user_owns_team %}
                     <div class="flex flex-col gap-0.5 flex-shrink-0">
-                      <form method="post" action="{% url 'assign_player' team.id %}" class="inline w-full">
-                        {% csrf_token %}
-                        <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                        <input type="hidden" name="action" value="drop">
-                        <button type="submit"
-                                {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', null, this.closest('form'));{% endif %} return false;"
-                                class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
-                          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-                          </svg>
-                        </button>
-                      </form>
                     </div>
                     {% endif %}
                 </td>
@@ -562,19 +511,6 @@
                     </div>
                     {% if user_owns_team %}
                     <div class="flex flex-col gap-0.5 flex-shrink-0">
-                      <form method="post" action="{% url 'assign_player' team.id %}" class="inline w-full">
-                        {% csrf_token %}
-                        <input type="hidden" name="player_id" value="{{ slot.player.id }}">
-                        <input type="hidden" name="action" value="drop">
-                        <button type="submit"
-                                {% if not roster_status or not roster_status.0 or is_viewing_past_week %}disabled{% endif %}
-                                onclick="event.preventDefault(); {% if roster_status and roster_status.0 and not is_viewing_past_week %}showConfirmModal('Drop {{ slot.player.last_name }}, {{ slot.player.first_name }}?', null, this.closest('form'));{% endif %} return false;"
-                                class="w-full px-1.5 py-0.5 text-xs {% if not roster_status or not roster_status.0 or is_viewing_past_week %}bg-gray-400 cursor-not-allowed{% else %}bg-blue-500 cursor-pointer{% endif %} rounded text-white outline-none focus:ring-1 shadow transform active:scale-95 transition-transform flex items-center justify-center">
-                          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-                          </svg>
-                        </button>
-                      </form>
                     </div>
                     {% endif %}
                 </td>

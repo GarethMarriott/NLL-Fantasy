@@ -108,9 +108,9 @@ def check_roster_capacity(team, position, exclude_player=None):
     
     # Get max slots for this position
     max_slots = {
-        'O': team.league.roster_forwards,
-        'D': team.league.roster_defense,
-        'G': team.league.roster_goalies
+        'O': team.league.roster_forwards or 6,
+        'D': team.league.roster_defense or 6,
+        'G': team.league.roster_goalies or 2
     }
     max_allowed = max_slots.get(position, 0)
     
@@ -1036,23 +1036,25 @@ def assign_player(request, team_id):
             messages.error(request, f"Roster is full. Maximum {roster_max} players allowed per team.")
             return redirect("team_detail", team_id=team.id)
         
-        # Validate position matches slot type
-        if slot_group == "O" and player.position not in ["O", "T"]:
-            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Offence slots (position: {player.get_position_display()})")
-            return redirect("team_detail", team_id=team.id)
-        elif slot_group == "D" and player.position not in ["D", "T"]:
-            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Defence slots (position: {player.get_position_display()})")
-            return redirect("team_detail", team_id=team.id)
-        elif slot_group == "G" and player.position != "G":
-            messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Goalie slots (position: {player.get_position_display()})")
-            return redirect("team_detail", team_id=team.id)
-        
-        # Check position-specific capacity
-        can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
-        if not can_add:
-            position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(slot_group, 'Unknown')
-            messages.error(request, f"Your {position_name} roster is full ({current_pos_count}/{max_pos_slots} spots).")
-            return redirect("team_detail", team_id=team.id)
+        # For bench slots (traditional leagues), skip position validation - just add to roster
+        if slot_group != "B":
+            # Validate position matches slot type
+            if slot_group == "O" and player.position not in ["O", "T"]:
+                messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Offence slots (position: {player.get_position_display()})")
+                return redirect("team_detail", team_id=team.id)
+            elif slot_group == "D" and player.position not in ["D", "T"]:
+                messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Defence slots (position: {player.get_position_display()})")
+                return redirect("team_detail", team_id=team.id)
+            elif slot_group == "G" and player.position != "G":
+                messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Goalie slots (position: {player.get_position_display()})")
+                return redirect("team_detail", team_id=team.id)
+            
+            # Check position-specific capacity
+            can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
+            if not can_add:
+                position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(slot_group, 'Unknown')
+                messages.error(request, f"Your {position_name} roster is full ({current_pos_count}/{max_pos_slots} spots).")
+                return redirect("team_detail", team_id=team.id)
         
         # Check if player is already rostered in this league (active roster only)
         existing_roster = Roster.objects.filter(
