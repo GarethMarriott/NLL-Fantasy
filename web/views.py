@@ -4621,21 +4621,10 @@ def get_available_slots(request, team_id):
                 
                 # Find empty slots for this type
                 # But only show them if this is the same slot type OR if moving to this type won't exceed capacity
-                # EXCEPTION: T players can always see empty slots for positions they can fill
                 empty_slots = []
                 
-                # For T players, always show available empty slots in any position they can move to
-                if player.position == 'T':
-                    for i in range(1, num_slots + 1):
-                        if i not in filled_slot_numbers:
-                            if slot_type == 'G':
-                                slot_designation = 'starter_g'
-                            else:
-                                slot_designation = f"{slot_prefix}{i}"
-                            empty_slots.append(slot_designation)
-                            print(f"    Empty slot: {slot_designation}")
-                # If moving to a different position type (e.g., non-T in D moving to O), check capacity
-                elif slot_type != current_slot_type and current_slot_type is not None:
+                # If moving to a different position type (e.g., T in D moving to O), check capacity
+                if slot_type != current_slot_type and current_slot_type is not None:
                     # Count players currently assigned to this position type
                     filled_by_position = roster_in_slots.count()
                     if filled_by_position < num_slots:
