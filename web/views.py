@@ -4458,6 +4458,7 @@ def get_available_slots(request, team_id):
         ).select_related('player')
         
         if is_best_ball:
+            print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}")
             # For best ball leagues, list players that can be swapped based on position compatibility
             # T players can ONLY swap with other T players
             # O players can swap with O and T players
@@ -4511,14 +4512,20 @@ def get_available_slots(request, team_id):
             ).count()
             
             
+            print(f"DEBUG best ball: player_position={player_position}, o_count={o_count}, d_count={d_count}, g_count={g_count}")
+            
             if player_position == 'T':
                 # T players can move to O, D, or G positions - show options only if there are empty slots
+                print(f"  T player: checking O({o_count}<3), D({d_count}<3), G({g_count}<1)")
                 if o_count < 3:
                     response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
+                    print(f"    Added O slot option")
                 if d_count < 3:
                     response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
+                    print(f"    Added D slot option")
                 if g_count < 1:
                     response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
+                    print(f"    Added G slot option")
             elif player_position == 'O':
                 # O players can stay in O position if there's an empty slot
                 if o_count < 3:
