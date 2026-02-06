@@ -944,6 +944,21 @@
         });
     }
     
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    
     function closePositionMoveModal() {
       const modal = document.getElementById('positionMoveModal');
       modal.classList.add('hidden');
@@ -961,7 +976,21 @@
       
       console.log('submitPositionMove:', {playerId, targetSlot, isEmpty});
       
-      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      // Get CSRF token - try multiple methods for robustness
+      let csrfToken = null;
+      const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrfInput) {
+        csrfToken = csrfInput.value;
+      } else {
+        // Fallback: try to get from cookie
+        csrfToken = getCookie('csrftoken');
+      }
+      
+      if (!csrfToken) {
+        alert('Error: CSRF token not found');
+        return;
+      }
+      
       const formData = new FormData();
       formData.append('player_id', playerId);
       formData.append('target_slot', targetSlot);
@@ -1142,7 +1171,8 @@ function dropPlayerFromModal() {
     const csrfTokenInput = document.createElement('input');
     csrfTokenInput.type = 'hidden';
     csrfTokenInput.name = 'csrfmiddlewaretoken';
-    csrfTokenInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const csrfInputElement = document.querySelector('[name=csrfmiddlewaretoken]');
+    csrfTokenInput.value = csrfInputElement ? csrfInputElement.value : getCookie('csrftoken');
     
     form.appendChild(playerIdInput);
     form.appendChild(actionInput);
