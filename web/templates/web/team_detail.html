@@ -912,6 +912,10 @@
   {# Script for waiver claims #}
   <script>
     // Handle position badge clicks directly
+    // Global variable to track current player in move modal
+    let currentModalPlayerId = null;
+    let currentModalPlayerName = null;
+    
     function handlePositionBadgeClick(playerId, playerName, currentPosition) {
       event.stopPropagation();
       console.log('Position badge clicked!', {playerId, playerName, currentPosition});
@@ -919,6 +923,8 @@
     }
     // Position move modal - for clicking on position badges
     function showPositionMoveModal(playerId, playerName, slotPosition) {
+      currentModalPlayerId = playerId;
+      currentModalPlayerName = playerName;
       const modal = document.getElementById('positionMoveModal');
       const title = document.getElementById('positionMoveTitle');
       const instructions = document.getElementById('positionMoveInstructions');
@@ -1124,9 +1130,14 @@
     <div id="positionMoveMenu" class="space-y-2 mb-4">
       <!-- Options will be populated by JavaScript -->
     </div>
-    <button onclick="closePositionMoveModal()" class="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-      Cancel
-    </button>
+    <div class="flex gap-2">
+      <button onclick="closePositionMoveModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+        Cancel
+      </button>
+      <button onclick="dropPlayerFromModal()" id="dropPlayerBtn" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+        Drop Player
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1172,6 +1183,49 @@ function showConfirmModal(message, onConfirm, formElement) {
     modal.classList.add('hidden');
     modal.classList.add('pointer-events-none');
   };
+}
+
+function dropPlayerFromModal() {
+  if (!currentModalPlayerId || !currentModalPlayerName) {
+    console.error('No player selected in modal');
+    return;
+  }
+  
+  // Close the move modal first
+  closePositionMoveModal();
+  
+  // Show drop confirmation
+  showConfirmModal(`Drop ${currentModalPlayerName}?`, function() {
+    // Submit the drop action
+    const teamId = new URL(window.location.href).pathname.split('/')[2];
+    const weekNum = new URL(window.location.href).searchParams.get('week') || 1;
+    
+    fetch(`/teams/${teamId}/assign-player/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      },
+      body: JSON.stringify({
+        player_id: currentModalPlayerId,
+        action: 'drop',
+        week: weekNum
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Drop response:', data);
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to drop player'));
+      }
+    })
+    .catch(error => {
+      console.error('Drop error:', error);
+      alert('Error dropping player: ' + error.message);
+    });
+  });
 }
 
 function filterPlayerSelect(searchId, selectId) {
