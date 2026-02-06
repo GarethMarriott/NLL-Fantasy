@@ -82,14 +82,6 @@
       {% endif %}
     {% endif %}
 
-    {% if messages %}
-      {% for message in messages %}
-        <div class="rounded-md {% if message.tags == 'error' %}bg-red-50 border border-red-200{% else %}bg-green-50 border border-green-200{% endif %} p-4 mb-4">
-          <p class="text-sm {% if message.tags == 'error' %}text-red-800{% else %}text-green-800{% endif %}">
-            {{ message }}
-          </p>
-        </div>
-      {% endfor %}
     {% endif %}
 
     {# Roster Changes Dropdown (Pending Waivers & Trades) #}
@@ -1027,15 +1019,6 @@
           return;
         }
         if (data.success) {
-          // Show success message
-          const alertDiv = document.createElement('div');
-          alertDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 16px; border-radius: 4px; z-index: 10001; max-width: 400px;';
-          alertDiv.textContent = data.message;
-          document.body.appendChild(alertDiv);
-          
-          // Remove alert after 3 seconds
-          setTimeout(() => alertDiv.remove(), 3000);
-          
           // Reload page to show updated roster after 1 second
           setTimeout(() => location.reload(), 1000);
         } else {
