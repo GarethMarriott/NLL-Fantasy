@@ -357,12 +357,7 @@ def team_detail(request, team_id):
     # Keep players in order of their slot assignment (for traditional leagues)
     # Get players through roster entries for this team's league
     # Filter to show only players who were on the roster during the selected week
-    from django.db.models import Q, Case, When
-    
-    # Define the proper slot order - NOTE: This needs dynamic generation based on league config
-    # For now, we handle this dynamically in the sorting function
-    slot_order = []  # Not used for leagues with dynamic slot counts
-    preserved = Case(*[When(slot_assignment=slot, then=pos) for pos, slot in enumerate(slot_order)])
+    from django.db.models import Q
     
     roster = team.roster_entries.select_related('player').prefetch_related(
         'player__game_stats__game__week'
@@ -371,7 +366,7 @@ def team_detail(request, team_id):
         player__active=True
     ).filter(
         Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
-    ).annotate(slot_order_val=preserved).order_by("slot_order_val", "player__updated_at", "player__id")
+    ).order_by("player__updated_at", "player__id")
     
     for roster_entry in roster:
         p = roster_entry.player
