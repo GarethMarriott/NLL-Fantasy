@@ -1181,6 +1181,14 @@ def assign_player(request, team_id):
             target_roster.save()
             logger.warning(f"SWAP_SLOTS: After swap - player slot: {player_roster.slot_assignment}, target slot: {target_roster.slot_assignment}")
             
+            # For Transition players, also swap assigned_side in best ball
+            if team.league.roster_format == 'bestball' and player.position == 'T' and target_player.position == 'T':
+                logger.warning(f"SWAP_SLOTS: Best ball T-T swap - before assigned_side swap: player={player.assigned_side}, target={target_player.assigned_side}")
+                player.assigned_side, target_player.assigned_side = target_player.assigned_side, player.assigned_side
+                player.save()
+                target_player.save()
+                logger.warning(f"SWAP_SLOTS: After assigned_side swap: player={player.assigned_side}, target={target_player.assigned_side}")
+            
             # If AJAX request, return JSON so page can update without full reload
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 logger.warning(f"SWAP_SLOTS: Returning JSON response - success")
