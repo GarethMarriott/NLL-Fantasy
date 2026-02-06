@@ -4493,15 +4493,12 @@ def get_available_slots(request, team_id):
             print(f"  Best ball league: {len(response_data['swap_options'])} eligible players to swap from positions {eligible_positions}")
             
             # For best ball, also show "empty slot" options for eligible positions
-            # But only if that position group isn't at capacity
+            # Count players currently assigned to each position (excluding the current player)
             # Capacity: 3 for O, 3 for D, 1 for G
+            o_count = all_active_roster.exclude(player_id=current_player_id).filter(player__assigned_side='O').count()
+            d_count = all_active_roster.exclude(player_id=current_player_id).filter(player__assigned_side='D').count()
+            g_count = all_active_roster.exclude(player_id=current_player_id).filter(player__assigned_side='G').count()
             
-            # Count players currently assigned to each position
-            o_count = all_active_roster.filter(player__assigned_side='O').count()
-            d_count = all_active_roster.filter(player__assigned_side='D').count()
-            g_count = all_active_roster.filter(player__assigned_side='G').count()
-            
-            print(f"  Best ball position counts: O={o_count}, D={d_count}, G={g_count}")
             
             if player_position == 'T':
                 # T players can move to O, D, or G positions - show options only if there are empty slots
