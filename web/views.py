@@ -4581,6 +4581,7 @@ def get_available_slots(request, team_id):
                 
                 # Add swap options ONLY if this is the same slot type as current position
                 # This ensures you can only swap with eligible players for that slot
+                # EXCEPTION: T players can swap with other T players in any position group
                 if slot_type == current_slot_type:
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
@@ -4591,6 +4592,17 @@ def get_available_slots(request, team_id):
                                 'slot_assignment': roster_entry.slot_assignment
                             })
                             print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                elif player.position == 'T':
+                    # For T players, also show other T players from other position groups
+                    for roster_entry in roster_in_slots:
+                        if str(roster_entry.player.id) != str(current_player_id) and roster_entry.player.position == 'T':
+                            response_data['swap_options'].append({
+                                'player_id': roster_entry.player.id,
+                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'slot_type': slot_type,
+                                'slot_assignment': roster_entry.slot_assignment
+                            })
+                            print(f"    Swap option (T-T cross-group): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
                 else:
                     print(f"  Skipping {slot_type} slots for swap options (current player in {current_slot_type})")
                 
