@@ -4511,18 +4511,18 @@ def get_available_slots(request, team_id):
                 if slot_type not in can_move_to:
                     continue
                 
-                # Determine slot designations for this type
+                # Determine slot designations for this type using league configuration
                 if slot_type == 'O':
-                    slot_designations = ['starter_o1', 'starter_o2', 'starter_o3']
-                    num_slots = 3
+                    num_slots = league.roster_forwards
+                    slot_designations = [f'starter_o{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_o'
                 elif slot_type == 'D':
-                    slot_designations = ['starter_d1', 'starter_d2', 'starter_d3']
-                    num_slots = 3
+                    num_slots = league.roster_defense
+                    slot_designations = [f'starter_d{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_d'
                 else:  # G
-                    slot_designations = ['starter_g']
                     num_slots = 1
+                    slot_designations = ['starter_g']
                     slot_prefix = 'starter_g'
                 
                 # Get players currently in these slots
