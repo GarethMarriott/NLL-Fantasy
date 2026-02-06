@@ -204,6 +204,17 @@
           {% endif %}
         </div>
 
+        <div class="mt-4">
+          <label class="flex items-center">
+            {{ form.allow_transition_in_goalies }}
+            <span class="ml-2 text-sm font-medium">Allow Transition Players in Goalie Slots</span>
+          </label>
+          <p class="text-xs text-gray-500 mt-1 ml-6">When enabled, Transition (T) players can be placed in Goalie (G) roster slots. Default: not allowed</p>
+          {% if form.allow_transition_in_goalies.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.allow_transition_in_goalies.errors.0 }}</p>
+          {% endif %}
+        </div>
+
         {% if form.instance.league_type == 'dynasty' %}
         <div class="mt-4">
           <label class="block text-sm font-medium mb-2">Taxi Squad Size (Dynasty Leagues)</label>
