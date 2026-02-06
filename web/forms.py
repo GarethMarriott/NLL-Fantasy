@@ -157,6 +157,10 @@ class LeagueSettingsForm(forms.ModelForm):
         if self.instance and self.instance.roster_format in ['traditional', 'bestball']:
             if 'roster_size' in self.fields:
                 self.fields.pop('roster_size')
+        # For best ball leagues, remove roster_bench field (no bench in best ball)
+        if self.instance and self.instance.roster_format == 'bestball':
+            if 'roster_bench' in self.fields:
+                self.fields.pop('roster_bench')
         # For non-dynasty leagues, remove taxi_squad_size field
         if self.instance and self.instance.league_type != 'dynasty':
             if 'taxi_squad_size' in self.fields:
