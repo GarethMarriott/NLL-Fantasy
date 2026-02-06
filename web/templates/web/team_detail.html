@@ -925,7 +925,7 @@
       const menu = document.getElementById('positionMoveMenu');
       
       title.textContent = `Move ${playerName}`;
-      instructions.textContent = 'Select a target slot (player or empty):';
+      instructions.textContent = 'Select an action:';
       menu.innerHTML = '';
       
       // Fetch available slots from backend using the SLOT position, not player position
@@ -937,55 +937,69 @@
         .then(data => {
           menu.innerHTML = '';
           
-          // Check if there are any options at all (slots + empty slots)
-          const hasPlayers = data.slots && data.slots.length > 0;
-          const hasEmptySlots = data.empty_slots && data.empty_slots.length > 0;
+          // Check if there are any options at all
+          const hasSwapOptions = data.swap_options && data.swap_options.length > 0;
+          const hasEmptySlots = data.empty_slot_options && Object.keys(data.empty_slot_options).some(key => data.empty_slot_options[key].length > 0);
           
-          if (!hasPlayers && !hasEmptySlots) {
-            menu.innerHTML = '<p class="text-sm text-gray-500">No available slots for this position.</p>';
+          if (!hasSwapOptions && !hasEmptySlots) {
+            menu.innerHTML = '<p class="text-sm text-gray-500">No available moves for this player.</p>';
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             return;
           }
           
-          // Show current player
-          if (data.slots) {
-            data.slots.forEach(slot => {
-              if (slot.is_current) {
-                // Show current player as disabled/info
-                const currentDiv = document.createElement('div');
-                currentDiv.className = 'w-full px-4 py-2 text-left bg-blue-50 rounded border border-blue-200 text-blue-900 font-semibold';
-                currentDiv.textContent = `${slot.player_name} (current)`;
-                menu.appendChild(currentDiv);
-              } else {
-                // Swap option button for occupied slot
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'w-full px-4 py-2 text-left bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-sm';
-                button.textContent = `Swap with ${slot.player_name}`;
-                button.onclick = () => submitPositionMove(playerId, slot.player_id, false);
-                menu.appendChild(button);
-              }
-            });
-          }
-          
-          // Show empty slots
-          if (data.empty_slots && data.empty_slots.length > 0) {
-            if (data.slots && data.slots.length > 0) {
-              // Add a divider if we have both players and empty slots
-              const divider = document.createElement('div');
-              divider.className = 'my-2 h-px bg-gray-300';
-              menu.appendChild(divider);
-            }
+          // Section 1: Swap with players
+          if (hasSwapOptions) {
+            const swapHeader = document.createElement('div');
+            swapHeader.className = 'font-semibold text-sm text-gray-700 px-4 py-2 border-b border-gray-300 bg-gray-50';
+            swapHeader.textContent = '1. Swap with eligible player';
+            menu.appendChild(swapHeader);
             
-            data.empty_slots.forEach(slot => {
+            data.swap_options.forEach(option => {
               const button = document.createElement('button');
               button.type = 'button';
-              button.className = 'w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 rounded border border-green-300 text-sm text-green-900';
-              button.textContent = `Move to empty slot ${slot}`;
-              button.onclick = () => submitPositionMove(playerId, slot, true);
+              button.className = 'w-full px-4 py-2 text-left bg-white hover:bg-blue-50 rounded border-b border-gray-200 text-sm';
+              button.textContent = `${option.player_name} (${option.slot_type})`;
+              button.onclick = () => submitPositionMove(playerId, option.player_id, false);
               menu.appendChild(button);
             });
+            
+            // Add spacing
+            const spacer1 = document.createElement('div');
+            spacer1.className = 'my-2';
+            menu.appendChild(spacer1);
+          }
+          
+          // Section 2: Move to empty slots
+          const hasAnyEmptySlots = Object.keys(data.empty_slot_options).some(key => data.empty_slot_options[key].length > 0);
+          if (hasAnyEmptySlots) {
+            const emptyHeader = document.createElement('div');
+            emptyHeader.className = 'font-semibold text-sm text-gray-700 px-4 py-2 border-b border-gray-300 bg-gray-50';
+            emptyHeader.textContent = '2. Move to empty slot';
+            menu.appendChild(emptyHeader);
+            
+            // Group by slot type
+            const slotTypes = ['O', 'D', 'G'];
+            for (const slotType of slotTypes) {
+              const emptySlots = data.empty_slot_options[slotType] || [];
+              if (emptySlots.length === 0) continue;
+              
+              // Add subheader for this slot type
+              const subheader = document.createElement('div');
+              subheader.className = 'px-4 py-1 text-xs font-semibold text-gray-600 bg-gray-100 italic';
+              subheader.textContent = `${slotType} Slots`;
+              menu.appendChild(subheader);
+              
+              // Add buttons for each empty slot
+              emptySlots.forEach(slotDesignation => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 rounded border-b border-green-200 text-sm text-green-900';
+                button.textContent = slotDesignation.replace('starter_', '').replace('o', 'O').replace('d', 'D').replace('g', 'G');
+                button.onclick = () => submitPositionMove(playerId, slotDesignation, true);
+                menu.appendChild(button);
+              });
+            }
           }
           
           modal.classList.remove('hidden');
@@ -993,7 +1007,7 @@
         })
         .catch(error => {
           console.error('Error fetching slots:', error);
-          menu.innerHTML = '<p class="text-sm text-red-500">Error loading players.</p>';
+          menu.innerHTML = '<p class="text-sm text-red-500">Error loading move options.</p>';
           modal.classList.remove('hidden');
           modal.classList.add('flex');
         });
