@@ -303,8 +303,6 @@ def team_detail(request, team_id):
     else:
         selected_week_num = default_week_num
     
-    print(f"DEBUG team_detail: selected_week_num={selected_week_num}, default_week_num={default_week_num}")
-    
     # Get the selected week object to check if it's locked
     selected_week_obj = Week.objects.filter(
         season=league_season,
@@ -361,13 +359,9 @@ def team_detail(request, team_id):
     # Filter to show only players who were on the roster during the selected week
     from django.db.models import Q, Case, When
     
-    # Define the proper slot order
-    slot_order = [
-        'starter_o1', 'starter_o2', 'starter_o3',
-        'starter_d1', 'starter_d2', 'starter_d3',
-        'starter_g',
-        'bench'
-    ]
+    # Define the proper slot order - NOTE: This needs dynamic generation based on league config
+    # For now, we handle this dynamically in the sorting function
+    slot_order = []  # Not used for leagues with dynamic slot counts
     preserved = Case(*[When(slot_assignment=slot, then=pos) for pos, slot in enumerate(slot_order)])
     
     roster = team.roster_entries.select_related('player').prefetch_related(
@@ -494,9 +488,20 @@ def team_detail(request, team_id):
     is_traditional = league.roster_format == 'traditional' if hasattr(league, 'roster_format') else False
     has_starter_slots = is_traditional and any(slot.startswith('starter_') for slot in player_to_slot.values())
     
+    # Get slot counts from league configuration for traditional leagues, use defaults for best ball
+    if league.roster_format == 'traditional':
+        num_offence = league.roster_forwards or 6
+        num_defence = league.roster_defense or 6
+        num_goalie = league.roster_goalies or 2
+    else:
+        # Best ball uses fixed counts
+        num_offence = 6
+        num_defence = 6
+        num_goalie = 2
+    
     if has_starter_slots:
         # Reorder pools by slot assignment for leagues with starter slots
-        def sort_by_slot_assignment(entries, slot_prefix):
+        def sort_by_slot_assignment(entries, slot_prefix, max_slots):
             """Sort entries by their slot assignment (e.g., starter_o1, starter_o2, starter_o3)"""
             slots = {}
             bench = []
@@ -514,9 +519,9 @@ def team_detail(request, team_id):
                 else:
                     bench.append(entry)
             
-            # Build ordered list: starter_o1, starter_o2, etc., then bench
+            # Build ordered list using league-configured max slots, not hardcoded 6
             result = []
-            for i in range(1, 7):  # Max 6 slots per position
+            for i in range(1, max_slots + 1):
                 if i in slots:
                     result.append(slots[i])
                 else:
@@ -524,26 +529,15 @@ def team_detail(request, team_id):
             result.extend(bench)
             return result
         
-        # Sort each position pool by slot assignment
-        offence_pool = sort_by_slot_assignment(players_by_position["O"], 'starter_o')
-        defence_pool = sort_by_slot_assignment(players_by_position["D"], 'starter_d')
-        goalie_pool = sort_by_slot_assignment(players_by_position["G"], 'starter_g')
+        # Sort each position pool by slot assignment using league configuration
+        offence_pool = sort_by_slot_assignment(players_by_position["O"], 'starter_o', num_offence)
+        defence_pool = sort_by_slot_assignment(players_by_position["D"], 'starter_d', num_defence)
+        goalie_pool = sort_by_slot_assignment(players_by_position["G"], 'starter_g', num_goalie)
     else:
         # For leagues without starter slots (best ball), use position pools as-is
         offence_pool = players_by_position["O"]
         defence_pool = players_by_position["D"]
         goalie_pool = players_by_position["G"]
-
-    # Get slot counts from league configuration for traditional leagues, use defaults for best ball
-    if league.roster_format == 'traditional':
-        num_offence = league.roster_forwards or 6
-        num_defence = league.roster_defense or 6
-        num_goalie = league.roster_goalies or 2
-    else:
-        # Best ball uses fixed counts
-        num_offence = 6
-        num_defence = 6
-        num_goalie = 2
 
     offence_slots = offence_pool[:num_offence]
     defence_slots = defence_pool[:num_defence]
