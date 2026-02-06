@@ -88,7 +88,7 @@ class LeagueSettingsForm(forms.ModelForm):
     class Meta:
         model = League
         fields = [
-            'name', 'description', 'max_teams', 'roster_format', 'league_type', 'is_public',
+            'name', 'description', 'max_teams', 'is_public',
             'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'taxi_squad_size',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
@@ -107,8 +107,6 @@ class LeagueSettingsForm(forms.ModelForm):
                 (10, '10 teams'),
                 (12, '12 teams'),
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
-            'roster_format': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'disabled': True}),
-            'league_type': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'disabled': True}),
             'is_public': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
             'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
