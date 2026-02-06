@@ -4620,22 +4620,12 @@ def get_available_slots(request, team_id):
                             pass
                 
                 # Find empty slots for this type
-                # For T players: always show empty slots for positions they can move to
-                # For other players: show empty slots only in same position or if capacity available
+                # But only show them if this is the same slot type OR if moving to this type won't exceed capacity
                 empty_slots = []
                 
-                if player.position == 'T':
-                    # T players can move to any position, so always show empty slots if available
-                    for i in range(1, num_slots + 1):
-                        if i not in filled_slot_numbers:
-                            if slot_type == 'G':
-                                slot_designation = 'starter_g'
-                            else:
-                                slot_designation = f"{slot_prefix}{i}"
-                            empty_slots.append(slot_designation)
-                            print(f"    Empty slot: {slot_designation}")
-                elif slot_type != current_slot_type and current_slot_type is not None:
-                    # For non-T players moving to different position type, check capacity
+                # If moving to a different position type (e.g., T in D moving to O), check capacity
+                if slot_type != current_slot_type and current_slot_type is not None:
+                    # Count players currently assigned to this position type
                     filled_by_position = roster_in_slots.count()
                     if filled_by_position < num_slots:
                         # Only show empty slots if not at capacity
@@ -4651,7 +4641,7 @@ def get_available_slots(request, team_id):
                     else:
                         print(f"  {slot_type} at capacity ({filled_by_position}/{num_slots}), hiding empty slots")
                 else:
-                    # Same position type - always show available empty slots
+                    # Same position type OR current_slot_type is unknown - always show available empty slots
                     for i in range(1, num_slots + 1):
                         if i not in filled_slot_numbers:
                             if slot_type == 'G':
