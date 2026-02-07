@@ -59,16 +59,6 @@
     }
   </script>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="rounded-md {% if message.tags == 'error' %}bg-red-50 border border-red-200{% else %}bg-green-50 border border-green-200{% endif %} p-4 mb-4">
-        <p class="text-sm {% if message.tags == 'error' %}text-red-800{% else %}text-green-800{% endif %}">
-          {{ message }}
-        </p>
-      </div>
-    {% endfor %}
-  {% endif %}
-
   <!-- Teams List -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
