@@ -17,8 +17,18 @@ def selected_league(request):
     
     # Check if user is in any league
     user_has_league = False
+    active_team = None
     if request.user.is_authenticated:
         user_has_league = FantasyTeamOwner.objects.filter(user=request.user).exists()
+        
+        # Get the user's team in the selected league if available
+        if selected_league_id:
+            owner = FantasyTeamOwner.objects.filter(
+                user=request.user,
+                team__league_id=selected_league_id
+            ).select_related('team').first()
+            if owner:
+                active_team = owner.team
     
     # Calculate unread chat counts for sidebar badge
     total_unread_chats = 0
@@ -96,5 +106,6 @@ def selected_league(request):
     return {
         'selected_league': league,
         'user_has_league': user_has_league,
+        'active_team': active_team,
         'total_unread_chats': total_unread_chats
     }

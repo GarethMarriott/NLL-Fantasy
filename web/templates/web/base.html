@@ -56,11 +56,9 @@
           <div>
             {% if user.is_authenticated %}
               <h2 class="text-lg font-semibold">{{ user.username }}</h2>
-              {% if user.fantasy_teams.exists %}
+              {% if active_team %}
                 <div class="text-xs text-gray-600">
-                  {% for owner in user.fantasy_teams.all %}
-                    <div>{{ owner.team.name }}</div>
-                  {% endfor %}
+                  <div>{{ active_team.name }}</div>
                 </div>
               {% endif %}
             {% else %}
