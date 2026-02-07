@@ -720,11 +720,13 @@ def team_detail(request, team_id):
     # Get taxi squad for dynasty leagues
     taxi_squad_entries = []
     taxi_squad_size = 0
+    use_taxi_squad = False
     is_dynasty = league.league_type == 'dynasty' if hasattr(league, 'league_type') else False
     if is_dynasty:
         from web.models import TaxiSquad
         taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
         taxi_squad_size = league.taxi_squad_size if hasattr(league, 'taxi_squad_size') else 3
+        use_taxi_squad = league.use_taxi_squad if hasattr(league, 'use_taxi_squad') else True
 
     # Check if team is over roster limit
     current_roster_count, is_over_limit = team.is_over_roster_limit()
@@ -759,6 +761,7 @@ def team_detail(request, team_id):
             "is_dynasty": is_dynasty,
             "taxi_squad_entries": taxi_squad_entries,
             "taxi_squad_size": taxi_squad_size,
+            "use_taxi_squad": use_taxi_squad,
             "is_over_roster_limit": is_over_limit,
             "current_roster_count": current_roster_count,
             "roster_limit": roster_limit,
