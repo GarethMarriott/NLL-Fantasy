@@ -53,7 +53,7 @@
                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
                      {% if form.roster_format.value == 'bestball' %}checked{% endif %}>
               <label for="id_roster_format_0" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
-                Best Ball (no lineup management)
+                Best Ball (Top Weekly Scorers)
               </label>
             </div>
             <div class="flex items-center">
@@ -61,7 +61,7 @@
                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
                      {% if form.roster_format.value == 'traditional' %}checked{% endif %}>
               <label for="id_roster_format_1" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
-                Traditional (starter slots: 3O, 3D, 1G)
+                Traditional (Manage Starters and Bench)
               </label>
             </div>
           </div>
