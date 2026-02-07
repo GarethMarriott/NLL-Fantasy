@@ -251,13 +251,13 @@ class DraftSettingsForm(forms.Form):
     
     num_rounds = forms.IntegerField(
         min_value=1,
-        max_value=12,
-        initial=12,
-        help_text="Number of rounds for future rookie drafts (1-12)",
+        max_value=5,
+        initial=3,
+        help_text="Number of rounds for future rookie drafts (1-5)",
         widget=forms.NumberInput(attrs={
             'class': 'w-full px-3 py-2 border border-gray-300 rounded-md',
             'min': '1',
-            'max': '12'
+            'max': '5'
         })
     )
     
