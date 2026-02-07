@@ -722,12 +722,17 @@ def team_detail(request, team_id):
     taxi_squad_size = 0
     use_taxi_squad = False
     is_dynasty = league.league_type == 'dynasty' if hasattr(league, 'league_type') else False
+    
     if is_dynasty:
         from web.models import TaxiSquad
-        taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
-        taxi_squad_size = league.taxi_squad_size if hasattr(league, 'taxi_squad_size') else 3
-        # Default to True if field doesn't exist (backward compatibility)
+        # Get configured taxi squad size (defaults to 3 for dynasty leagues)
+        taxi_squad_size = getattr(league, 'taxi_squad_size', 3)
+        # Check if taxi squad is enabled (defaults to True for dynasty leagues)
         use_taxi_squad = getattr(league, 'use_taxi_squad', True)
+        
+        # Only fetch entries if taxi squad is enabled  
+        if use_taxi_squad:
+            taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
 
     # Check if team is over roster limit
     current_roster_count, is_over_limit = team.is_over_roster_limit()
@@ -3572,16 +3577,18 @@ def team_create(request, league_id):
             # Create FantasyTeamOwner to link user to team
             FantasyTeamOwner.objects.create(user=request.user, team=team)
             
-            # For dynasty leagues, create taxi squad slots based on league setting
+            # For dynasty leagues with taxi squad enabled, create taxi squad slots
             if hasattr(league, 'league_type') and league.league_type == 'dynasty':
-                from web.models import TaxiSquad
-                taxi_size = league.taxi_squad_size if hasattr(league, 'taxi_squad_size') else 3
-                for slot_num in range(1, taxi_size + 1):
-                    TaxiSquad.objects.get_or_create(
-                        team=team,
-                        slot_number=slot_num,
-                        defaults={'player': None}
-                    )
+                use_taxi = getattr(league, 'use_taxi_squad', True)
+                if use_taxi:
+                    from web.models import TaxiSquad
+                    taxi_size = league.taxi_squad_size if hasattr(league, 'taxi_squad_size') else 3
+                    for slot_num in range(1, taxi_size + 1):
+                        TaxiSquad.objects.get_or_create(
+                            team=team,
+                            slot_number=slot_num,
+                            defaults={'player': None}
+                        )
             
             messages.success(request, f"Team '{team.name}' created! You've joined {league.name}.")
             return redirect("league_detail", league_id=league.id)
