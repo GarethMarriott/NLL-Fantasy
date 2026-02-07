@@ -4137,8 +4137,21 @@ def start_draft(request):
 @login_required
 @require_POST
 def make_draft_pick(request, draft_id):
-    """Make a draft pick"""
-    draft = get_object_or_404(Draft, id=draft_id)
+    """Make a draft pick (handles both regular and rookie drafts)"""
+    # First try to get as a regular draft, then as a rookie draft
+    draft = None
+    is_rookie_draft = False
+    
+    try:
+        draft = Draft.objects.get(id=draft_id)
+    except Draft.DoesNotExist:
+        try:
+            from web.models import RookieDraft
+            draft = RookieDraft.objects.get(id=draft_id)
+            is_rookie_draft = True
+        except RookieDraft.DoesNotExist:
+            messages.error(request, "Draft not found.")
+            return redirect('draft_room')
     
     # Get user's team
     try:
@@ -4170,69 +4183,130 @@ def make_draft_pick(request, draft_id):
     
     player = get_object_or_404(Player, id=player_id)
     
-    # Check if player is already drafted
-    if DraftPick.objects.filter(draft=draft, player=player).exists():
-        messages.error(request, "Player has already been drafted.")
-        return redirect('draft_room')
-    
-    # Check if player is already on a roster
-    if Roster.objects.filter(league=draft.league, player=player, week_dropped__isnull=True).exists():
-        messages.error(request, "Player is already on a roster.")
-        return redirect('draft_room')
-    
-    # Get the current pick
-    current_pick = DraftPick.objects.filter(
-        draft=draft,
-        round=draft.current_round,
-        team=user_team
-    ).first()
-    
-    if not current_pick:
-        messages.error(request, "Could not find current pick.")
-        return redirect('draft_room')
-    
-    # Make the pick
-    current_pick.player = player
-    current_pick.save()
+    # Get the current pick and update it
+    if is_rookie_draft:
+        from web.models import RookieDraftPick
+        # Check if player is already drafted
+        if RookieDraftPick.objects.filter(draft=draft, player=player).exists():
+            messages.error(request, "Player has already been drafted.")
+            return redirect('draft_room')
+        
+        # Check if player is already on a roster or taxi squad
+        if Roster.objects.filter(league=draft.league, player=player, week_dropped__isnull=True).exists():
+            messages.error(request, "Player is already on a roster.")
+            return redirect('draft_room')
+        from web.models import TaxiSquad
+        if TaxiSquad.objects.filter(team__league=draft.league, player=player).exists():
+            messages.error(request, "Player is already in a taxi squad.")
+            return redirect('draft_room')
+        
+        # Get the current pick
+        current_pick = RookieDraftPick.objects.filter(
+            draft=draft,
+            round=draft.current_round,
+            team=user_team
+        ).first()
+        
+        if not current_pick:
+            messages.error(request, "Could not find current pick.")
+            return redirect('draft_room')
+        
+        # Make the pick
+        current_pick.player = player
+        current_pick.save()
+    else:
+        # Regular draft logic
+        # Check if player is already drafted
+        if DraftPick.objects.filter(draft=draft, player=player).exists():
+            messages.error(request, "Player has already been drafted.")
+            return redirect('draft_room')
+        
+        # Check if player is already on a roster
+        if Roster.objects.filter(league=draft.league, player=player, week_dropped__isnull=True).exists():
+            messages.error(request, "Player is already on a roster.")
+            return redirect('draft_room')
+        
+        # Get the current pick
+        current_pick = DraftPick.objects.filter(
+            draft=draft,
+            round=draft.current_round,
+            team=user_team
+        ).first()
+        
+        if not current_pick:
+            messages.error(request, "Could not find current pick.")
+            return redirect('draft_room')
+        
+        # Make the pick
+        current_pick.player = player
+        current_pick.save()
     
     # Advance to next pick
     draft.advance_pick()
     
-    # If draft is complete, add all players to rosters
+    # If draft is complete, add all players to rosters (or taxi squad for rookie drafts)
     if draft.completed:
-        all_picks = DraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
-        for pick in all_picks:
-            # Check total roster capacity
-            current_roster_count = Roster.objects.filter(
-                team=pick.team,
-                league=draft.league,
-                week_dropped__isnull=True
-            ).count()
+        if is_rookie_draft:
+            # Add rookie draft picks to taxi squad
+            from web.models import RookieDraftPick, TaxiSquad
+            all_picks = RookieDraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
+            for pick in all_picks:
+                # Find or create empty taxi squad slot
+                taxi_entry = TaxiSquad.objects.filter(team=pick.team, player__isnull=True).first()
+                if not taxi_entry:
+                    # Get next available slot number
+                    max_slot = TaxiSquad.objects.filter(team=pick.team).aggregate(models.Max('slot_number'))['slot_number__max'] or 0
+                    if max_slot < (draft.league.taxi_squad_size if hasattr(draft.league, 'taxi_squad_size') else 3):
+                        taxi_entry = TaxiSquad.objects.create(
+                            team=pick.team,
+                            slot_number=max_slot + 1,
+                            player=pick.player
+                        )
+                    else:
+                        post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} taxi squad is full")
+                        messages.error(request, f"Draft error: taxi squad full for {pick.team.name}")
+                        return redirect('draft_room')
+                else:
+                    taxi_entry.player = pick.player
+                    taxi_entry.save()
             
-            if current_roster_count >= draft.league.roster_size:
-                post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} roster would exceed capacity")
-                messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
-                return redirect('draft_room')
-            
-            # Check position-specific capacity
-            player_position = pick.player.assigned_side if pick.player.assigned_side else pick.player.position
-            can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
-            if not can_add:
-                pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} {pos_name} roster full")
-                messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
-                return redirect('draft_room')
-            
-            draft_roster = Roster.objects.create(
-                team=pick.team,
-                player=pick.player,
-                league=draft.league,
-                week_added=1  # Assume draft happens before season
-            )
-            # Auto-assign to starter slot if traditional league
-            auto_assign_to_starter_slot(draft_roster)
-        post_league_message(draft.league, f"🎉 Draft completed! All players have been added to rosters.")
-        messages.success(request, f"You selected {player.first_name} {player.last_name}!")
+            post_league_message(draft.league, f"🎉 Rookie draft completed! All rookies have been added to taxi squads.")
+            messages.success(request, f"You selected {player.first_name} {player.last_name}!")
+        else:
+            # Add regular draft picks to main roster
+            all_picks = DraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
+            for pick in all_picks:
+                # Check total roster capacity
+                current_roster_count = Roster.objects.filter(
+                    team=pick.team,
+                    league=draft.league,
+                    week_dropped__isnull=True
+                ).count()
+                
+                if current_roster_count >= draft.league.roster_size:
+                    post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} roster would exceed capacity")
+                    messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
+                    return redirect('draft_room')
+                
+                # Check position-specific capacity
+                player_position = pick.player.assigned_side if pick.player.assigned_side else pick.player.position
+                can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
+                if not can_add:
+                    pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                    post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} {pos_name} roster full")
+                    messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
+                    return redirect('draft_room')
+                
+                draft_roster = Roster.objects.create(
+                    team=pick.team,
+                    player=pick.player,
+                    league=draft.league,
+                    week_added=1  # Assume draft happens before season
+                )
+                # Auto-assign to starter slot if traditional league
+                auto_assign_to_starter_slot(draft_roster)
+            post_league_message(draft.league, f"🎉 Draft completed! All players have been added to rosters.")
+            messages.success(request, f"You selected {player.first_name} {player.last_name}!")
     else:
         post_league_message(draft.league, f"📋 {user_team.name} selected {player.first_name} {player.last_name} (Round {draft.current_round})")
         messages.success(request, f"You selected {player.first_name} {player.last_name}!")

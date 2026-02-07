@@ -1149,6 +1149,49 @@ class RookieDraft(models.Model):
     def __str__(self) -> str:
         status = "Active" if self.is_active else ("Completed" if self.completed else "Pending")
         return f"{self.league.name} - {self.season_year} Rookie Draft ({status})"
+    
+    def get_current_team(self):
+        """Get the team that should pick next based on draft style"""
+        teams = list(Team.objects.filter(league=self.league).order_by('id'))
+        num_teams = len(teams)
+        
+        if num_teams == 0:
+            return None
+        
+        # Get draft order from RookieDraftPick
+        if self.draft_style == 'snake' and self.current_round == 2:
+            # Round 2 is reversed in snake draft
+            round_teams = list(reversed(teams))
+        else:
+            # Round 1 or linear draft: normal order
+            round_teams = teams
+        
+        # current_pick is 1-indexed
+        if 1 <= self.current_pick <= len(round_teams):
+            return round_teams[self.current_pick - 1]
+        
+        return None
+    
+    def advance_pick(self):
+        """Move to the next pick"""
+        teams = list(Team.objects.filter(league=self.league))
+        num_teams = len(teams)
+        
+        if self.current_pick < num_teams:
+            self.current_pick += 1
+        else:
+            # Move to next round
+            self.current_round += 1
+            self.current_pick = 1
+            
+            # Check if draft is complete (2 rounds for rookie draft)
+            if self.current_round > 2:
+                self.completed = True
+                self.is_active = False
+                from django.utils import timezone
+                self.completed_at = timezone.now()
+        
+        self.save()
 
 
 class RookieDraftPick(models.Model):
