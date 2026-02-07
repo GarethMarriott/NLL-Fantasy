@@ -510,7 +510,7 @@
         <td colspan="100" class="p-2 text-center font-bold text-purple-900 dark:text-purple-950">TAXI SQUAD (Rookies - No Scoring)</td>
       </tr>
 
-      {% for i in "123" %}
+      {% for i in taxi_squad_size|range_filter %}
         {% with taxi_entry=taxi_squad_entries|get_index:forloop.counter0 %}
           {% if taxi_entry and taxi_entry.player %}
             {# Filled slot - show player #}

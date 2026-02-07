@@ -72,3 +72,11 @@ def lookup(dict_obj, key):
     if isinstance(dict_obj, dict):
         return dict_obj.get(key, 0)
     return 0
+
+@register.filter
+def range_filter(num):
+    """Convert a number to a range for templating (e.g., 3 -> [1, 2, 3])"""
+    try:
+        return list(range(1, int(num) + 1))
+    except (TypeError, ValueError):
+        return []
