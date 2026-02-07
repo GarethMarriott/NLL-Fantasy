@@ -285,6 +285,8 @@ def renew_league(old_league_id, new_season=None):
             playoff_reseed=old_league.playoff_reseed,
             roster_format=old_league.roster_format,
             multigame_scoring=old_league.multigame_scoring,
+            taxi_squad_size=old_league.taxi_squad_size,
+            use_taxi_squad=old_league.use_taxi_squad,
             # Copy all scoring settings
             scoring_goals=old_league.scoring_goals,
             scoring_assists=old_league.scoring_assists,

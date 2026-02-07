@@ -114,6 +114,12 @@ class League(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(4)],
         help_text="Number of taxi squad slots for rookies (0-4, only used in Dynasty leagues)"
     )
+    
+    # Use Taxi Squad (Dynasty leagues only) - enables/disables the taxi squad feature
+    use_taxi_squad = models.BooleanField(
+        default=True,
+        help_text="Enable taxi squad feature in Dynasty leagues (allows holding rookies who don't score)"
+    )
 
     # Playoff reseed option for 6-team playoffs
     PLAYOFF_RESEED_CHOICES = [

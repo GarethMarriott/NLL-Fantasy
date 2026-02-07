@@ -89,7 +89,7 @@ class LeagueSettingsForm(forms.ModelForm):
         model = League
         fields = [
             'name', 'description', 'max_teams', 'is_public',
-            'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'taxi_squad_size',
+            'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'use_taxi_squad', 'taxi_squad_size',
             'playoff_teams', 'playoff_reseed', 'use_waivers', 'allow_transition_in_goalies',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
@@ -113,6 +113,7 @@ class LeagueSettingsForm(forms.ModelForm):
             'roster_defense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_goalies': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_bench': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
+            'use_taxi_squad': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'taxi_squad_size': forms.Select(choices=[
                 (0, '0 slots (disabled)'),
                 (1, '1 slot'),
@@ -145,7 +146,8 @@ class LeagueSettingsForm(forms.ModelForm):
         }
         help_texts = {
             'multigame_scoring': "If a player plays multiple games in a week, use their highest single-game score (default) or the average of their games.",
-            'taxi_squad_size': "Number of taxi squad slots for rookies (Dynasty leagues only). 0 = disabled.",
+            'use_taxi_squad': "Enable taxi squad for rookies (Dynasty leagues only).",
+            'taxi_squad_size': "Number of taxi squad slots for rookies (only used if taxi squad is enabled).",
         }
 
     def __init__(self, *args, **kwargs):
@@ -162,8 +164,10 @@ class LeagueSettingsForm(forms.ModelForm):
         if self.instance and self.instance.roster_format == 'bestball':
             if 'roster_bench' in self.fields:
                 self.fields.pop('roster_bench')
-        # For non-dynasty leagues, remove taxi_squad_size field
+        # For non-dynasty leagues, remove taxi squad fields
         if self.instance and self.instance.league_type != 'dynasty':
+            if 'use_taxi_squad' in self.fields:
+                self.fields.pop('use_taxi_squad')
             if 'taxi_squad_size' in self.fields:
                 self.fields.pop('taxi_squad_size')
 

@@ -4247,30 +4247,68 @@ def make_draft_pick(request, draft_id):
     # If draft is complete, add all players to rosters (or taxi squad for rookie drafts)
     if draft.completed:
         if is_rookie_draft:
-            # Add rookie draft picks to taxi squad
             from web.models import RookieDraftPick, TaxiSquad
             all_picks = RookieDraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
-            for pick in all_picks:
-                # Find or create empty taxi squad slot
-                taxi_entry = TaxiSquad.objects.filter(team=pick.team, player__isnull=True).first()
-                if not taxi_entry:
-                    # Get next available slot number
-                    max_slot = TaxiSquad.objects.filter(team=pick.team).aggregate(models.Max('slot_number'))['slot_number__max'] or 0
-                    if max_slot < (draft.league.taxi_squad_size if hasattr(draft.league, 'taxi_squad_size') else 3):
-                        taxi_entry = TaxiSquad.objects.create(
-                            team=pick.team,
-                            slot_number=max_slot + 1,
-                            player=pick.player
-                        )
-                    else:
-                        post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} taxi squad is full")
-                        messages.error(request, f"Draft error: taxi squad full for {pick.team.name}")
-                        return redirect('draft_room')
-                else:
-                    taxi_entry.player = pick.player
-                    taxi_entry.save()
             
-            post_league_message(draft.league, f"🎉 Rookie draft completed! All rookies have been added to taxi squads.")
+            # Check if taxi squad is enabled for this league
+            if draft.league.use_taxi_squad:
+                # Add rookie draft picks to taxi squad
+                for pick in all_picks:
+                    # Find or create empty taxi squad slot
+                    taxi_entry = TaxiSquad.objects.filter(team=pick.team, player__isnull=True).first()
+                    if not taxi_entry:
+                        # Get next available slot number
+                        max_slot = TaxiSquad.objects.filter(team=pick.team).aggregate(models.Max('slot_number'))['slot_number__max'] or 0
+                        if max_slot < (draft.league.taxi_squad_size if hasattr(draft.league, 'taxi_squad_size') else 3):
+                            taxi_entry = TaxiSquad.objects.create(
+                                team=pick.team,
+                                slot_number=max_slot + 1,
+                                player=pick.player
+                            )
+                        else:
+                            post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} taxi squad is full")
+                            messages.error(request, f"Draft error: taxi squad full for {pick.team.name}")
+                            return redirect('draft_room')
+                    else:
+                        taxi_entry.player = pick.player
+                        taxi_entry.save()
+                
+                post_league_message(draft.league, f"🎉 Rookie draft completed! All rookies have been added to taxi squads.")
+            else:
+                # Add rookie draft picks to main roster (taxi squad disabled)
+                for pick in all_picks:
+                    # Check total roster capacity
+                    current_roster_count = Roster.objects.filter(
+                        team=pick.team,
+                        league=draft.league,
+                        week_dropped__isnull=True
+                    ).count()
+                    
+                    if current_roster_count >= draft.league.roster_size:
+                        post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} roster would exceed capacity")
+                        messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
+                        return redirect('draft_room')
+                    
+                    # Check position-specific capacity
+                    player_position = pick.player.assigned_side if pick.player.assigned_side else pick.player.position
+                    can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
+                    if not can_add:
+                        pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                        post_league_message(draft.league, f"⚠️ Draft error: {pick.team.name} {pos_name} roster full")
+                        messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
+                        return redirect('draft_room')
+                    
+                    draft_roster = Roster.objects.create(
+                        team=pick.team,
+                        player=pick.player,
+                        league=draft.league,
+                        week_added=1  # Assume draft happens before season
+                    )
+                    # Auto-assign to starter slot if traditional league
+                    auto_assign_to_starter_slot(draft_roster)
+                
+                post_league_message(draft.league, f"🎉 Rookie draft completed! All rookies have been added to rosters.")
+            
             messages.success(request, f"You selected {player.first_name} {player.last_name}!")
         else:
             # Add regular draft picks to main roster
@@ -4448,6 +4486,11 @@ def add_to_taxi(request, team_id):
         messages.error(request, "Taxi squad is only available in Dynasty leagues.")
         return redirect('team_detail', team_id=team_id)
     
+    # Check if taxi squad is enabled for this league
+    if not team.league.use_taxi_squad:
+        messages.error(request, "Taxi squad is not enabled for this league.")
+        return redirect('team_detail', team_id=team_id)
+    
     # Check if season has started - prevent adding to taxi squad once season starts
     league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
     first_game = Game.objects.filter(season=league_season).order_by('date').first()
@@ -4524,6 +4567,11 @@ def move_from_taxi(request, team_id):
     # Check if league is dynasty
     if not hasattr(team.league, 'league_type') or team.league.league_type != 'dynasty':
         messages.error(request, "Taxi squad is only available in Dynasty leagues.")
+        return redirect('team_detail', team_id=team_id)
+    
+    # Check if taxi squad is enabled for this league
+    if not team.league.use_taxi_squad:
+        messages.error(request, "Taxi squad is not enabled for this league.")
         return redirect('team_detail', team_id=team_id)
     
     if request.method == 'POST':
