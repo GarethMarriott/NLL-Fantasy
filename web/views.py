@@ -747,7 +747,7 @@ def team_detail(request, team_id):
             "selected_week_total": selected_week_total,
             "overall_total": overall_total,
             "players_for_select": players_with_teams,
-            "roster_status": team.can_make_roster_changes(),
+            "roster_status": team.can_make_roster_changes(selected_week_obj),
             "is_viewing_past_week": is_viewing_past_week,
             "pending_waiver_claims": pending_waiver_claims,
             "pending_trades": pending_trades,
