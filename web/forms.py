@@ -261,7 +261,7 @@ class DraftSettingsForm(forms.Form):
         })
     )
     
-    def __init__(self, league=None, *args, **kwargs):
+    def __init__(self, *args, league=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.league = league
         if league and hasattr(league, 'draft') and league.draft:
