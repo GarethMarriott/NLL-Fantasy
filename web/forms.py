@@ -90,6 +90,7 @@ class LeagueSettingsForm(forms.ModelForm):
         fields = [
             'name', 'description', 'max_teams', 'is_public',
             'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'use_taxi_squad', 'taxi_squad_size',
+            'use_future_rookie_picks',
             'playoff_teams', 'playoff_reseed', 'use_waivers', 'allow_transition_in_goalies',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
@@ -121,6 +122,7 @@ class LeagueSettingsForm(forms.ModelForm):
                 (3, '3 slots'),
                 (4, '4 slots'),
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'use_future_rookie_picks': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'playoff_teams': forms.Select(choices=[
                 (2, '2 teams'),
                 (4, '4 teams'),
@@ -148,6 +150,7 @@ class LeagueSettingsForm(forms.ModelForm):
             'multigame_scoring': "If a player plays multiple games in a week, use their highest single-game score (default) or the average of their games.",
             'use_taxi_squad': "Enable taxi squad for rookies (Dynasty leagues only).",
             'taxi_squad_size': "Number of taxi squad slots for rookies (only used if taxi squad is enabled).",
+            'use_future_rookie_picks': "Enable future rookie picks ownership (Dynasty leagues only) - teams own picks for multiple years and can trade them.",
         }
 
     def __init__(self, *args, **kwargs):
@@ -164,10 +167,12 @@ class LeagueSettingsForm(forms.ModelForm):
         if self.instance and self.instance.roster_format == 'bestball':
             if 'roster_bench' in self.fields:
                 self.fields.pop('roster_bench')
-        # For non-dynasty leagues, remove taxi squad fields
+        # For non-dynasty leagues, remove taxi squad and future picks fields
         if self.instance and self.instance.league_type != 'dynasty':
             if 'use_taxi_squad' in self.fields:
                 self.fields.pop('use_taxi_squad')
+            if 'use_future_rookie_picks' in self.fields:
+                self.fields.pop('use_future_rookie_picks')
             if 'taxi_squad_size' in self.fields:
                 self.fields.pop('taxi_squad_size')
 

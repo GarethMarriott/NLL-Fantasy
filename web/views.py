@@ -723,8 +723,12 @@ def team_detail(request, team_id):
     use_taxi_squad = False
     is_dynasty = league.league_type == 'dynasty' if hasattr(league, 'league_type') else False
     
+    # Get future rookie picks for dynasty leagues
+    future_picks = []
+    use_future_picks = False
+    
     if is_dynasty:
-        from web.models import TaxiSquad
+        from web.models import TaxiSquad, FutureRookiePick
         # Get configured taxi squad size (defaults to 3 for dynasty leagues)
         taxi_squad_size = getattr(league, 'taxi_squad_size', 3)
         # Check if taxi squad is enabled (defaults to True for dynasty leagues)
@@ -733,6 +737,30 @@ def team_detail(request, team_id):
         # Only fetch entries if taxi squad is enabled  
         if use_taxi_squad:
             taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
+        
+        # Get future rookie picks (defaults to True for dynasty leagues)
+        use_future_picks = getattr(league, 'use_future_rookie_picks', True)
+        
+        # Only fetch picks if future picks are enabled
+        if use_future_picks:
+            from django.db.models import F
+            # Get all future picks for this team, grouped by year
+            picks_queryset = FutureRookiePick.objects.filter(
+                team=team,
+                league=league
+            ).order_by('year', 'round_number', 'pick_number')
+            
+            # Group by year
+            future_picks_by_year = {}
+            for pick in picks_queryset:
+                if pick.year not in future_picks_by_year:
+                    future_picks_by_year[pick.year] = []
+                future_picks_by_year[pick.year].append(pick)
+            
+            future_picks = future_picks_by_year
+    else:
+        # For non-dynasty leagues, still initialize to empty dict
+        from web.models import TaxiSquad
 
     # Check if team is over roster limit
     current_roster_count, is_over_limit = team.is_over_roster_limit()
@@ -768,6 +796,8 @@ def team_detail(request, team_id):
             "taxi_squad_entries": taxi_squad_entries,
             "taxi_squad_size": taxi_squad_size,
             "use_taxi_squad": use_taxi_squad,
+            "future_picks": future_picks,
+            "use_future_picks": use_future_picks,
             "is_over_roster_limit": is_over_limit,
             "current_roster_count": current_roster_count,
             "roster_limit": roster_limit,
@@ -3589,6 +3619,12 @@ def team_create(request, league_id):
                             slot_number=slot_num,
                             defaults={'player': None}
                         )
+                
+                # For dynasty leagues with future picks enabled, create future picks for this team
+                use_future_picks = getattr(league, 'use_future_rookie_picks', True)
+                if use_future_picks:
+                    from web.tasks import create_future_rookie_picks
+                    create_future_rookie_picks(league.id, team=team, years_ahead=5)
             
             messages.success(request, f"Team '{team.name}' created! You've joined {league.name}.")
             return redirect("league_detail", league_id=league.id)

@@ -120,6 +120,12 @@ class League(models.Model):
         default=True,
         help_text="Enable taxi squad feature in Dynasty leagues (allows holding rookies who don't score)"
     )
+    
+    # Use Future Rookie Picks (Dynasty leagues only) - enables/disables future picks tracking
+    use_future_rookie_picks = models.BooleanField(
+        default=True,
+        help_text="Enable future rookie picks feature in Dynasty leagues (teams own picks for multiple years)"
+    )
 
     # Playoff reseed option for 6-team playoffs
     PLAYOFF_RESEED_CHOICES = [
@@ -1373,6 +1379,79 @@ class TradePlayer(models.Model):
     
     def __str__(self) -> str:
         return f"{self.player.get_full_name()} from {self.from_team.name}"
+
+
+class TradePick(models.Model):
+    """Future rookie picks included in a trade"""
+    trade = models.ForeignKey(
+        Trade,
+        on_delete=models.CASCADE,
+        related_name='picks',
+        help_text="Trade this pick is part of"
+    )
+    future_rookie_pick = models.ForeignKey(
+        'FutureRookiePick',
+        on_delete=models.CASCADE,
+        help_text="The future pick being traded"
+    )
+    from_team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='+',
+        help_text="Current owner of the pick"
+    )
+    
+    class Meta:
+        unique_together = [['trade', 'future_rookie_pick']]
+    
+    def __str__(self) -> str:
+        return f"{self.future_rookie_pick.year} R{self.future_rookie_pick.round_number}P{self.future_rookie_pick.pick_number} from {self.from_team.name}"
+
+
+class FutureRookiePick(models.Model):
+    """Future rookie picks owned by teams in dynasty leagues"""
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name='future_rookie_picks',
+        help_text="League this pick belongs to"
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='future_rookie_picks',
+        help_text="Team that currently owns this pick"
+    )
+    original_owner = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='future_picks_original_owner',
+        help_text="Team that originally owned this pick (used for draft seeding)"
+    )
+    year = models.PositiveSmallIntegerField(
+        help_text="Future year this pick is for (e.g., 2026, 2027)"
+    )
+    round_number = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="Round number (1-12, or however many rounds in league)"
+    )
+    pick_number = models.PositiveSmallIntegerField(
+        help_text="Pick order within the round (1 to num_teams)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['year', 'round_number', 'pick_number']
+        unique_together = [['league', 'year', 'round_number', 'pick_number']]
+        indexes = [
+            models.Index(fields=['league', 'year']),
+            models.Index(fields=['team', 'year']),
+            models.Index(fields=['original_owner', 'year']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"{self.year} R{self.round_number}P{self.pick_number} ({self.team.name} - Original: {self.original_owner.name})"
 
 
 class BugReport(models.Model):

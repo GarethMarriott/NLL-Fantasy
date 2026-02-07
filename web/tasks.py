@@ -287,6 +287,7 @@ def renew_league(old_league_id, new_season=None):
             multigame_scoring=old_league.multigame_scoring,
             taxi_squad_size=old_league.taxi_squad_size,
             use_taxi_squad=old_league.use_taxi_squad,
+            use_future_rookie_picks=getattr(old_league, 'use_future_rookie_picks', True),  # Copy future picks setting
             # Copy all scoring settings
             scoring_goals=old_league.scoring_goals,
             scoring_assists=old_league.scoring_assists,
@@ -378,6 +379,13 @@ def renew_league(old_league_id, new_season=None):
                 create_rookie_draft(new_league.id, new_season)
             except Exception as e:
                 logger.error(f"Failed to create rookie draft for league {new_league.id}: {str(e)}")
+            
+            # Create future rookie picks for all teams
+            try:
+                if getattr(new_league, 'use_future_rookie_picks', True):
+                    create_future_rookie_picks(new_league.id, years_ahead=5)
+            except Exception as e:
+                logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
         
         return new_league
         
@@ -733,3 +741,89 @@ def lock_taxi_squad_at_season_start(season_year):
     except Exception as e:
         logger.error(f"Error locking taxi squad at season start: {str(e)}")
         return False, f"Error locking taxi squad: {str(e)}"
+
+
+def create_future_rookie_picks(league_id, team=None, years_ahead=5):
+    """
+    Create future rookie picks for a dynasty league team or all teams.
+    
+    Creates picks for multiple years in the future based on the number of teams
+    in the league and the draft total_rounds setting. Each pick is owned by the team
+    but marked with its original owner for seeding purposes.
+    
+    Args:
+        league_id: ID of the dynasty league
+        team: Optional Team object; if provided, creates picks only for that team.
+              If None, creates picks for all teams in the league.
+        years_ahead: Number of years into the future to create picks (default: 5)
+    
+    Returns:
+        Tuple of (success: bool, message: str, picks_created: int)
+    """
+    from web.models import League, FutureRookiePick, Team, Draft
+    
+    try:
+        league = League.objects.get(id=league_id)
+        
+        # Only for dynasty leagues
+        if league.league_type != "dynasty":
+            return False, "Future picks only available for dynasty leagues", 0
+        
+        # Check if feature is enabled
+        if not getattr(league, 'use_future_rookie_picks', True):
+            return False, "Future rookie picks feature is disabled for this league", 0
+        
+        # Get all teams in the league
+        teams = [team] if team else list(league.teams.all())
+        if not teams:
+            return False, "No teams in league", 0
+        
+        # Determine number of rounds from the league's draft setting
+        draft = getattr(league, 'draft', None)
+        if draft and hasattr(draft, 'total_rounds'):
+            num_rounds = draft.total_rounds
+        else:
+            # Default to league roster size as fallback
+            num_rounds = league.roster_size if hasattr(league, 'roster_size') else 12
+        
+        # Get current year
+        current_year = timezone.now().year
+        picks_created = 0
+        
+        # For each team, create future picks for next N years
+        for team_obj in teams:
+            for year_offset in range(1, years_ahead + 1):
+                future_year = current_year + year_offset
+                
+                # Get all teams for pick numbering (maintains consistent seeding)
+                all_teams = list(league.teams.all().order_by('id'))
+                
+                # Create picks for each round
+                for round_num in range(1, num_rounds + 1):
+                    # Determine pick position based on team's position
+                    team_index = list(all_teams).index(team_obj)
+                    pick_number = team_index + 1
+                    
+                    # Create the future pick
+                    frp, created = FutureRookiePick.objects.get_or_create(
+                        league=league,
+                        year=future_year,
+                        round_number=round_num,
+                        pick_number=pick_number,
+                        defaults={
+                            'team': team_obj,
+                            'original_owner': team_obj,
+                        }
+                    )
+                    
+                    if created:
+                        picks_created += 1
+        
+        logger.info(f"Created {picks_created} future rookie picks for league {league.name}")
+        return True, f"Created {picks_created} future picks", picks_created
+        
+    except League.DoesNotExist:
+        return False, f"League {league_id} not found", 0
+    except Exception as e:
+        logger.error(f"Error creating future rookie picks: {str(e)}")
+        return False, f"Error creating picks: {str(e)}", 0
