@@ -726,7 +726,8 @@ def team_detail(request, team_id):
         from web.models import TaxiSquad
         taxi_squad_entries = list(TaxiSquad.objects.filter(team=team).select_related('player').order_by('slot_number'))
         taxi_squad_size = league.taxi_squad_size if hasattr(league, 'taxi_squad_size') else 3
-        use_taxi_squad = league.use_taxi_squad if hasattr(league, 'use_taxi_squad') else True
+        # Default to True if field doesn't exist (backward compatibility)
+        use_taxi_squad = getattr(league, 'use_taxi_squad', True)
 
     # Check if team is over roster limit
     current_roster_count, is_over_limit = team.is_over_roster_limit()
