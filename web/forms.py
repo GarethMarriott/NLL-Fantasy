@@ -232,3 +232,37 @@ class LeagueRenewalForm(forms.Form):
 
 # Import timezone for default year
 from django.utils import timezone
+
+
+class DraftSettingsForm(forms.Form):
+    """Form for commissioners to configure future rookie picks settings"""
+    
+    years_ahead = forms.IntegerField(
+        min_value=1,
+        max_value=10,
+        initial=5,
+        help_text="Number of years in advance to create rookie picks (1-10)",
+        widget=forms.NumberInput(attrs={
+            'class': 'w-full px-3 py-2 border border-gray-300 rounded-md',
+            'min': '1',
+            'max': '10'
+        })
+    )
+    
+    num_rounds = forms.IntegerField(
+        min_value=1,
+        max_value=12,
+        initial=12,
+        help_text="Number of rounds for future rookie drafts (1-12)",
+        widget=forms.NumberInput(attrs={
+            'class': 'w-full px-3 py-2 border border-gray-300 rounded-md',
+            'min': '1',
+            'max': '12'
+        })
+    )
+    
+    def __init__(self, league=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.league = league
+        if league and hasattr(league, 'draft') and league.draft:
+            self.fields['num_rounds'].initial = league.draft.total_rounds

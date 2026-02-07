@@ -743,24 +743,24 @@ def lock_taxi_squad_at_season_start(season_year):
         return False, f"Error locking taxi squad: {str(e)}"
 
 
-def create_future_rookie_picks(league_id, team=None, years_ahead=5):
+def create_future_rookie_picks(league_id, team=None, years_ahead=5, num_rounds=None):
     """
     Create future rookie picks for a dynasty league team or all teams.
     
-    Creates picks for multiple years in the future based on the number of teams
-    in the league and the draft total_rounds setting. Each pick is owned by the team
-    but marked with its original owner for seeding purposes.
+    Creates picks for multiple years in the future based on reverse standings order
+    (worst team picks first). Pick order rotates each year based on previous season standings.
     
     Args:
         league_id: ID of the dynasty league
         team: Optional Team object; if provided, creates picks only for that team.
               If None, creates picks for all teams in the league.
         years_ahead: Number of years into the future to create picks (default: 5)
+        num_rounds: Number of rounds per draft (default: uses league draft.total_rounds or roster_size)
     
     Returns:
         Tuple of (success: bool, message: str, picks_created: int)
     """
-    from web.models import League, FutureRookiePick, Team, Draft
+    from web.models import League, FutureRookiePick, Team, Draft, Week, Roster
     
     try:
         league = League.objects.get(id=league_id)
@@ -774,42 +774,42 @@ def create_future_rookie_picks(league_id, team=None, years_ahead=5):
             return False, "Future rookie picks feature is disabled for this league", 0
         
         # Get all teams in the league
-        teams = [team] if team else list(league.teams.all())
-        if not teams:
+        all_teams = list(league.teams.all())
+        if not all_teams:
             return False, "No teams in league", 0
         
-        # Determine number of rounds from the league's draft setting
-        draft = getattr(league, 'draft', None)
-        if draft and hasattr(draft, 'total_rounds'):
-            num_rounds = draft.total_rounds
-        else:
-            # Default to league roster size as fallback
-            num_rounds = league.roster_size if hasattr(league, 'roster_size') else 12
+        # Determine number of rounds
+        if num_rounds is None:
+            draft = getattr(league, 'draft', None)
+            if draft and hasattr(draft, 'total_rounds'):
+                num_rounds = draft.total_rounds
+            else:
+                num_rounds = league.roster_size if hasattr(league, 'roster_size') else 12
         
         # Get current year
         current_year = timezone.now().year
         picks_created = 0
         
-        # For each team, create future picks for next N years
-        for team_obj in teams:
-            for year_offset in range(1, years_ahead + 1):
-                future_year = current_year + year_offset
-                
-                # Get all teams for pick numbering (maintains consistent seeding)
-                all_teams = list(league.teams.all().order_by('id'))
-                
-                # Create picks for each round
-                for round_num in range(1, num_rounds + 1):
-                    # Determine pick position based on team's position
-                    team_index = list(all_teams).index(team_obj)
-                    pick_number = team_index + 1
-                    
-                    # Create the future pick
+        # For each year in advance
+        for year_offset in range(1, years_ahead + 1):
+            future_year = current_year + year_offset
+            
+            # Calculate draft order based on standings from previous year
+            standings_order = _calculate_draft_order_from_standings(league, future_year - 1)
+            
+            # If no standings data (first year of league), use team ID order
+            if not standings_order:
+                standings_order = list(league.teams.all().order_by('id'))
+            
+            # Create picks for each round using standings order
+            for round_num in range(1, num_rounds + 1):
+                for pick_in_round, team_obj in enumerate(standings_order, 1):
+                    # Create the future pick with standings-based order
                     frp, created = FutureRookiePick.objects.get_or_create(
                         league=league,
                         year=future_year,
                         round_number=round_num,
-                        pick_number=pick_number,
+                        pick_number=pick_in_round,
                         defaults={
                             'team': team_obj,
                             'original_owner': team_obj,
@@ -818,12 +818,158 @@ def create_future_rookie_picks(league_id, team=None, years_ahead=5):
                     
                     if created:
                         picks_created += 1
+            
+            logger.info(f"Created {num_rounds} rounds of future picks for {league.name} season {future_year} (based on {future_year-1} standings)")
         
         logger.info(f"Created {picks_created} future rookie picks for league {league.name}")
-        return True, f"Created {picks_created} future picks", picks_created
+        return True, f"Created {picks_created} future picks ({years_ahead} years × {num_rounds} rounds)", picks_created
         
     except League.DoesNotExist:
         return False, f"League {league_id} not found", 0
     except Exception as e:
         logger.error(f"Error creating future rookie picks: {str(e)}")
         return False, f"Error creating picks: {str(e)}", 0
+
+
+def _calculate_draft_order_from_standings(league, season_year):
+    """
+    Calculate draft order (worst to best) from previous season standings.
+    
+    Args:
+        league: League object
+        season_year: Year to calculate standings for
+    
+    Returns:
+        List of Team objects ordered by reverse standings (worst team first)
+        Returns None if no standings data available
+    """
+    from web.models import Week, Roster, Team
+    
+    try:
+        # Get all teams
+        teams = list(Team.objects.filter(league=league).order_by('id'))
+        if not teams:
+            return None
+        
+        # Build standings map
+        standings_map = {
+            t.id: {
+                "team": t,
+                "wins": 0,
+                "losses": 0,
+                "ties": 0,
+                "total_points": 0.0,
+            }
+            for t in teams
+        }
+        
+        # Get all completed weeks from the specified season
+        today = timezone.now().date()
+        completed_weeks = Week.objects.filter(
+            season=season_year,
+            end_date__lt=today
+        ).order_by('week_number')
+        
+        if not completed_weeks.exists():
+            logger.info(f"No completed weeks for season {season_year}, using default order")
+            return None
+        
+        # Calculate points for each team in each completed week
+        def fantasy_points(stat_obj, player):
+            """Calculate fantasy points for a player stat"""
+            if stat_obj is None:
+                return 0.0
+            # Goalie scoring
+            if player.position == "G":
+                return float(
+                    stat_obj.wins * league.scoring_goalie_wins +
+                    stat_obj.saves * league.scoring_goalie_saves +
+                    stat_obj.goals_against * league.scoring_goalie_goals_against +
+                    stat_obj.goals * league.scoring_goalie_goals +
+                    stat_obj.assists * league.scoring_goalie_assists
+                )
+            # Field player scoring
+            return float(
+                stat_obj.goals * league.scoring_goals +
+                stat_obj.assists * league.scoring_assists +
+                stat_obj.loose_balls * league.scoring_loose_balls +
+                stat_obj.caused_turnovers * league.scoring_caused_turnovers +
+                stat_obj.blocked_shots * league.scoring_blocked_shots +
+                stat_obj.turnovers * league.scoring_turnovers
+            )
+        
+        # Get all rosters with related stats
+        all_rosters = list(
+            Roster.objects.filter(team__in=teams, season_year=season_year, player__active=True)
+            .select_related("player", "team")
+            .prefetch_related("player__game_stats__game__week")
+        )
+        
+        # Calculate points for each team in each completed week
+        for week in completed_weeks:
+            # Simple matchup: pair teams sequentially
+            for i in range(0, len(teams), 2):
+                if i + 1 < len(teams):
+                    team1 = teams[i]
+                    team2 = teams[i + 1]
+                    
+                    # Calculate team 1 points
+                    team1_total = 0.0
+                    for roster_entry in all_rosters:
+                        if roster_entry.team_id == team1.id:
+                            week_added = roster_entry.week_added or 0
+                            week_dropped = roster_entry.week_dropped or 999
+                            if week_added <= week.week_number < week_dropped:
+                                player = roster_entry.player
+                                # Look for stat for this week
+                                stat = next(
+                                    (s for s in player.game_stats.all() if s.game.week_id == week.id),
+                                    None
+                                )
+                                if stat:
+                                    team1_total += fantasy_points(stat, player)
+                    
+                    # Calculate team 2 points
+                    team2_total = 0.0
+                    for roster_entry in all_rosters:
+                        if roster_entry.team_id == team2.id:
+                            week_added = roster_entry.week_added or 0
+                            week_dropped = roster_entry.week_dropped or 999
+                            if week_added <= week.week_number < week_dropped:
+                                player = roster_entry.player
+                                stat = next(
+                                    (s for s in player.game_stats.all() if s.game.week_id == week.id),
+                                    None
+                                )
+                                if stat:
+                                    team2_total += fantasy_points(stat, player)
+                    
+                    # Update standings
+                    standings_map[team1.id]["total_points"] += team1_total
+                    standings_map[team2.id]["total_points"] += team2_total
+                    
+                    if team1_total > team2_total:
+                        standings_map[team1.id]["wins"] += 1
+                        standings_map[team2.id]["losses"] += 1
+                    elif team1_total < team2_total:
+                        standings_map[team2.id]["wins"] += 1
+                        standings_map[team1.id]["losses"] += 1
+                    else:
+                        standings_map[team1.id]["ties"] += 1
+                        standings_map[team2.id]["ties"] += 1
+        
+        # Sort standings: worst team first (lower wins, lower points)
+        standings_list = list(standings_map.values())
+        standings_list.sort(key=lambda r: (r["wins"], r["total_points"], r["team"].name))
+        
+        # Return teams in order (worst to best)
+        draft_order = [s["team"] for s in standings_list]
+        
+        logger.info(f"Calculated draft order for {league.name} from season {season_year} standings")
+        logger.info(f"Draft order: {' → '.join([t.name for t in draft_order])}")
+        
+        return draft_order
+        
+    except Exception as e:
+        logger.error(f"Error calculating draft order from standings: {str(e)}")
+        return None

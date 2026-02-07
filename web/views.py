@@ -4090,6 +4090,117 @@ def draft_room(request):
 
 
 @login_required
+def draft_settings(request):
+    """Commissioner view to configure future rookie picks settings"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+    
+    league = get_object_or_404(League, id=selected_league_id)
+    
+    # Check if user is commissioner
+    if league.commissioner != request.user:
+        messages.error(request, "Only the commissioner can configure draft settings.")
+        return redirect('draft_room')
+    
+    # Check if it's a dynasty league
+    if league.league_type != 'dynasty':
+        messages.error(request, "Draft settings are only available for dynasty leagues.")
+        return redirect('draft_room')
+    
+    if request.method == 'POST':
+        from web.forms import DraftSettingsForm
+        form = DraftSettingsForm(request.POST, league=league)
+        if form.is_valid():
+            years_ahead = form.cleaned_data['years_ahead']
+            num_rounds = form.cleaned_data['num_rounds']
+            
+            # Update draft total_rounds if draft exists
+            draft = getattr(league, 'draft', None)
+            if draft:
+                draft.total_rounds = num_rounds
+                draft.save()
+                logger.info(f"Updated draft rounds to {num_rounds} for {league.name}")
+            
+            # Delete existing future picks and recreate with new settings
+            from web.models import FutureRookiePick
+            FutureRookiePick.objects.filter(league=league).delete()
+            
+            # Create future picks with new settings
+            from web.tasks import create_future_rookie_picks
+            success, message, picks_created = create_future_rookie_picks(
+                league.id,
+                years_ahead=years_ahead,
+                num_rounds=num_rounds
+            )
+            
+            if success:
+                messages.success(request, f"✓ Draft settings updated: {years_ahead} years × {num_rounds} rounds. {message}")
+                post_league_message(league, f"📋 Commissioner updated draft settings: {years_ahead} years of picks, {num_rounds} rounds each")
+            else:
+                messages.error(request, f"✗ Error updating settings: {message}")
+            
+            return redirect('draft_room')
+    else:
+        from web.forms import DraftSettingsForm
+        form = DraftSettingsForm(league=league)
+    
+    return render(request, 'web/draft_settings.html', {
+        'league': league,
+        'form': form,
+        'is_commissioner': True,
+    })
+
+
+@login_required
+@require_POST
+def reorder_draft_picks(request):
+    """Commissioner endpoint to manually reorder draft picks"""
+    selected_league_id = request.session.get('selected_league_id')
+    
+    if not selected_league_id:
+        return JsonResponse({'success': False, 'error': 'Please select a league first.'}, status=400)
+    
+    league = get_object_or_404(League, id=selected_league_id)
+    
+    # Check if user is commissioner
+    if league.commissioner != request.user:
+        return JsonResponse({'success': False, 'error': 'Only the commissioner can reorder picks.'}, status=403)
+    
+    # Get new order from request
+    try:
+        import json
+        data = json.loads(request.body)
+        new_team_order = data.get('team_order', [])
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid request format.'}, status=400)
+    
+    if not new_team_order or len(new_team_order) == 0:
+        return JsonResponse({'success': False, 'error': 'No teams provided.'}, status=400)
+    
+    # Get draft
+    draft = getattr(league, 'draft', None)
+    if not draft:
+        return JsonResponse({'success': False, 'error': 'No draft exists for this league.'}, status=400)
+    
+    # Check if draft has started
+    if draft.is_active:
+        return JsonResponse({'success': False, 'error': 'Cannot reorder picks - draft is already in progress.'}, status=400)
+    
+    # Reorder using task function
+    from web.tasks import reorder_rookie_draft_picks
+    success, message = reorder_rookie_draft_picks(draft.id, new_team_order)
+    
+    if success:
+        post_league_message(league, f"🔄 Draft order has been manually reordered by the commissioner")
+        return JsonResponse({'success': True, 'message': message})
+    else:
+        return JsonResponse({'success': False, 'error': message}, status=400)
+
+
+@login_required
 @require_POST
 def start_draft(request):
     """Start a draft for the selected league (commissioner only)"""

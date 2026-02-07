@@ -3,7 +3,7 @@ from .views import (
     home, about, players, player_detail_modal, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league,
-    submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, start_draft, make_draft_pick, set_draft_order, cancel_draft,
+    submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, start_draft, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
     nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots
 )
@@ -60,8 +60,10 @@ urlpatterns = [
     
     # Draft
     path("draft/", draft_room, name="draft_room"),
+    path("draft/settings/", draft_settings, name="draft_settings"),
     path("draft/start/", start_draft, name="start_draft"),
     path("draft/cancel/", cancel_draft, name="cancel_draft"),
+    path("draft/reorder/", reorder_draft_picks, name="reorder_draft_picks"),
     path("draft/<int:draft_id>/pick/", make_draft_pick, name="make_draft_pick"),
     path("draft/set-order/", set_draft_order, name="set_draft_order"),
     
