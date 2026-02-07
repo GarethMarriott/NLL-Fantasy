@@ -1263,8 +1263,8 @@ class TaxiSquad(models.Model):
         help_text="Rookie player in this taxi slot (null if empty)"
     )
     slot_number = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(3)],
-        help_text="Which taxi slot (1, 2, or 3)"
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        help_text="Which taxi slot (1, 2, 3, or 4)"
     )
     added_date = models.DateTimeField(auto_now_add=True)
     is_locked = models.BooleanField(
@@ -1281,7 +1281,7 @@ class TaxiSquad(models.Model):
                 name='unique_taxi_slot_per_team'
             ),
             models.CheckConstraint(
-                condition=models.Q(slot_number__in=[1, 2, 3]),
+                condition=models.Q(slot_number__in=[1, 2, 3, 4]),
                 name='taxi_slot_1_to_3'
             )
         ]
