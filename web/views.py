@@ -4111,6 +4111,19 @@ def draft_room(request):
             player__isnull=False
         ).select_related('player').order_by('round', 'pick_number')
     
+    # Get future picks organized by year
+    future_picks_by_year = {}
+    if getattr(league, 'use_future_rookie_picks', False):
+        from web.models import FutureRookiePick
+        future_picks = FutureRookiePick.objects.filter(league=league).select_related(
+            'team', 'original_owner'
+        ).order_by('year', 'round_number', 'pick_number')
+        
+        for pick in future_picks:
+            if pick.year not in future_picks_by_year:
+                future_picks_by_year[pick.year] = []
+            future_picks_by_year[pick.year].append(pick)
+    
     context = {
         'league': league,
         'draft': draft,
@@ -4127,6 +4140,7 @@ def draft_room(request):
         'sort_dir': sort_dir,
         'user_picks': user_picks,
         'draft_locked': draft_locked,
+        'future_picks_by_year': future_picks_by_year,
     }
     
     return render(request, 'web/draft_room.html', context)
