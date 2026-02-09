@@ -81,11 +81,11 @@
               {% for pick in round_group.list %}
               <div class="pick-card rounded px-3 py-2 cursor-pointer transition-colors border-2 bg-indigo-100 border-indigo-300 hover:border-indigo-500 text-xs"
                    data-pick-id="{{ pick.id }}"
-                   data-pick-name="{{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}"
+                   data-pick-name="{{ year }} R{{ pick.round_number }}{% if pick.order_finalized %}P{{ pick.pick_number }}{% endif %}"
                    data-team-name="{{ team.name }}"
                    data-team-id="{{ team.id }}"
                    onclick="togglePickSelection(this, 'your')">
-                <div class="font-semibold text-indigo-900">Pick #{{ pick.pick_number }}</div>
+                {% if pick.order_finalized %}<div class="font-semibold text-indigo-900">Pick #{{ pick.pick_number }}</div>{% endif %}
                 <div class="text-indigo-700">{{ year }} R{{ pick.round_number }}</div>
               </div>
               {% endfor %}
@@ -151,11 +151,11 @@
                 {% for pick in round_group.list %}
                 <div class="pick-card rounded px-3 py-2 cursor-pointer transition-colors border-2 bg-indigo-100 border-indigo-300 hover:border-indigo-500 text-xs"
                      data-pick-id="{{ pick.id }}"
-                     data-pick-name="{{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}"
-                     data-team-name="{{ other_team.name }}"
-                     data-team-id="{{ other_team.id }}"
+                     data-pick-name="{{ year }} R{{ pick.round_number }}{% if pick.order_finalized %}P{{ pick.pick_number }}{% endif %}"
+                     data-team-name="{{ team.name }}"
+                     data-team-id="{{ team.id }}"
                      onclick="togglePickSelection(this, 'their')">
-                  <div class="font-semibold text-indigo-900">Pick #{{ pick.pick_number }}</div>
+                  {% if pick.order_finalized %}<div class="font-semibold text-indigo-900">Pick #{{ pick.pick_number }}</div>{% endif %}
                   <div class="text-indigo-700">{{ year }} R{{ pick.round_number }}</div>
                 </div>
                 {% endfor %}

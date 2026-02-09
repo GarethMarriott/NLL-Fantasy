@@ -1438,6 +1438,10 @@ class FutureRookiePick(models.Model):
     pick_number = models.PositiveSmallIntegerField(
         help_text="Pick order within the round (1 to num_teams)"
     )
+    order_finalized = models.BooleanField(
+        default=False,
+        help_text="Whether the pick order is finalized (only True for next season's draft)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

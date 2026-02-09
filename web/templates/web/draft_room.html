@@ -305,7 +305,7 @@
               cursor-pointer hover:shadow-md transition-shadow" 
               title="Pick #{{ pick.pick_number }} (Round {{ pick.round_number }}) • {{ pick.year }} Season{% if pick.team.id != pick.original_owner.id %} • Currently owned by {{ pick.team.name }}{% endif %}">
               <div class="font-semibold">{{ pick.team.name }}</div>
-              <div class="text-xs opacity-75">Pick #{{ pick.pick_number }}</div>
+              {% if pick.order_finalized %}<div class="text-xs opacity-75">Pick #{{ pick.pick_number }}</div>{% endif %}
               {% if pick.team.id != pick.original_owner.id %}
               <div class="text-xs opacity-60 italic">Originally: {{ pick.original_owner.name }}</div>
               {% endif %}

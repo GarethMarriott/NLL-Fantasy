@@ -212,7 +212,7 @@
                                 {% for trade_pick in trade.picks.all %}
                                   {% if trade_pick.from_team.id == trade.proposing_team.id %}
                                     <div class="flex items-center gap-1 text-xs px-1.5 py-0.5 bg-indigo-100 border border-indigo-300 rounded">
-                                      <span class="text-indigo-800">{{ trade_pick.future_rookie_pick.year }} R{{ trade_pick.future_rookie_pick.round_number }}P{{ trade_pick.future_rookie_pick.pick_number }}</span>
+                                      <span class="text-indigo-800">{{ trade_pick.future_rookie_pick.year }} R{{ trade_pick.future_rookie_pick.round_number }}{% if trade_pick.future_rookie_pick.order_finalized %}P{{ trade_pick.future_rookie_pick.pick_number }}{% endif %}</span>
                                     </div>
                                   {% endif %}
                                 {% endfor %}
@@ -238,7 +238,7 @@
                                 {% for trade_pick in trade.picks.all %}
                                   {% if trade_pick.from_team.id == trade.receiving_team.id %}
                                     <div class="flex items-center gap-1 text-xs px-1.5 py-0.5 bg-indigo-100 border border-indigo-300 rounded">
-                                      <span class="text-indigo-800">{{ trade_pick.future_rookie_pick.year }} R{{ trade_pick.future_rookie_pick.round_number }}P{{ trade_pick.future_rookie_pick.pick_number }}</span>
+                                      <span class="text-indigo-800">{{ trade_pick.future_rookie_pick.year }} R{{ trade_pick.future_rookie_pick.round_number }}{% if trade_pick.future_rookie_pick.order_finalized %}P{{ trade_pick.future_rookie_pick.pick_number }}{% endif %}</span>
                                     </div>
                                   {% endif %}
                                 {% endfor %}
@@ -619,7 +619,7 @@
             <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell text-xs">{{ pick.pick_number }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto text-left">
               <div class="text-sm font-semibold">
-                {{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}
+                {{ year }} R{{ pick.round_number }}{% if pick.order_finalized %}P{{ pick.pick_number }}{% endif %}
               </div>
               <div class="text-xs text-gray-600">
                 {% if pick.team.id == team.id %}
