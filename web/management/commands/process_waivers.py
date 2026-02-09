@@ -415,6 +415,18 @@ class Command(BaseCommand):
                     
                     player_moves.append(f"{tp.player.last_name} ({team2.name}→{team1.name})")
                 
+                # Swap picks between teams
+                for trade_pick in trade.picks.all():
+                    pick = trade_pick.future_rookie_pick
+                    from_team = trade_pick.from_team
+                    to_team = team2 if from_team == team1 else team1
+                    
+                    # Update pick ownership
+                    pick.team = to_team
+                    pick.save()
+                    
+                    player_moves.append(f"{pick.year} R{pick.round_number}P{pick.position_in_round} ({from_team.name}→{to_team.name})")
+                
                 # Create chat notification
                 players_str = ", ".join(player_moves)
                 message = f"🤝 TRADE: {players_str}"
