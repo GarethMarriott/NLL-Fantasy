@@ -3663,7 +3663,11 @@ def team_create(request, league_id):
                 use_future_picks = getattr(league, 'use_future_rookie_picks', True)
                 if use_future_picks:
                     from web.tasks import create_future_rookie_picks
-                    create_future_rookie_picks(league.id, team=team, years_ahead=5)
+                    # Get configured num_rounds from league draft, or use default
+                    num_rounds = None
+                    if hasattr(league, 'draft') and league.draft:
+                        num_rounds = league.draft.total_rounds
+                    create_future_rookie_picks(league.id, team=team, years_ahead=5, num_rounds=num_rounds)
             
             messages.success(request, f"Team '{team.name}' created! You've joined {league.name}.")
             return redirect("league_detail", league_id=league.id)

@@ -417,7 +417,10 @@ def renew_league(old_league_id, new_season=None):
             # Create future rookie picks for all teams
             try:
                 if getattr(new_league, 'use_future_rookie_picks', True):
-                    create_future_rookie_picks(new_league.id, years_ahead=5)
+                    num_rounds = None
+                    if hasattr(new_league, 'draft') and new_league.draft:
+                        num_rounds = new_league.draft.total_rounds
+                    create_future_rookie_picks(new_league.id, years_ahead=5, num_rounds=num_rounds)
             except Exception as e:
                 logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
         
