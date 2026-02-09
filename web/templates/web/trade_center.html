@@ -68,16 +68,16 @@
     <div class="mt-4 pt-4 border-t border-gray-300">
       <h4 class="text-sm font-semibold text-gray-700 mb-2">Future Picks</h4>
       <div id="your-picks" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {% for year in user_future_picks|dictsort %}
-        {% with picks_for_year=user_future_picks|get_item:year.0 %}
+        {% for year in user_future_picks %}
+        {% with picks_for_year=user_future_picks|get_item:year %}
         {% for pick in picks_for_year %}
         <div class="pick-card rounded p-2 cursor-pointer transition-colors border-2 bg-indigo-100 border-indigo-300 hover:border-indigo-500"
              data-pick-id="{{ pick.id }}"
-             data-pick-name="{{ year.0 }} R{{ pick.round_number }}P{{ pick.pick_number }}"
+             data-pick-name="{{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}"
              data-team-name="{{ team.name }}"
              data-team-id="{{ team.id }}"
              onclick="togglePickSelection(this, 'your')">
-          <div class="font-semibold text-sm text-indigo-900">{{ year.0 }} R{{ pick.round_number }}</div>
+          <div class="font-semibold text-sm text-indigo-900">{{ year }} R{{ pick.round_number }}</div>
           <div class="text-xs text-indigo-700">Pick {{ pick.pick_number }}</div>
         </div>
         {% endfor %}
@@ -127,16 +127,16 @@
       <div class="mt-4 pt-4 border-t border-gray-300">
         <h4 class="text-sm font-semibold text-gray-700 mb-2">Future Picks</h4>
         <div id="team-{{ other_team.id }}-picks" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-          {% for year in other_teams_future_picks|get_item:other_team.id|dictsort %}
-          {% with picks_for_year=other_teams_future_picks|get_item:other_team.id|get_item:year.0 %}
+          {% for year in other_teams_future_picks|get_item:other_team.id %}
+          {% with picks_for_year=other_teams_future_picks|get_item:other_team.id|get_item:year %}
           {% for pick in picks_for_year %}
           <div class="pick-card rounded p-2 cursor-pointer transition-colors border-2 bg-indigo-100 border-indigo-300 hover:border-indigo-500"
                data-pick-id="{{ pick.id }}"
-               data-pick-name="{{ year.0 }} R{{ pick.round_number }}P{{ pick.pick_number }}"
+               data-pick-name="{{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}"
                data-team-name="{{ other_team.name }}"
                data-team-id="{{ other_team.id }}"
                onclick="togglePickSelection(this, 'their')">
-            <div class="font-semibold text-sm text-indigo-900">{{ year.0 }} R{{ pick.round_number }}</div>
+            <div class="font-semibold text-sm text-indigo-900">{{ year }} R{{ pick.round_number }}</div>
             <div class="text-xs text-indigo-700">Pick {{ pick.pick_number }}</div>
           </div>
           {% endfor %}

@@ -588,10 +588,10 @@
         <td colspan="100" class="p-2 text-center font-bold text-indigo-900 dark:text-indigo-950">FUTURE ROOKIE PICKS</td>
       </tr>
       
-      {% for year in future_picks|dictsort %}
-        {% with picks_for_year=future_picks|get_item:year.0 %}
+      {% for year in future_picks %}
+        {% with picks_for_year=future_picks|get_item:year %}
           <tr class="bg-indigo-100 dark:bg-indigo-50 border-b border-indigo-300">
-            <td colspan="100" class="p-2 text-sm font-semibold text-indigo-900">{{ year.0 }} Season</td>
+            <td colspan="100" class="p-2 text-sm font-semibold text-indigo-900">{{ year }} Season</td>
           </tr>
           
           {% for pick in picks_for_year %}
@@ -605,7 +605,7 @@
             <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell text-xs">{{ pick.pick_number }}</td>
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto text-left">
               <div class="text-sm font-semibold">
-                {{ year.0 }} R{{ pick.round_number }}P{{ pick.pick_number }}
+                {{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}
               </div>
               <div class="text-xs text-gray-600">
                 {% if pick.current_owner.id == team.id %}
