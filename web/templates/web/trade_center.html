@@ -225,12 +225,22 @@ function togglePlayerSelection(element, type) {
 
 function updateTradeButtons() {
   // Enable/disable trade buttons based on selections
-  selectedTheirPlayers.forEach((playerSet, teamId) => {
+  const allTeams = new Set([...selectedTheirPlayers.keys(), ...selectedTheirPicks.keys()]);
+  
+  allTeams.forEach((teamId) => {
     const btn = document.getElementById(`trade-btn-${teamId}`);
     if (btn) {
       const hasYourPlayers = selectedYourPlayers.size > 0;
-      const hasTheirPlayers = playerSet.size > 0;
-      btn.disabled = !(hasYourPlayers && hasTheirPlayers);
+      const hasYourPicks = selectedYourPicks.size > 0;
+      const hasYourItems = hasYourPlayers || hasYourPicks;
+      
+      const theirPlayerSet = selectedTheirPlayers.get(teamId) || new Set();
+      const theirPickSet = selectedTheirPicks.get(teamId) || new Set();
+      const hasTheirPlayers = theirPlayerSet.size > 0;
+      const hasTheirPicks = theirPickSet.size > 0;
+      const hasTheirItems = hasTheirPlayers || hasTheirPicks;
+      
+      btn.disabled = !(hasYourItems && hasTheirItems);
     }
   });
 }
