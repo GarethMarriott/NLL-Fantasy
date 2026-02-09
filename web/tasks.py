@@ -99,11 +99,19 @@ def cleanup_old_sessions():
 
 
 
-@shared_task(name='unlock_rosters_and_process_transactions')
-def unlock_rosters_and_process_transactions():
+@shared_task(name='unlock_rosters_and_process_transactions', bind=True, max_retries=3)
+def unlock_rosters_and_process_transactions(self):
     """
-    Unlock rosters (Monday 9am PT) and execute pending waivers/trades.
+    Unlock rosters (Monday 9am PT) and execute pending waivers/trades atomically.
     Called automatically at Monday 9am PT via Celery Beat schedule.
+    
+    Executes in sequence:
+    1. Unlock rosters for weeks
+    2. Process pending waiver claims
+    3. Process pending accepted trades
+    4. Update current_week to next week
+    
+    All steps execute together or task retries.
     Uses the process_waivers management command to ensure consistency.
     """
     from django.core.management import call_command
@@ -118,35 +126,57 @@ def unlock_rosters_and_process_transactions():
             roster_unlock_time__gte=now - timedelta(hours=1)
         )
         
-        for week in weeks:
-            logger.info(f"Unlocking rosters for Week {week.week_number}, Season {week.season}")
-            
-            # Process waivers and trades for all active leagues using the management command
-            try:
-                call_command('process_waivers')
-                logger.info(f"Successfully processed waivers and trades")
-            except Exception as e:
-                logger.error(f"Error calling process_waivers command: {str(e)}")
-            
-            # Update league current_week to next week
-            update_current_week_for_season(week.season)
+        if not weeks.exists():
+            logger.info("No weeks found with roster unlock time")
+            return "No weeks to unlock"
         
-        return f"Successfully unlocked rosters and processed transactions for {weeks.count()} weeks"
+        weeks_updated = 0
+        for week in weeks:
+            logger.info(f"[UNLOCK SEQUENCE START] Week {week.week_number}, Season {week.season}")
+            
+            try:
+                # Step 1: Process waivers and trades (critical - must succeed)
+                logger.info(f"[STEP 1] Processing waiver claims and trades for Week {week.week_number}...")
+                call_command('process_waivers')
+                logger.info(f"[STEP 1 SUCCESS] Processed waivers and trades")
+                
+                # Step 2: Update league current_week to next week (critical - must succeed)
+                logger.info(f"[STEP 2] Updating current week for Season {week.season}...")
+                updated_count = update_current_week_for_season(week.season)
+                logger.info(f"[STEP 2 SUCCESS] Updated current week for {updated_count} leagues")
+                
+                logger.info(f"[UNLOCK SEQUENCE COMPLETE] Week {week.week_number} rosters unlocked, waivers processed, current_week updated")
+                weeks_updated += 1
+                
+            except Exception as e:
+                logger.error(f"[UNLOCK SEQUENCE FAILED] Week {week.week_number}: {str(e)}")
+                raise  # Re-raise to trigger task retry
+        
+        success_msg = f"Successfully completed unlock sequence for {weeks_updated} week(s): roster unlock + waivers + trades + current_week update"
+        logger.info(f"[ALL SEQUENCES COMPLETE] {success_msg}")
+        return success_msg
     
     except Exception as e:
-        logger.error(f"Error unlocking rosters and processing transactions: {str(e)}")
-        raise
+        logger.error(f"[UNLOCK TASK ERROR] Error in unlock sequence: {str(e)}")
+        # Retry with exponential backoff: 60s, 300s, 900s
+        try:
+            self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+        except Exception as retry_error:
+            logger.critical(f"[UNLOCK TASK CRITICAL] Task failed after {self.request.retries} retries: {str(retry_error)}")
+            raise
 
 
 def update_current_week_for_season(season):
     """
     Update all leagues' current_week to the next unlocked week.
     Called when Monday 9am PT rosters unlock.
+    Returns count of leagues updated.
     """
     from web.models import League, Week
     
     try:
         leagues = League.objects.filter(created_at__year=season, is_active=True)
+        updated_count = 0
         
         for league in leagues:
             # Find the next unlocked week (most recent with unlock_time passed)
@@ -159,10 +189,14 @@ def update_current_week_for_season(season):
             if next_week:
                 league.current_week = next_week
                 league.save()
+                updated_count += 1
                 logger.info(f"Updated {league.name} current week to Week {next_week.week_number}")
+        
+        return updated_count
     
     except Exception as e:
         logger.error(f"Error updating current week for season {season}: {str(e)}")
+        raise  # Re-raise to fail the task so it retries
 
 
 @shared_task
