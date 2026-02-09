@@ -1689,10 +1689,12 @@ def propose_trade(request, team_id):
     target_team_id = request.POST.get('target_team_id')
     target_team = get_object_or_404(Team, id=target_team_id, league=league)
     
-    # Get player IDs from the request
+    # Get player and pick IDs from the request
     import json
     your_player_ids = json.loads(request.POST.get('your_players', '[]'))
     their_player_ids = json.loads(request.POST.get('their_players', '[]'))
+    your_pick_ids = json.loads(request.POST.get('your_picks', '[]'))
+    their_pick_ids = json.loads(request.POST.get('their_picks', '[]'))
     
     # Validate that players exist and are on the correct teams
     your_players = Player.objects.filter(
@@ -1709,12 +1711,30 @@ def propose_trade(request, team_id):
         roster_entries__week_dropped__isnull=True
     ).distinct()
     
+    # Validate that picks exist and are owned by the correct teams
+    from web.models import FutureRookiePick
+    your_picks = FutureRookiePick.objects.filter(
+        id__in=your_pick_ids,
+        team=team,
+        league=league
+    )
+    
+    their_picks = FutureRookiePick.objects.filter(
+        id__in=their_pick_ids,
+        team=target_team,
+        league=league
+    )
+    
     if your_players.count() != len(your_player_ids) or their_players.count() != len(their_player_ids):
         messages.error(request, "Invalid player selection. Please try again.")
         return redirect("trade_center", team_id=team.id)
     
-    if your_players.count() == 0 or their_players.count() == 0:
-        messages.error(request, "You must select at least one player from each team.")
+    if your_picks.count() != len(your_pick_ids) or their_picks.count() != len(their_pick_ids):
+        messages.error(request, "Invalid pick selection. Please try again.")
+        return redirect("trade_center", team_id=team.id)
+    
+    if (your_players.count() + your_picks.count()) == 0 or (their_players.count() + their_picks.count()) == 0:
+        messages.error(request, "You must select at least one item (player or pick) from each team.")
         return redirect("trade_center", team_id=team.id)
     
     # Create the trade
@@ -1740,10 +1760,38 @@ def propose_trade(request, team_id):
             from_team=target_team
         )
     
+    # Add picks to the trade
+    from web.models import TradePick
+    for pick in your_picks:
+        TradePick.objects.create(
+            trade=trade,
+            future_rookie_pick=pick,
+            from_team=team
+        )
+    
+    for pick in their_picks:
+        TradePick.objects.create(
+            trade=trade,
+            future_rookie_pick=pick,
+            from_team=target_team
+        )
+    
     # Post message to team chat
-    your_players_str = ", ".join([f"{p.first_name} {p.last_name}" for p in your_players])
-    their_players_str = ", ".join([f"{p.first_name} {p.last_name}" for p in their_players])
-    message = f"Trade proposed: {team.name} receives ({their_players_str}) and {target_team.name} receives ({your_players_str})"
+    your_items = []
+    for p in your_players:
+        your_items.append(f"{p.first_name} {p.last_name}")
+    for p in your_picks:
+        your_items.append(f"{p.year} R{p.round_number}P{p.pick_number}")
+    
+    their_items = []
+    for p in their_players:
+        their_items.append(f"{p.first_name} {p.last_name}")
+    for p in their_picks:
+        their_items.append(f"{p.year} R{p.round_number}P{p.pick_number}")
+    
+    your_items_str = ", ".join(your_items)
+    their_items_str = ", ".join(their_items)
+    message = f"Trade proposed: {team.name} receives ({their_items_str}) and {target_team.name} receives ({your_items_str})"
     post_team_chat_message(team, target_team, message, 
                           message_type='TRADE_PROPOSED', 
                           trade=trade, 
@@ -1799,6 +1847,16 @@ def execute_trade(trade):
         # Auto-assign to starter slot if traditional league
         auto_assign_to_starter_slot(new_roster)
     
+    # Swap picks between teams
+    for trade_pick in trade.picks.all():
+        pick = trade_pick.future_rookie_pick
+        from_team = trade_pick.from_team
+        to_team = trade.receiving_team if from_team == trade.proposing_team else trade.proposing_team
+        
+        # Update pick ownership
+        pick.team = to_team
+        pick.save()
+    
     # Mark trade as executed
     trade.executed_at = timezone.now()
     trade.save()
@@ -1806,9 +1864,23 @@ def execute_trade(trade):
     # Post notification to league chat
     proposing_players = trade.players.filter(from_team=trade.proposing_team)
     receiving_players = trade.players.filter(from_team=trade.receiving_team)
+    proposing_picks = trade.picks.filter(from_team=trade.proposing_team)
+    receiving_picks = trade.picks.filter(from_team=trade.receiving_team)
     
-    proposing_names = ", ".join([f"{p.player.first_name} {p.player.last_name}" for p in proposing_players])
-    receiving_names = ", ".join([f"{p.player.first_name} {p.player.last_name}" for p in receiving_players])
+    proposing_items = []
+    for p in proposing_players:
+        proposing_items.append(f"{p.player.first_name} {p.player.last_name}")
+    for p in proposing_picks:
+        proposing_items.append(f"{p.future_rookie_pick.year} R{p.future_rookie_pick.round_number}P{p.future_rookie_pick.pick_number}")
+    
+    receiving_items = []
+    for p in receiving_players:
+        receiving_items.append(f"{p.player.first_name} {p.player.last_name}")
+    for p in receiving_picks:
+        receiving_items.append(f"{p.future_rookie_pick.year} R{p.future_rookie_pick.round_number}P{p.future_rookie_pick.pick_number}")
+    
+    proposing_names = ", ".join(proposing_items)
+    receiving_names = ", ".join(receiving_items)
     
     message_text = f"🤝 Trade completed! {trade.proposing_team.name} receives ({receiving_names}) and {trade.receiving_team.name} receives ({proposing_names})"
     post_league_message(trade.league, message_text)

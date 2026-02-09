@@ -186,6 +186,8 @@
 <script>
 let selectedYourPlayers = new Set();
 let selectedTheirPlayers = new Map(); // Map of team_id -> Set of player_ids
+let selectedYourPicks = new Set();
+let selectedTheirPicks = new Map(); // Map of team_id -> Set of pick_ids
 
 function togglePlayerSelection(element, type) {
   const playerId = parseInt(element.dataset.playerId);
@@ -233,16 +235,55 @@ function updateTradeButtons() {
   });
 }
 
+function togglePickSelection(element, type) {
+  const pickId = parseInt(element.dataset.pickId);
+  const teamId = parseInt(element.dataset.teamId);
+  
+  if (type === 'your') {
+    if (selectedYourPicks.has(pickId)) {
+      selectedYourPicks.delete(pickId);
+      element.classList.remove('ring-4', 'ring-blue-600', 'shadow-lg');
+      element.style.filter = '';
+    } else {
+      selectedYourPicks.add(pickId);
+      element.classList.add('ring-4', 'ring-blue-600', 'shadow-lg');
+      element.style.filter = 'brightness(0.85)';
+    }
+  } else {
+    if (!selectedTheirPicks.has(teamId)) {
+      selectedTheirPicks.set(teamId, new Set());
+    }
+    const teamSet = selectedTheirPicks.get(teamId);
+    
+    if (teamSet.has(pickId)) {
+      teamSet.delete(pickId);
+      element.classList.remove('ring-4', 'ring-green-600', 'shadow-lg');
+      element.style.filter = '';
+    } else {
+      teamSet.add(pickId);
+      element.classList.add('ring-4', 'ring-green-600', 'shadow-lg');
+      element.style.filter = 'brightness(0.85)';
+    }
+  }
+  
+  updateTradeButtons();
+}
+
 function proposeTrade(targetTeamId) {
   const yourPlayers = Array.from(selectedYourPlayers);
+  const yourPicks = Array.from(selectedYourPicks);
   const theirPlayers = Array.from(selectedTheirPlayers.get(targetTeamId) || []);
+  const theirPicks = Array.from(selectedTheirPicks.get(targetTeamId) || []);
   
-  if (yourPlayers.length === 0 || theirPlayers.length === 0) {
-    alert('Please select at least one player from each team');
+  const hasYourItems = yourPlayers.length > 0 || yourPicks.length > 0;
+  const hasTheirItems = theirPlayers.length > 0 || theirPicks.length > 0;
+  
+  if (!hasYourItems || !hasTheirItems) {
+    alert('Please select at least one item (player or pick) from each team');
     return;
   }
   
-  // Get player details
+  // Get player and pick details
   const yourRosterDiv = document.getElementById('your-roster');
   const theirRosterDiv = document.getElementById('team-' + targetTeamId + '-roster');
   
@@ -251,7 +292,7 @@ function proposeTrade(targetTeamId) {
   giveList.innerHTML = '';
   receiveList.innerHTML = '';
   
-  // Populate give list
+  // Populate give list - players
   yourPlayers.forEach(playerId => {
     const card = yourRosterDiv.querySelector(`[data-player-id="${playerId}"]`);
     if (card) {
@@ -263,7 +304,18 @@ function proposeTrade(targetTeamId) {
     }
   });
   
-  // Populate receive list
+  // Populate give list - picks
+  yourPicks.forEach(pickId => {
+    const card = document.querySelector(`[data-pick-id="${pickId}"]`);
+    if (card) {
+      const pickName = card.dataset.pickName;
+      const item = document.createElement('div');
+      item.textContent = `${pickName}`;
+      giveList.appendChild(item);
+    }
+  });
+  
+  // Populate receive list - players
   theirPlayers.forEach(playerId => {
     const card = theirRosterDiv.querySelector(`[data-player-id="${playerId}"]`);
     if (card) {
@@ -271,6 +323,17 @@ function proposeTrade(targetTeamId) {
       const teamName = card.dataset.teamName;
       const item = document.createElement('div');
       item.textContent = `${playerName} (${teamName})`;
+      receiveList.appendChild(item);
+    }
+  });
+  
+  // Populate receive list - picks
+  theirPicks.forEach(pickId => {
+    const card = document.querySelector(`[data-pick-id="${pickId}"]`);
+    if (card) {
+      const pickName = card.dataset.pickName;
+      const item = document.createElement('div');
+      item.textContent = `${pickName}`;
       receiveList.appendChild(item);
     }
   });
@@ -313,12 +376,24 @@ function proposeTrade(targetTeamId) {
     yourPlayersInput.name = 'your_players';
     yourPlayersInput.value = JSON.stringify(yourPlayers);
     form.appendChild(yourPlayersInput);
+    // Add your picks
+    const yourPicksInput = document.createElement('input');
+    yourPicksInput.type = 'hidden';
+    yourPicksInput.name = 'your_picks';
+    yourPicksInput.value = JSON.stringify(yourPicks);
+    form.appendChild(yourPicksInput);
     // Add their players
     const theirPlayersInput = document.createElement('input');
     theirPlayersInput.type = 'hidden';
     theirPlayersInput.name = 'their_players';
     theirPlayersInput.value = JSON.stringify(theirPlayers);
     form.appendChild(theirPlayersInput);
+    // Add their picks
+    const theirPicksInput = document.createElement('input');
+    theirPicksInput.type = 'hidden';
+    theirPicksInput.name = 'their_picks';
+    theirPicksInput.value = JSON.stringify(theirPicks);
+    form.appendChild(theirPicksInput);
     // Submit form
     document.body.appendChild(form);
     form.submit();
