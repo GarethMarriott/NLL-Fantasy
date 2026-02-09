@@ -1814,10 +1814,20 @@ def execute_trade(trade):
         start_date__gt=current_date
     ).order_by('week_number').first()
     
+    # If no future week, try to use current week. If no current week either, use week 1
     if not next_week:
-        return False, "No future week available for trade execution"
-    
-    week_number = next_week.week_number
+        current_week = Week.objects.filter(
+            season=league_season,
+            start_date__lte=current_date
+        ).order_by('-week_number').first()
+        
+        if current_week:
+            week_number = current_week.week_number
+        else:
+            # No weeks exist yet, use week 1 as default
+            week_number = 1
+    else:
+        week_number = next_week.week_number
     
     # Swap players between teams
     for trade_player in trade.players.all():
