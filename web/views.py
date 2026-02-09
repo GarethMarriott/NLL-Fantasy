@@ -1920,32 +1920,37 @@ def accept_trade(request, trade_id):
         messages.error(request, "This trade is no longer pending.")
         return redirect("team_detail", team_id=trade.receiving_team.id)
     
-    # Check if current week is locked (rosters locked during games)
+    # Check if rosters are currently locked (games in progress for any week)
+    # A week is considered "active" if games have started but next week hasn't unlocked yet
     league_season = trade.league.created_at.year if trade.league.created_at else timezone.now().year
-    current_week = Week.objects.filter(
-        season=league_season,
-        start_date__lte=timezone.now().date()
-    ).order_by('-week_number').first()
     
-    is_locked = current_week and current_week.is_locked()
+    # Check if ANY week is currently active (roster_lock_time <= now < roster_unlock_time)
+    any_week_active = Week.objects.filter(
+        season=league_season,
+        roster_lock_time__lte=timezone.now(),
+        roster_unlock_time__gt=timezone.now()
+    ).exists()
+    
+    is_locked = any_week_active
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Trade {trade.id}: any_week_active={any_week_active}, is_locked={is_locked}")
     
     # Update trade status
     if is_locked:
-        # Rosters are locked - trade will execute when rosters unlock (Monday 9 AM)
+        # Rosters are locked - trade will execute when rosters unlock (next Monday 9 AM)
         trade.status = Trade.Status.ACCEPTED
         trade.save()
         
         # Post message to team chat
-        message = f"Trade accepted by {trade.receiving_team.name}. Will execute Monday at 9 AM."
+        message = f"Trade accepted by {trade.receiving_team.name}. Will execute when rosters unlock."
         post_team_chat_message(trade.proposing_team, trade.receiving_team, message,
                               message_type='TRADE_ACCEPTED',
                               trade=trade,
                               sender=request.user)
         
-        if current_week:
-            messages.success(request, f"Trade accepted! It will be processed on Monday at 9 AM when rosters unlock.")
-        else:
-            messages.success(request, f"Trade accepted! Waiting for rosters to unlock.")
+        messages.success(request, f"Trade accepted! It will be processed when rosters unlock.")
     else:
         # Rosters are unlocked - execute trade immediately
         trade.status = Trade.Status.ACCEPTED
