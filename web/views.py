@@ -708,7 +708,7 @@ def team_detail(request, team_id):
                 (models.Q(status=Trade.Status.ACCEPTED) & models.Q(executed_at__isnull=True))
             )
         ).select_related('proposing_team', 'receiving_team').prefetch_related(
-            'players__player', 'players__from_team'
+            'players__player', 'players__from_team', 'picks__future_rookie_pick', 'picks__from_team'
         ).order_by('-created_at')
         pending_changes_count = pending_waiver_claims.count() + pending_trades.count()
     else:

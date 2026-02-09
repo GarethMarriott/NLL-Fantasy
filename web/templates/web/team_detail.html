@@ -209,6 +209,13 @@
                                     </div>
                                   {% endif %}
                                 {% endfor %}
+                                {% for trade_pick in trade.picks.all %}
+                                  {% if trade_pick.from_team.id == trade.proposing_team.id %}
+                                    <div class="flex items-center gap-1 text-xs px-1.5 py-0.5 bg-indigo-100 border border-indigo-300 rounded">
+                                      <span class="text-indigo-800">{{ trade_pick.future_rookie_pick.year }} R{{ trade_pick.future_rookie_pick.round_number }}P{{ trade_pick.future_rookie_pick.pick_number }}</span>
+                                    </div>
+                                  {% endif %}
+                                {% endfor %}
                               </div>
                             </div>
                             <div>
@@ -225,6 +232,13 @@
                                         {{ trade_player.player.position }}
                                       </span>
                                       <span>{{ trade_player.player.last_name }}, {{ trade_player.player.first_name }}</span>
+                                    </div>
+                                  {% endif %}
+                                {% endfor %}
+                                {% for trade_pick in trade.picks.all %}
+                                  {% if trade_pick.from_team.id == trade.receiving_team.id %}
+                                    <div class="flex items-center gap-1 text-xs px-1.5 py-0.5 bg-indigo-100 border border-indigo-300 rounded">
+                                      <span class="text-indigo-800">{{ trade_pick.future_rookie_pick.year }} R{{ trade_pick.future_rookie_pick.round_number }}P{{ trade_pick.future_rookie_pick.pick_number }}</span>
                                     </div>
                                   {% endif %}
                                 {% endfor %}
