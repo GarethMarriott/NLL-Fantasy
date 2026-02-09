@@ -608,15 +608,15 @@
                 {{ year }} R{{ pick.round_number }}P{{ pick.pick_number }}
               </div>
               <div class="text-xs text-gray-600">
-                {% if pick.current_owner.id == team.id %}
+                {% if pick.team.id == team.id %}
                   <strong>You own this pick</strong>
                 {% else %}
                   From: {{ pick.original_owner.name }}
                 {% endif %}
               </div>
-              {% if pick.current_owner.id != pick.original_owner.id %}
+              {% if pick.team.id != pick.original_owner.id %}
               <div class="text-xs text-indigo-600">
-                Currently: {{ pick.current_owner.name }}
+                Currently: {{ pick.team.name }}
               </div>
               {% endif %}
             </td>

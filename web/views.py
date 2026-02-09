@@ -1633,8 +1633,8 @@ def trade_center(request, team_id):
         # Get future picks for user's team
         if use_future_picks:
             user_picks_queryset = FutureRookiePick.objects.filter(
-                current_owner=team
-            ).select_related('original_owner', 'current_owner').order_by('year', 'round_number', 'pick_number')
+                team=team
+            ).select_related('original_owner', 'team').order_by('year', 'round_number', 'pick_number')
             
             user_future_picks_by_year = {}
             for pick in user_picks_queryset:
@@ -1646,8 +1646,8 @@ def trade_center(request, team_id):
             # Get future picks for other teams
             for other_team in other_teams:
                 other_picks_queryset = FutureRookiePick.objects.filter(
-                    current_owner=other_team
-                ).select_related('original_owner', 'current_owner').order_by('year', 'round_number', 'pick_number')
+                    team=other_team
+                ).select_related('original_owner', 'team').order_by('year', 'round_number', 'pick_number')
                 
                 other_picks_by_year = {}
                 for pick in other_picks_queryset:
