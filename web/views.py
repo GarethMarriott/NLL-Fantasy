@@ -1620,11 +1620,50 @@ def trade_center(request, team_id):
         for roster_entry in other_team.roster_entries.all():
             roster_entry.player.upcoming_schedule = get_player_upcoming_schedule(roster_entry.player, num_weeks=5)
     
+    # Get future picks for dynasty leagues with feature enabled
+    user_future_picks = []
+    other_teams_future_picks = {}
+    use_future_picks = False
+    
+    if league.league_type == 'dynasty':
+        from web.models import FutureRookiePick
+        
+        use_future_picks = getattr(league, 'use_future_rookie_picks', True)
+        
+        # Get future picks for user's team
+        if use_future_picks:
+            user_picks_queryset = FutureRookiePick.objects.filter(
+                current_owner=team
+            ).select_related('original_owner', 'current_owner').order_by('year', 'round_number', 'pick_number')
+            
+            user_future_picks_by_year = {}
+            for pick in user_picks_queryset:
+                if pick.year not in user_future_picks_by_year:
+                    user_future_picks_by_year[pick.year] = []
+                user_future_picks_by_year[pick.year].append(pick)
+            user_future_picks = user_future_picks_by_year
+            
+            # Get future picks for other teams
+            for other_team in other_teams:
+                other_picks_queryset = FutureRookiePick.objects.filter(
+                    current_owner=other_team
+                ).select_related('original_owner', 'current_owner').order_by('year', 'round_number', 'pick_number')
+                
+                other_picks_by_year = {}
+                for pick in other_picks_queryset:
+                    if pick.year not in other_picks_by_year:
+                        other_picks_by_year[pick.year] = []
+                    other_picks_by_year[pick.year].append(pick)
+                other_teams_future_picks[other_team.id] = other_picks_by_year
+    
     context = {
         'team': team,
         'league': league,
         'other_teams': other_teams,
         'user_roster': user_roster,
+        'user_future_picks': user_future_picks,
+        'other_teams_future_picks': other_teams_future_picks,
+        'use_future_picks': use_future_picks,
     }
     
     return render(request, 'web/trade_center.html', context)
