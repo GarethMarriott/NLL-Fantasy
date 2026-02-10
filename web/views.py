@@ -1960,8 +1960,7 @@ def accept_trade(request, trade_id):
                               sender=request.user)
         
         success, msg = execute_trade(trade)
-        if success:
-        else:
+        if not success:
             messages.error(request, f"Trade accepted but execution failed: {msg}")
     
     return redirect("team_detail", team_id=trade.receiving_team.id)
