@@ -4235,7 +4235,7 @@ def draft_room(request):
 
 @login_required
 def draft_settings(request):
-    """Commissioner view to configure future rookie picks settings"""
+    """View to display and configure future rookie picks settings"""
     selected_league_id = request.session.get('selected_league_id')
     
     if not selected_league_id:
@@ -4244,17 +4244,19 @@ def draft_settings(request):
     
     league = get_object_or_404(League, id=selected_league_id)
     
-    # Check if user is commissioner
-    if league.commissioner != request.user:
-        messages.error(request, "Only the commissioner can configure draft settings.")
-        return redirect('draft_room')
-    
     # Check if it's a dynasty league
     if league.league_type != 'dynasty':
         messages.error(request, "Draft settings are only available for dynasty leagues.")
         return redirect('draft_room')
     
+    # Check if user is commissioner (for POST requests)
+    is_commissioner = league.commissioner == request.user
+    
     if request.method == 'POST':
+        # Only commissioner can modify settings
+        if not is_commissioner:
+            messages.error(request, "Only the commissioner can modify draft settings.")
+            return redirect('draft_room')
         from web.forms import DraftSettingsForm
         form = DraftSettingsForm(request.POST, league=league)
         if form.is_valid():
@@ -4294,7 +4296,7 @@ def draft_settings(request):
     return render(request, 'web/draft_settings.html', {
         'league': league,
         'form': form,
-        'is_commissioner': True,
+        'is_commissioner': is_commissioner,
     })
 
 

@@ -19,12 +19,20 @@
     {% endfor %}
   {% endif %}
 
+  {% if not is_commissioner %}
+  <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+    <p class="text-sm text-yellow-900">
+      <strong>📖 View Only</strong> - You are viewing these settings as a league member. Only the commissioner can modify draft settings.
+    </p>
+  </div>
+  {% endif %}
+
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Main Settings Form -->
     <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
       <h2 class="text-xl font-semibold mb-4 text-gray-800">Configure Future Rookie Picks</h2>
       
-      <form method="post" class="space-y-6">
+      <form method="post" class="space-y-6 {% if not is_commissioner %}opacity-60 pointer-events-none{% endif %}" {% if not is_commissioner %}onsubmit="return false;"{% endif %}>
         {% csrf_token %}
         
         <div>
@@ -67,11 +75,17 @@
         </div>
 
         <div class="flex gap-3 pt-4">
+          {% if is_commissioner %}
           <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
             Update Settings
           </button>
+          {% else %}
+          <button type="button" disabled class="px-6 py-2 bg-gray-400 text-gray-600 rounded-md font-medium cursor-not-allowed opacity-50">
+            Update Settings (Commissioner Only)
+          </button>
+          {% endif %}
           <a href="{% url 'draft_room' %}" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 font-medium">
-            Cancel
+            Back to Draft Room
           </a>
         </div>
       </form>
