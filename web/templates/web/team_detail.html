@@ -576,12 +576,13 @@
       {% endfor %}
       {% endif %}
 
-      {% if is_dynasty and use_future_picks and future_picks %}
+      {% if is_dynasty and use_future_picks %}
       {# FUTURE ROOKIE PICKS SECTION (Dynasty Leagues Only) #}
       <tr class="bg-indigo-200 dark:bg-indigo-400 h-6">
         <td colspan="100" class="p-2 text-center font-bold text-indigo-900 dark:text-indigo-950">FUTURE ROOKIE PICKS</td>
       </tr>
       
+      {% if future_picks %}
       {% for year in future_picks %}
         {% with picks_for_year=future_picks|get_item:year %}
           <tr class="bg-indigo-100 dark:bg-indigo-50 border-b border-indigo-300">
@@ -620,6 +621,11 @@
           {% endfor %}
         {% endwith %}
       {% endfor %}
+      {% else %}
+      <tr class="text-center border-b border-opacity-20 dark:border-gray-300 dark:bg-indigo-50">
+        <td colspan="100" class="p-2 text-sm text-gray-500">No future picks yet</td>
+      </tr>
+      {% endif %}
       {% endif %}
 
     </tbody>
