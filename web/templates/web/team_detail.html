@@ -568,19 +568,7 @@
               <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                 {% if user_owns_team and not is_viewing_past_week %}
                   {% if roster_status.0 %}
-                    <form method="post" action="{% url 'add_to_taxi' team.id %}" class="inline-block" style="display: inline-block;">
-                      {% csrf_token %}
-                      <input type="hidden" name="slot_number" value="{{ forloop.counter }}">
-                      <select name="player_id" class="px-1 py-0.5 text-xs border border-gray-300 rounded">
-                        <option value="">Add rookie...</option>
-                        {% for item in players_for_select %}
-                          {% if item.player.is_rookie and item.team_in_league is None %}
-                          <option value="{{ item.player.id }}">{{ item.player.last_name }}, {{ item.player.first_name }}</option>
-                          {% endif %}
-                        {% endfor %}
-                      </select>
-                      <button type="submit" class="px-1 py-0.5 text-xs bg-purple-500 text-white rounded hover:bg-purple-600">Add</button>
-                    </form>
+                    <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
                   {% else %}
                     <span class="text-gray-500 italic text-xs sm:text-sm">Locked</span>
                   {% endif %}
