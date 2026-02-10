@@ -1065,7 +1065,6 @@ def assign_player(request, team_id):
             player=player
         )
         
-        messages.success(request, f"Swapped {drop_player.first_name} {drop_player.last_name} for {player.first_name} {player.last_name}")
         return redirect("players")
     
     if action == "add":
@@ -1266,8 +1265,6 @@ def assign_player(request, team_id):
                     'target_player_id': target_player.id,
                     'target_player_slot': target_roster.slot_assignment
                 })
-            
-            messages.success(request, f"Swapped {player.last_name} and {target_player.last_name}")
             
         except (Player.DoesNotExist, ValueError, TypeError):
             # Target is a slot designation (empty slot), not a player ID
@@ -1797,7 +1794,6 @@ def propose_trade(request, team_id):
                           trade=trade, 
                           sender=request.user)
     
-    messages.success(request, f"Trade proposal sent to {target_team.name}!")
     return redirect("team_detail", team_id=team.id)
 
 
@@ -1965,7 +1961,6 @@ def accept_trade(request, trade_id):
         
         success, msg = execute_trade(trade)
         if success:
-            messages.success(request, f"Trade accepted and completed with {trade.proposing_team.name}!")
         else:
             messages.error(request, f"Trade accepted but execution failed: {msg}")
     
@@ -3772,7 +3767,6 @@ def select_league(request, league_id):
     """Set the selected league in session"""
     league = get_object_or_404(League, id=league_id)
     request.session['selected_league_id'] = league_id
-    messages.success(request, f"Viewing data for league: {league.name}")
     return redirect('home')
 
 
@@ -3816,7 +3810,6 @@ def league_settings(request, league_id):
                 )
             league_obj.save()
             form.save_m2m() if hasattr(form, 'save_m2m') else None
-            messages.success(request, "League settings updated successfully!")
             return redirect("league_detail", league_id=league.id)
         else:
             # Form is not valid - show the errors
@@ -4283,7 +4276,6 @@ def draft_settings(request):
             )
             
             if success:
-                messages.success(request, f"✓ Draft settings updated: {years_ahead} years × {num_rounds} rounds. {message}")
                 post_league_message(league, f"📋 Commissioner updated draft settings: {years_ahead} years of picks, {num_rounds} rounds each")
             else:
                 messages.error(request, f"✗ Error updating settings: {message}")
@@ -4795,7 +4787,6 @@ def add_to_taxi(request, team_id):
     
     # Check if taxi squad is enabled for this league
     if not team.league.use_taxi_squad:
-        messages.error(request, "Taxi squad is not enabled for this league.")
         return redirect('team_detail', team_id=team_id)
     
     # Check if season has started - prevent adding to taxi squad once season starts
@@ -4878,7 +4869,6 @@ def move_from_taxi(request, team_id):
     
     # Check if taxi squad is enabled for this league
     if not team.league.use_taxi_squad:
-        messages.error(request, "Taxi squad is not enabled for this league.")
         return redirect('team_detail', team_id=team_id)
     
     if request.method == 'POST':
