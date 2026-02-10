@@ -224,6 +224,17 @@
             <p class="text-red-500 text-xs mt-1">{{ form.taxi_squad_size.errors.0 }}</p>
           {% endif %}
         </div>
+
+        <div class="mt-4">
+          <label class="flex items-center">
+            {{ form.use_future_rookie_picks }}
+            <span class="ml-2 text-sm font-medium">Enable Future Rookie Picks</span>
+          </label>
+          <p class="text-xs text-gray-500 mt-1 ml-6">Enable future rookie picks ownership - teams own picks for multiple years and can trade them.</p>
+          {% if form.use_future_rookie_picks.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.use_future_rookie_picks.errors.0 }}</p>
+          {% endif %}
+        </div>
         {% endif %}
 
       {# Field Player Scoring #}
