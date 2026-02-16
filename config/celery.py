@@ -15,9 +15,9 @@ app.autodiscover_tasks()
 
 # Celery Beat Schedule (Periodic Tasks)
 app.conf.beat_schedule = {
-    'unlock-rosters-monday-9am-PT': {
+    'unlock-rosters-tuesday-9am-PT': {
         'task': 'web.tasks.unlock_rosters_and_process_transactions',
-        'schedule': crontab(day_of_week='mon', hour=17, minute=0),  # Monday 9am PT = Monday 5pm UTC (since PT is UTC-8)
+        'schedule': crontab(day_of_week='tue', hour=17, minute=0),  # Tuesday 9am PT = Tuesday 5pm UTC (since PT is UTC-8)
         # Includes: roster unlock + waiver processing + trade processing + current_week update (all atomic)
     },
     'fetch-stats-friday-night': {
@@ -39,6 +39,14 @@ app.conf.beat_schedule = {
     'fetch-stats-sunday-night': {
         'task': 'web.tasks.fetch_nll_stats_task',
         'schedule': crontab(day_of_week='sun', hour=6, minute=0),  # Sunday 11 PM PT = Monday 6 AM UTC
+    },
+    'fetch-stats-monday-morning': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='mon', hour=17, minute=0),  # Monday 9 AM PT = Monday 5 PM UTC
+    },
+    'fetch-stats-monday-night': {
+        'task': 'web.tasks.fetch_nll_stats_task',
+        'schedule': crontab(day_of_week='tue', hour=7, minute=0),  # Monday 11 PM PT = Tuesday 7 AM UTC
     },
     'fetch-stats-monday-retry': {
         'task': 'web.tasks.fetch_nll_stats_task',

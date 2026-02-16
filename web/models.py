@@ -200,7 +200,7 @@ class League(models.Model):
         null=True,
         blank=True,
         related_name='leagues_current',
-        help_text="The default week displayed to users (updated every Monday 9am PT)"
+        help_text="The default week displayed to users (updated every Tuesday 9am PT)"
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -514,7 +514,7 @@ class Week(models.Model):
     )
     roster_unlock_time = models.DateTimeField(
         null=True, blank=True,
-        help_text="When rosters unlock (Monday 9am PT of same week - only unlocked until first game)"
+        help_text="When rosters unlock (Tuesday 9am PT of same week - only unlocked until first game)"
     )
     
     is_playoff = models.BooleanField(
@@ -548,7 +548,7 @@ class Week(models.Model):
         Lock rules:
         - Once a week's first game starts (lock_time), it stays locked permanently
         - ALL weeks lock when any week is currently active (games in progress)
-        - Weeks only unlock between Monday 9 AM and first game Friday
+        - Weeks only unlock between Tuesday 9 AM and first game Friday
         """
         from django.utils import timezone
         
@@ -577,7 +577,7 @@ class Week(models.Model):
             return True
         
         # Rule 3: No active weeks - check if this specific week's unlock window is open
-        # (between Monday 9 AM and Friday first game)
+        # (between Tuesday 9 AM and Friday first game)
         if self.roster_unlock_time <= now < self.roster_lock_time:
             return False
         

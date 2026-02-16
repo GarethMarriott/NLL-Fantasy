@@ -643,8 +643,8 @@ class Command(BaseCommand):
                     first_game_day = min(game_dates)
                     lock_time_pt = pt_tz.localize(datetime.combine(first_game_day, datetime.min.time())).replace(hour=19, minute=0)
                 
-                # Unlock time: Universal Monday at 9 AM PT (same for all weeks)
-                # All future weeks unlock on the same Monday at 9 AM PT
+                # Unlock time: Universal Tuesday at 9 AM PT (same for all weeks)
+                # All future weeks unlock on the same Tuesday at 9 AM PT
                 # Calculate the next Monday from today
                 today = now.date()
                 days_until_monday = (7 - today.weekday()) % 7  # 0=Mon, 6=Sun

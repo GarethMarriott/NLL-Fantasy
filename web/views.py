@@ -1935,7 +1935,7 @@ def accept_trade(request, trade_id):
     
     # Update trade status
     if is_locked:
-        # Rosters are locked - trade will execute when rosters unlock (next Monday 9 AM)
+        # Rosters are locked - trade will execute when rosters unlock (next Tuesday 9 AM)
         trade.status = Trade.Status.ACCEPTED
         trade.save()
         

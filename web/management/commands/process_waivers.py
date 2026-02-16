@@ -82,7 +82,7 @@ class Command(BaseCommand):
             self.stdout.write(f"{'='*60}")
             
             # Get current week - use the current year as season
-            # IMPORTANT: When waivers process on Monday 9am, the previous week has ended
+            # IMPORTANT: When waivers process on Tuesday 9am, the previous week has ended
             # We need to find the week that just ended (end_date < today), not the upcoming week
             current_year = timezone.now().year
             current_week = Week.objects.filter(
@@ -94,7 +94,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"  No current week found for {league.name}"))
                 continue
             
-            # IMPORTANT: Waivers are processed when the current week's rosters UNLOCK (Monday 9am)
+            # IMPORTANT: Waivers are processed when the current week's rosters UNLOCK (Tuesday 9am)
             # At that time, players from waiver claims should have week_added set to the NEXT week
             # (not the current locked week), since they only become active after the current week ends
             try:

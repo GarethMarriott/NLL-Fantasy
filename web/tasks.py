@@ -102,8 +102,8 @@ def cleanup_old_sessions():
 @shared_task(name='unlock_rosters_and_process_transactions', bind=True, max_retries=3)
 def unlock_rosters_and_process_transactions(self):
     """
-    Unlock rosters (Monday 9am PT) and execute pending waivers/trades atomically.
-    Called automatically at Monday 9am PT via Celery Beat schedule.
+    Unlock rosters (Tuesday 9am PT) and execute pending waivers/trades atomically.
+    Called automatically at Tuesday 9am PT via Celery Beat schedule.
     
     Executes in sequence:
     1. Unlock rosters for weeks
@@ -120,14 +120,15 @@ def unlock_rosters_and_process_transactions(self):
     now = timezone.now()
     
     try:
-        # Find weeks where unlock_time has just passed
+        # Find weeks where we're currently in the unlocked window
+        # (unlock_time has passed AND lock_time hasn't occurred yet)
         weeks = Week.objects.filter(
             roster_unlock_time__lte=now,
-            roster_unlock_time__gte=now - timedelta(hours=1)
+            roster_lock_time__gt=now
         )
         
         if not weeks.exists():
-            logger.info("No weeks found with roster unlock time")
+            logger.info("No weeks found in unlocked window")
             return "No weeks to unlock"
         
         weeks_updated = 0
@@ -169,7 +170,7 @@ def unlock_rosters_and_process_transactions(self):
 def update_current_week_for_season(season):
     """
     Update all leagues' current_week to the next unlocked week.
-    Called when Monday 9am PT rosters unlock.
+    Called when Tuesday 9am PT rosters unlock.
     Returns count of leagues updated.
     """
     from web.models import League, Week
