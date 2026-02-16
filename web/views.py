@@ -367,23 +367,39 @@ def team_detail(request, team_id):
         Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
     ).order_by("player__updated_at", "player__id")
     
+    # OPTIMIZATION: Build stats index once at view level instead of filtering per-player
+    # Index stats by (player_id, week_id) for O(1) lookups
+    stats_index = {}
+    stats_by_player_week_num = {}  # Index by (player_id, week_number) for quicker lookups
+    for player in [entry.player for entry in roster]:
+        game_stats = [s for s in player.game_stats.all() if season is None or s.game.week.season == season]
+        
+        # Index by (player_id, week_id) and (player_id, week_number) for fast lookups
+        for stat in game_stats:
+            week_id = stat.game.week_id
+            week_num = stat.game.week.week_number
+            
+            stats_index.setdefault((player.id, week_id), []).append(stat)
+            stats_by_player_week_num.setdefault((player.id, week_num), []).append(stat)
+    
     for roster_entry in roster:
         p = roster_entry.player
-        # Use per-game stats
-        game_stats = list(p.game_stats.filter(game__week__season=season)) if season is not None else []
+        
+        # OPTIMIZATION: Get stats from index instead of filtering/looping
+        game_stats = stats_by_player_week_num.get((p.id, 0), [])  # Placeholder for all stats
+        # For latest stat, we need all stats regardless of week, so collect them
+        all_player_stats = []
+        for week_num in range(1, 19):
+            all_player_stats.extend(stats_by_player_week_num.get((p.id, week_num), []))
         # Find latest stat (most recent game)
-        latest = max(game_stats, key=lambda s: (s.game.date, s.game.id), default=None)
+        latest = max(all_player_stats, key=lambda s: (s.game.date, s.game.id), default=None)
 
-        # Group PlayerGameStat objects by week_number for this player/season
-        stats_by_week = {}
-        for s in game_stats:
-            wk_num = s.game.week.week_number
-            stats_by_week.setdefault(wk_num, []).append(s)
-
+        # Calculate weekly points for all 18 weeks
         weekly_points = []
         total_points = 0
         for wk in range(1, 19):
-            stats_list = stats_by_week.get(wk, [])
+            # OPTIMIZATION: O(1) lookup instead of building dict per-player
+            stats_list = stats_by_player_week_num.get((p.id, wk), [])
             if not stats_list:
                 weekly_points.append(None)
                 continue
