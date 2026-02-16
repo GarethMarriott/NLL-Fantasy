@@ -2918,38 +2918,50 @@ def matchups(request):
         week_obj = Week.objects.filter(week_number=selected_week_number, season=league_season).first()
 
     # Build detailed rosters with slot structure (like team_detail view)
+    # OPTIMIZATION: Fetch all rosters once instead of per-team, then group by team_id
+    from collections import defaultdict
+    
+    # Get filter criteria for historical week lookup
+    week_filter_q = models.Q(player__active=True)
+    if selected_week_number:
+        week_filter_q &= (
+            models.Q(week_added__isnull=True) | models.Q(week_added__lte=selected_week_number)
+        )
+        week_filter_q &= (
+            models.Q(week_dropped__isnull=True) | models.Q(week_dropped__gt=selected_week_number)
+        )
+    else:
+        # If no week selected, show current roster only
+        week_filter_q &= models.Q(week_dropped__isnull=True)
+    
+    # Get all rosters for all teams at once with prefetch
+    all_rosters_list = list(
+        Roster.objects.filter(team__in=teams).filter(week_filter_q)
+        .select_related('player')
+        .prefetch_related('player__game_stats__game__week')
+        .order_by("player__updated_at", "player__id")
+    )
+    
+    # Group rosters by team_id for O(1) lookup
+    rosters_by_team = defaultdict(list)
+    for roster_entry in all_rosters_list:
+        rosters_by_team[roster_entry.team_id].append(roster_entry)
+    
     team_rosters = {}
     team_totals = {}
     for team in teams:
-        # Get roster organized by position - FILTERED BY HISTORICAL WEEK
-        # Players who were active during the selected week:
-        # - week_added <= selected_week_number (or week_added is NULL for legacy data)
-        # - AND (week_dropped is NULL OR week_dropped > selected_week_number)
+        # OPTIMIZATION: Get rosters from grouped data instead of per-team database query
         players_by_position = {"O": [], "D": [], "G": [], "T": []}
         
-        roster_query = team.roster_entries.select_related('player').filter(
-            player__active=True
-        )
-        
-        # Apply historical filtering based on selected week
-        if selected_week_number:
-            roster_query = roster_query.filter(
-                models.Q(week_added__isnull=True) | models.Q(week_added__lte=selected_week_number)
-            ).filter(
-                models.Q(week_dropped__isnull=True) | models.Q(week_dropped__gt=selected_week_number)
-            )
-        else:
-            # If no week selected, show current roster only
-            roster_query = roster_query.filter(week_dropped__isnull=True)
-        
-        roster = roster_query.order_by("player__updated_at", "player__id")
+        # Access only this team's rosters from the grouping
+        roster = rosters_by_team.get(team.id, [])
         
         for roster_entry in roster:
             p = roster_entry.player
             fpts = None
             if week_obj:
-                # Get all stats for this player in the selected week
-                game_stats = list(p.game_stats.filter(game__week=week_obj))
+                # OPTIMIZATION: Iterate through prefetched game_stats instead of filtering
+                game_stats = [s for s in p.game_stats.all() if s.game.week_id == week_obj.id]
                 if game_stats:
                     # Calculate fantasy points for each game
                     pts_list = [fantasy_points(st, p) for st in game_stats if st is not None]
