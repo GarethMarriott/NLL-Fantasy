@@ -12,6 +12,8 @@ from django.urls import reverse_lazy
 from .models import Player, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
 from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm, PasswordResetForm, SetPasswordForm
 from .tasks import send_password_reset_email
+from .constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME
+from .scoring import calculate_fantasy_points
 from django.views.decorators.http import require_POST
 
 
@@ -326,29 +328,7 @@ def team_detail(request, team_id):
         ).exists()
 
     players_by_position = {"O": [], "D": [], "G": [], "T": []}
-    # Best-ball fantasy scoring derived from the raw stat fields
-    def fantasy_points(stat_obj, player=None):
-        if stat_obj is None:
-            return None
-        # Goalie scoring using league settings
-        if player and player.position == "G":
-            return (
-                stat_obj.wins * float(league.scoring_goalie_wins)
-                + stat_obj.saves * float(league.scoring_goalie_saves)
-                + stat_obj.goals_against * float(league.scoring_goalie_goals_against)
-                + stat_obj.goals * float(league.scoring_goalie_goals)
-                + stat_obj.assists * float(league.scoring_goalie_assists)
-            )
-        # Field player scoring using league settings
-        return (
-            stat_obj.goals * float(league.scoring_goals)
-            + stat_obj.assists * float(league.scoring_assists)
-            + stat_obj.loose_balls * float(league.scoring_loose_balls)
-            + stat_obj.caused_turnovers * float(league.scoring_caused_turnovers)
-            + stat_obj.blocked_shots * float(league.scoring_blocked_shots)
-            + stat_obj.turnovers * float(league.scoring_turnovers)
-        )
-
+    
     # determine most recent season available for weekly breakdown
     recent_week = Week.objects.order_by("-season", "-week_number").first()
     season = recent_week.season if recent_week else None
@@ -384,48 +364,6 @@ def team_detail(request, team_id):
     
     # OPTIMIZATION: Fetch all games for selected week upfront to avoid N+1 queries
     # Build a map of games by team_id for O(1) lookups
-    # Map team names to team IDs (used for opponent lookup)
-    team_name_to_id = {
-        "Vancouver Warriors": "867",
-        "San Diego Seals": "868",
-        "Colorado Mammoth": "870",
-        "Calgary Roughnecks": "874",
-        "Saskatchewan Rush": "879",
-        "Philadelphia Wings": "880",
-        "Buffalo Bandits": "888",
-        "Georgia Swarm": "890",
-        "Toronto Rock": "896",
-        "Halifax Thunderbirds": "912",
-        "Panther City Lacrosse Club": "913",
-        "Albany FireWolves": "914",
-        "Las Vegas Desert Dogs": "915",
-        "New York Riptide": "911",
-        "Ottawa Black Bears": "917",
-        "Oshawa FireWolves": "918",
-        "Rochester Knighthawks": "910",
-    }
-    
-    # Map IDs back to team names
-    team_id_to_name = {
-        "867": "Vancouver Warriors",
-        "868": "San Diego Seals",
-        "870": "Colorado Mammoth",
-        "874": "Calgary Roughnecks",
-        "879": "Saskatchewan Rush",
-        "880": "Philadelphia Wings",
-        "888": "Buffalo Bandits",
-        "890": "Georgia Swarm",
-        "896": "Toronto Rock",
-        "910": "Rochester Knighthawks",
-        "911": "New York Riptide",
-        "912": "Halifax Thunderbirds",
-        "913": "Panther City Lacrosse Club",
-        "914": "Albany FireWolves",
-        "915": "Las Vegas Desert Dogs",
-        "917": "Ottawa Black Bears",
-        "918": "Oshawa FireWolves",
-    }
-    
     games_by_team_id = {}
     if selected_week_num:
         week_games = Game.objects.filter(
@@ -458,7 +396,7 @@ def team_detail(request, team_id):
             if not stats_list:
                 weekly_points.append(None)
                 continue
-            pts_list = [fantasy_points(st, p) for st in stats_list if st is not None]
+            pts_list = [calculate_fantasy_points(st, p, league) for st in stats_list if st is not None]
             if not pts_list:
                 weekly_points.append(None)
                 continue
@@ -474,12 +412,12 @@ def team_detail(request, team_id):
 
         # Get opponent for the selected week
         opponent = "BYE"
-        player_team_id = team_name_to_id.get(p.nll_team) if p.nll_team else None
+        player_team_id = TEAM_NAME_TO_ID.get(p.nll_team) if p.nll_team else None
         if p.nll_team and player_team_id:
             # Use pre-fetched games lookup instead of querying for each player
             game = games_by_team_id.get(player_team_id)
             if game:
-                opponent = f"{team_id_to_name.get(game.home_team, game.home_team)} @ {team_id_to_name.get(game.away_team, game.away_team)}"
+                opponent = f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} @ {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}"
         
         entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
 
@@ -2194,36 +2132,6 @@ def players(request):
         for roster_entry in all_roster_entries:
             rosters_by_player[roster_entry.player_id] = roster_entry
 
-    def fantasy_points(stat_obj, player=None):
-        if stat_obj is None:
-            return None
-        
-        # Use league scoring settings if available, otherwise use defaults
-        if selected_league:
-            league = selected_league
-        else:
-            # Use default scoring (create a temporary league object with defaults)
-            league = League()
-        
-        # Goalie scoring
-        if player and player.position == "G":
-            return (
-                stat_obj.wins * float(league.scoring_goalie_wins)
-                + stat_obj.saves * float(league.scoring_goalie_saves)
-                + stat_obj.goals_against * float(league.scoring_goalie_goals_against)
-                + stat_obj.goals * float(league.scoring_goalie_goals)
-                + stat_obj.assists * float(league.scoring_goalie_assists)
-            )
-        # Field player scoring
-        return (
-            stat_obj.goals * float(league.scoring_goals)
-            + stat_obj.assists * float(league.scoring_assists)
-            + stat_obj.loose_balls * float(league.scoring_loose_balls)
-            + stat_obj.caused_turnovers * float(league.scoring_caused_turnovers)
-            + stat_obj.blocked_shots * float(league.scoring_blocked_shots)
-            + stat_obj.turnovers * float(league.scoring_turnovers)
-        )
-
     # Get season and week selection
     selected_season = request.GET.get("season")
     selected_week_num = request.GET.get("week")
@@ -2317,7 +2225,7 @@ def players(request):
                     roster_status = "on_other_team"
                     rostered_team = roster_entry.team
 
-        fpts = fantasy_points(stat_for_view, p)
+        fpts = calculate_fantasy_points(stat_for_view, p, selected_league)
         ppg = (fpts / games_played) if games_played > 0 else None
         
         players_with_stats.append({
@@ -2597,30 +2505,7 @@ def player_detail_modal(request, player_id):
     except Player.DoesNotExist:
         return JsonResponse({'error': 'Player not found'}, status=404)
     
-    # NLL team name to ID mapping - based on actual games in the database
-    # Updated to match player team names with their game IDs
-    team_name_to_id = {
-        "Vancouver Warriors": "867",
-        "San Diego Seals": "868",
-        "Colorado Mammoth": "870",
-        "Calgary Roughnecks": "874",
-        "Saskatchewan Rush": "879",
-        "Philadelphia Wings": "880",
-        "Buffalo Bandits": "888",
-        "Georgia Swarm": "890",
-        "Toronto Rock": "896",
-        "Halifax Thunderbirds": "912",
-        "Panther City Lacrosse Club": "913",
-        "Albany FireWolves": "914",
-        "Las Vegas Desert Dogs": "915",
-        "Ottawa Black Bears": "917",
-        "Oshawa FireWolves": "918",
-        "Rochester Knighthawks": "910",
-        "New York Riptide": "911",
-    }
-    
-    # Reverse mapping for ID to name (only for teams that have games)
-    team_id_to_name = {v: k for k, v in team_name_to_id.items() if v is not None}
+    # Use shared constants (imported at top of file)
     
     # Get player's game stats grouped by week
     from django.db.models import Sum
@@ -2655,35 +2540,13 @@ def player_detail_modal(request, player_id):
     if not league:
         league = League()  # Default scoring
     
-    def fantasy_points(stat_obj, player=None):
-        if stat_obj is None:
-            return None
-        # Goalie scoring using league settings
-        if player and player.position == "G":
-            return (
-                stat_obj.wins * float(league.scoring_goalie_wins)
-                + stat_obj.saves * float(league.scoring_goalie_saves)
-                + stat_obj.goals_against * float(league.scoring_goalie_goals_against)
-                + stat_obj.goals * float(league.scoring_goalie_goals)
-                + stat_obj.assists * float(league.scoring_goalie_assists)
-            )
-        # Field player scoring using league settings
-        return (
-            stat_obj.goals * float(league.scoring_goals)
-            + stat_obj.assists * float(league.scoring_assists)
-            + stat_obj.loose_balls * float(league.scoring_loose_balls)
-            + stat_obj.caused_turnovers * float(league.scoring_caused_turnovers)
-            + stat_obj.blocked_shots * float(league.scoring_blocked_shots)
-            + stat_obj.turnovers * float(league.scoring_turnovers)
-        )
-    
     for week_key in sorted(stats_by_week.keys()):
         games = stats_by_week[week_key]
         # Calculate fantasy points for each game
         game_points = []
         for stat in game_stats:
             if f"Week {stat.game.week.week_number} (S{stat.game.week.season})" == week_key:
-                pts = fantasy_points(stat, player)
+                pts = calculate_fantasy_points(stat, player, league)
                 if pts is not None:
                     game_points.append(pts)
         
@@ -2716,7 +2579,7 @@ def player_detail_modal(request, player_id):
     ).order_by('week_number')
     
     # Get player's team ID
-    player_team_id = team_name_to_id.get(player.nll_team, None)
+    player_team_id = TEAM_NAME_TO_ID.get(player.nll_team, None)
     
     for week in upcoming_weeks:
         week_key = f"Week {week.week_number} (S{week.season})"
@@ -2731,7 +2594,7 @@ def player_detail_modal(request, player_id):
                 )
                 upcoming_games = [{
                     'date': game.date.strftime('%Y-%m-%d'),
-                    'opponent': f"{team_id_to_name.get(game.home_team, game.home_team)} vs {team_id_to_name.get(game.away_team, game.away_team)}",
+                    'opponent': f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} vs {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}",
                 } for game in games]
             
             agg_stat = {
@@ -2772,60 +2635,8 @@ def nll_schedule(request):
     except (ValueError, TypeError):
         season = 2026
     
-    # NLL team ID to name mapping
-    nll_teams = {
-        867: "Vancouver Warriors",
-        868: "San Diego Seals",
-        869: "Vancouver Ravens",
-        870: "Colorado Mammoth",
-        871: "Arizona Sting",
-        872: "Anaheim Storm",
-        873: "Ottawa Rebel",
-        874: "Calgary Roughnecks",
-        875: "Montreal Express",
-        876: "New Jersey Storm",
-        877: "San Jose Stealth",
-        878: "Minnesota Swarm",
-        879: "Saskatchewan Rush",
-        880: "Philadelphia Wings",
-        881: "New Jersey Saints",
-        882: "Baltimore Thunder",
-        883: "Washington Wave",
-        884: "Detroit Turbos",
-        885: "Philadelphia Wings[1]",
-        886: "New England Blazers",
-        887: "New York Saints",
-        888: "Buffalo Bandits",
-        889: "Pittsburgh Bulls",
-        890: "Georgia Swarm",
-        891: "New England Black Wolves",
-        892: "Rochester Knighthawks[1]",
-        893: "Boston Blazers",
-        894: "Ontario Raiders",
-        895: "Charlotte Cobras",
-        896: "Toronto Rock",
-        897: "Syracuse Smash",
-        898: "Pittsburgh Crossefire",
-        899: "Albany Attack",
-        900: "Columbus Landsharks",
-        901: "Washington Power",
-        902: "Portland Lumberjax",
-        903: "Edmonton Rush",
-        904: "Vancouver Stealth",
-        905: "Boston Blazers[1]",
-        906: "Washington Stealth",
-        907: "Orlando Titans",
-        908: "New York Titans",
-        909: "Chicago Shamrox",
-        910: "Rochester Knighthawks",
-        911: "New York Riptide",
-        912: "Halifax Thunderbirds",
-        913: "Panther City Lacrosse Club",
-        914: "Albany FireWolves",
-        915: "Las Vegas Desert Dogs",
-        917: "Ottawa Black Bears",
-        918: "Oshawa FireWolves",
-    }
+    # Use shared extended team mapping (imported at top of file)
+    nll_teams = EXTENDED_TEAM_ID_TO_NAME
     
     # Get all weeks for this season, ordered by week number
     # Important: Prefetch player_stats to check completion status without N+1 queries
@@ -2988,28 +2799,6 @@ def matchups(request):
 
     id_to_team = {t.id: t for t in teams}
 
-    def fantasy_points(stat_obj, player=None):
-        if stat_obj is None:
-            return None
-        # Goalie scoring using league settings
-        if player and player.position == "G":
-            return (
-                stat_obj.wins * float(league.scoring_goalie_wins)
-                + stat_obj.saves * float(league.scoring_goalie_saves)
-                + stat_obj.goals_against * float(league.scoring_goalie_goals_against)
-                + stat_obj.goals * float(league.scoring_goalie_goals)
-                + stat_obj.assists * float(league.scoring_goalie_assists)
-            )
-        # Field player scoring using league settings
-        return (
-            stat_obj.goals * float(league.scoring_goals)
-            + stat_obj.assists * float(league.scoring_assists)
-            + stat_obj.loose_balls * float(league.scoring_loose_balls)
-            + stat_obj.caused_turnovers * float(league.scoring_caused_turnovers)
-            + stat_obj.blocked_shots * float(league.scoring_blocked_shots)
-            + stat_obj.turnovers * float(league.scoring_turnovers)
-        )
-
     # determine target week object (same week_number, latest season available)
     selected_week_number = None
     if weeks:
@@ -3070,7 +2859,7 @@ def matchups(request):
                 game_stats = [s for s in p.game_stats.all() if s.game.week_id == week_obj.id]
                 if game_stats:
                     # Calculate fantasy points for each game
-                    pts_list = [fantasy_points(st, p) for st in game_stats if st is not None]
+                    pts_list = [calculate_fantasy_points(st, p, league) for st in game_stats if st is not None]
                     if pts_list:
                         # Apply league's multigame_scoring setting
                         if league.multigame_scoring == "average" and len(pts_list) > 1:
@@ -3218,28 +3007,6 @@ def standings(request):
         # Only process completed weeks in the standings
         weeks = all_weeks[:max_week] if max_week > 0 else []
 
-        def fantasy_points(stat_obj, player=None):
-            if stat_obj is None:
-                return None
-            # Goalie scoring using league settings
-            if player and player.position == "G":
-                return (
-                    stat_obj.wins * float(league.scoring_goalie_wins)
-                    + stat_obj.saves * float(league.scoring_goalie_saves)
-                    + stat_obj.goals_against * float(league.scoring_goalie_goals_against)
-                    + stat_obj.goals * float(league.scoring_goalie_goals)
-                    + stat_obj.assists * float(league.scoring_goalie_assists)
-                )
-            # Field player scoring using league settings
-            return (
-                stat_obj.goals * float(league.scoring_goals)
-                + stat_obj.assists * float(league.scoring_assists)
-                + stat_obj.loose_balls * float(league.scoring_loose_balls)
-                + stat_obj.caused_turnovers * float(league.scoring_caused_turnovers)
-                + stat_obj.blocked_shots * float(league.scoring_blocked_shots)
-                + stat_obj.turnovers * float(league.scoring_turnovers)
-            )
-
         # prefetch players once via roster entries
         from collections import defaultdict
 
@@ -3300,7 +3067,7 @@ def standings(request):
                 if week_obj:
                     # Only get stats from the actual week object (no fallback to other seasons)
                     stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
-                pts = fantasy_points(stat, p)
+                pts = calculate_fantasy_points(stat, p, league)
                 if pts is not None:
                     total += pts
             return total
