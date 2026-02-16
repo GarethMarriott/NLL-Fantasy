@@ -3133,6 +3133,11 @@ def standings(request):
         # Store all rosters with their week ranges for historical lookup
         all_rosters = list(rosters)
         
+        # OPTIMIZATION: Group rosters by team_id for O(1) lookup instead of looping all rosters
+        rosters_by_team = defaultdict(list)
+        for roster_entry in all_rosters:
+            rosters_by_team[roster_entry.team_id].append(roster_entry)
+        
         week_cache = {}
         standings_map = {
             t.id: {
@@ -3156,20 +3161,21 @@ def standings(request):
             total = 0
             
             # Get players who were on the roster during this specific week
+            # OPTIMIZATION: Access only this team's rosters (12-14 items) instead of all rosters (140+ items)
             active_players = []
-            for roster_entry in all_rosters:
-                if roster_entry.team_id == team_id:
-                    # Check if player was active during this week
-                    week_added = roster_entry.week_added or 0  # Treat NULL as week 0 (always active)
-                    week_dropped = roster_entry.week_dropped or 999  # Treat NULL as week 999 (still active)
-                    if week_added <= week_number < week_dropped:
-                        # For traditional leagues, only count starters
-                        if league.roster_format == 'traditional':
-                            if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
-                                active_players.append(roster_entry.player)
-                        else:
-                            # For best ball, count all players
+            team_rosters = rosters_by_team.get(team_id, [])
+            for roster_entry in team_rosters:
+                # Check if player was active during this week
+                week_added = roster_entry.week_added or 0  # Treat NULL as week 0 (always active)
+                week_dropped = roster_entry.week_dropped or 999  # Treat NULL as week 999 (still active)
+                if week_added <= week_number < week_dropped:
+                    # For traditional leagues, only count starters
+                    if league.roster_format == 'traditional':
+                        if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
                             active_players.append(roster_entry.player)
+                    else:
+                        # For best ball, count all players
+                        active_players.append(roster_entry.player)
             
             for p in active_players:
                 stat = None
