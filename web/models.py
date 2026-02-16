@@ -1035,8 +1035,19 @@ class Draft(models.Model):
                 self.is_active = False
                 from django.utils import timezone
                 self.completed_at = timezone.now()
+                self._set_waiver_priorities_on_completion()
         
         self.save()
+    
+    def _set_waiver_priorities_on_completion(self):
+        """Set waiver priorities to reverse draft order when draft completes"""
+        draft_positions = self.draft_positions.select_related('team').order_by('position')
+        total_teams = draft_positions.count()
+        
+        for draft_pos in draft_positions:
+            # Reverse order: position 1 gets highest priority (last = highest), position N gets priority 1 (first)
+            draft_pos.team.waiver_priority = total_teams - draft_pos.position + 1
+            draft_pos.team.save()
 
 
 class DraftPosition(models.Model):
@@ -1202,8 +1213,19 @@ class RookieDraft(models.Model):
                 self.is_active = False
                 from django.utils import timezone
                 self.completed_at = timezone.now()
+                self._set_waiver_priorities_on_completion()
         
         self.save()
+    
+    def _set_waiver_priorities_on_completion(self):
+        """Set waiver priorities based on draft completion (reverse of team ordering)"""
+        teams = list(Team.objects.filter(league=self.league).order_by('id'))
+        total_teams = len(teams)
+        
+        for idx, team in enumerate(teams, start=1):
+            # Reverse order: first team gets highest priority (last)
+            team.waiver_priority = total_teams - idx + 1
+            team.save()
 
 
 class RookieDraftPick(models.Model):
