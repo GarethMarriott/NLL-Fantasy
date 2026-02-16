@@ -11,6 +11,7 @@
               <tr class="text-right">
                 <th title="Ranking" class="p-3 text-left">#</th>
                 <th title="Team name" class="p-3 text-left">Team</th>
+                <th title="Waiver Priority" class="p-3">WP</th>
                 <th title="Wins" class="p-3">W</th>
                 <th title="Losses" class="p-3">L</th>
                 <th title="Win percentage" class="p-3">Win%</th>
@@ -26,6 +27,9 @@
                   </td>
                   <td class="px-3 py-2 text-left">
                     <a href="{% url 'team_detail' row.team.id %}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{{ row.team.name }}</a>
+                  </td>
+                  <td class="px-3 py-2">
+                    <span>{{ row.team.waiver_priority }}</span>
                   </td>
                   <td class="px-3 py-2">
                     <span>{{ row.wins }}</span>
