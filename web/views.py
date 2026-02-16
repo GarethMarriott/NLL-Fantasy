@@ -8,7 +8,6 @@ from django.utils import timezone
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse_lazy
-import pytz
 
 from .models import Player, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
 from .forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm, PasswordResetForm, SetPasswordForm

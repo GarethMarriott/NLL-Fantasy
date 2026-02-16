@@ -14,9 +14,7 @@ import zipfile
 from datetime import datetime, timedelta
 import pytz
 from django.core.management.base import BaseCommand
-from django.db import transaction, models
-from django.utils.timezone import make_aware
-from web.models import Player, Week, Game, PlayerGameStat, Team
+from web.models import Player, Week, Game, PlayerGameStat
 
 
 class Command(BaseCommand):

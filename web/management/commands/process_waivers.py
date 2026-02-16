@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db import transaction
-from web.models import WaiverClaim, League, Week, Roster, ChatMessage, Trade, TradePlayer, Player
+from web.models import WaiverClaim, League, Week, Roster, ChatMessage, Trade
 import logging
 
 logger = logging.getLogger(__name__)
