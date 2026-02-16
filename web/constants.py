@@ -4,6 +4,24 @@ NLL Fantasy - Constants and Mappings
 This module contains shared constants used across views to avoid duplication.
 """
 
+# NLL Team abbreviations mapping
+TEAM_ABBREVIATIONS = {
+    "Toronto Rock": "TOR",
+    "Calgary Roughnecks": "CGY",
+    "Saskatchewan Rush": "SAS",
+    "Winnipeg MIL": "WIN",
+    "Buffalo Bandits": "BUF",
+    "New York Riptide": "NYR",
+    "Vancouver Warriors": "VAN",
+    "Edmonton Oil Kings": "EDM",
+    "Ottawa Black Bears": "OTT",
+    "Panther City Lacrosse Club": "PAN",
+    "Las Vegas Desert Dogs": "LV",
+    "Oshawa FireWolves": "OSH",
+    "Halifax Thunderbirds": "HAL",
+    "Rochester Knighthawks": "ROC",
+}
+
 # NLL Team Name to ID Mapping
 # Maps official NLL team names to their game database IDs
 TEAM_NAME_TO_ID = {

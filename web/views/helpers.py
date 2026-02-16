@@ -2,8 +2,8 @@
 Helper functions for views
 """
 from django.utils import timezone
-from web.models import ChatMessage, Roster, TeamChatMessage
-from web.constants import TEAM_ABBREVIATIONS
+from ..models import ChatMessage, Roster, TeamChatMessage
+from ..constants import TEAM_ABBREVIATIONS
 
 
 def get_team_abbr(team_name):
