@@ -382,6 +382,61 @@ def team_detail(request, team_id):
             stats_index.setdefault((player.id, week_id), []).append(stat)
             stats_by_player_week_num.setdefault((player.id, week_num), []).append(stat)
     
+    # OPTIMIZATION: Fetch all games for selected week upfront to avoid N+1 queries
+    # Build a map of games by team_id for O(1) lookups
+    # Map team names to team IDs (used for opponent lookup)
+    team_name_to_id = {
+        "Vancouver Warriors": "867",
+        "San Diego Seals": "868",
+        "Colorado Mammoth": "870",
+        "Calgary Roughnecks": "874",
+        "Saskatchewan Rush": "879",
+        "Philadelphia Wings": "880",
+        "Buffalo Bandits": "888",
+        "Georgia Swarm": "890",
+        "Toronto Rock": "896",
+        "Halifax Thunderbirds": "912",
+        "Panther City Lacrosse Club": "913",
+        "Albany FireWolves": "914",
+        "Las Vegas Desert Dogs": "915",
+        "New York Riptide": "911",
+        "Ottawa Black Bears": "917",
+        "Oshawa FireWolves": "918",
+        "Rochester Knighthawks": "910",
+    }
+    
+    # Map IDs back to team names
+    team_id_to_name = {
+        "867": "Vancouver Warriors",
+        "868": "San Diego Seals",
+        "870": "Colorado Mammoth",
+        "874": "Calgary Roughnecks",
+        "879": "Saskatchewan Rush",
+        "880": "Philadelphia Wings",
+        "888": "Buffalo Bandits",
+        "890": "Georgia Swarm",
+        "896": "Toronto Rock",
+        "910": "Rochester Knighthawks",
+        "911": "New York Riptide",
+        "912": "Halifax Thunderbirds",
+        "913": "Panther City Lacrosse Club",
+        "914": "Albany FireWolves",
+        "915": "Las Vegas Desert Dogs",
+        "917": "Ottawa Black Bears",
+        "918": "Oshawa FireWolves",
+    }
+    
+    games_by_team_id = {}
+    if selected_week_num:
+        week_games = Game.objects.filter(
+            week__week_number=selected_week_num,
+            week__season=league_season
+        )
+        for game in week_games:
+            # Store game keyed by home and away team IDs
+            games_by_team_id[game.home_team] = game
+            games_by_team_id[game.away_team] = game
+    
     for roster_entry in roster:
         p = roster_entry.player
         
@@ -419,58 +474,12 @@ def team_detail(request, team_id):
 
         # Get opponent for the selected week
         opponent = "BYE"
-        if p.nll_team:
-            # Map team names to team IDs
-            team_name_to_id = {
-                "Vancouver Warriors": "867",
-                "San Diego Seals": "868",
-                "Colorado Mammoth": "870",
-                "Calgary Roughnecks": "874",
-                "Saskatchewan Rush": "879",
-                "Philadelphia Wings": "880",
-                "Buffalo Bandits": "888",
-                "Georgia Swarm": "890",
-                "Toronto Rock": "896",
-                "Halifax Thunderbirds": "912",
-                "Panther City Lacrosse Club": "913",
-                "Albany FireWolves": "914",
-                "Las Vegas Desert Dogs": "915",
-                "New York Riptide": "911",
-                "Ottawa Black Bears": "917",
-                "Oshawa FireWolves": "918",
-                "Rochester Knighthawks": "910",
-            }
-            player_team_id = team_name_to_id.get(p.nll_team)
-            if player_team_id:
-                # Find the game for this week
-                game = Game.objects.filter(
-                    week__week_number=selected_week_num,
-                    week__season=league_season
-                ).filter(
-                    Q(home_team=player_team_id) | Q(away_team=player_team_id)
-                ).first()
-                if game:
-                    # Map IDs back to team names
-                    team_id_to_name = {
-                        "867": "Vancouver Warriors",
-                        "868": "San Diego Seals",
-                        "870": "Colorado Mammoth",
-                        "874": "Calgary Roughnecks",
-                        "879": "Saskatchewan Rush",
-                        "880": "Philadelphia Wings",
-                        "888": "Buffalo Bandits",
-                        "890": "Georgia Swarm",
-                        "896": "Toronto Rock",
-                        "910": "Rochester Knighthawks",
-                        "911": "New York Riptide",
-                        "912": "Halifax Thunderbirds",
-                        "913": "Panther City Lacrosse Club",
-                        "914": "Albany FireWolves",
-                        "915": "Las Vegas Desert Dogs",
-                        "917": "Ottawa Black Bears",
-                        "918": "Oshawa FireWolves",
-                    }
-                    opponent = f"{team_id_to_name.get(game.home_team, game.home_team)} @ {team_id_to_name.get(game.away_team, game.away_team)}"
+        player_team_id = team_name_to_id.get(p.nll_team) if p.nll_team else None
+        if p.nll_team and player_team_id:
+            # Use pre-fetched games lookup instead of querying for each player
+            game = games_by_team_id.get(player_team_id)
+            if game:
+                opponent = f"{team_id_to_name.get(game.home_team, game.home_team)} @ {team_id_to_name.get(game.away_team, game.away_team)}"
         
         entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
 
@@ -2172,6 +2181,19 @@ def players(request):
     
     qs = qs.order_by("last_name", "first_name").prefetch_related("game_stats__game__week")
 
+    # Pre-fetch all roster entries to avoid N+1 queries
+    # This will be used in the loop below to check player roster status
+    rosters_by_player = {}
+    if request.user.is_authenticated and selected_league_id:
+        from django.db.models import Q
+        selected_league = League.objects.filter(id=selected_league_id).first()
+        all_roster_entries = Roster.objects.filter(
+            team__league_id=selected_league_id,
+            week_dropped__isnull=True
+        ).select_related('team')
+        for roster_entry in all_roster_entries:
+            rosters_by_player[roster_entry.player_id] = roster_entry
+
     def fantasy_points(stat_obj, player=None):
         if stat_obj is None:
             return None
@@ -2285,12 +2307,8 @@ def players(request):
         roster_status = "available"  # Default
         rostered_team = None
         if user_team and selected_league_id:
-            # Check if player is on any team in the league
-            roster_entry = Roster.objects.filter(
-                team__league_id=selected_league_id,
-                player=p,
-                week_dropped__isnull=True
-            ).select_related('team').first()
+            # Use pre-fetched roster data instead of querying for each player
+            roster_entry = rosters_by_player.get(p.id)
             
             if roster_entry:
                 if roster_entry.team == user_team:
@@ -2810,7 +2828,12 @@ def nll_schedule(request):
     }
     
     # Get all weeks for this season, ordered by week number
-    weeks = Week.objects.filter(season=season).prefetch_related('games').order_by('week_number')
+    # Important: Prefetch player_stats to check completion status without N+1 queries
+    from django.db.models import Prefetch
+    weeks = Week.objects.filter(season=season).prefetch_related(
+        'games',
+        Prefetch('games__player_stats')  # Prefetch player_stats for all games
+    ).order_by('week_number')
     
     if not weeks.exists():
         return render(request, "web/nll_schedule.html", {
@@ -2849,8 +2872,8 @@ def nll_schedule(request):
                 "home_team": home_name,
                 "away_team": away_name,
                 "nll_game_id": game.nll_game_id,
-                # Check if game has stats (completed) vs upcoming
-                "is_completed": game.player_stats.exists()
+                # Check if game has stats (completed) vs upcoming - use prefetched data length
+                "is_completed": len(game.player_stats.all()) > 0
             }
             week_games.append(game_dict)
         
