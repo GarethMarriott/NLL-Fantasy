@@ -511,6 +511,12 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
                 .prefetch_related("player__game_stats__game__week")
             )
             
+            # OPTIMIZATION: Group rosters by team_id for O(1) lookup instead of looping all rosters
+            from collections import defaultdict
+            rosters_by_team = defaultdict(list)
+            for roster_entry in all_rosters:
+                rosters_by_team[roster_entry.team_id].append(roster_entry)
+            
             def fantasy_points(stat_obj, player):
                 """Calculate fantasy points for a player stat"""
                 if stat_obj is None:
@@ -537,18 +543,19 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
             def team_week_total(team_id, week_obj):
                 """Calculate total points for a team in a specific week"""
                 total = 0
-                for roster_entry in all_rosters:
-                    if roster_entry.team_id == team_id:
-                        week_added = roster_entry.week_added or 0
-                        week_dropped = roster_entry.week_dropped or 999
-                        if week_added <= week_obj.week_number < week_dropped:
-                            player = roster_entry.player
-                            stat = next(
-                                (s for s in player.game_stats.all() if s.game.week_id == week_obj.id),
-                                None
-                            )
-                            pts = fantasy_points(stat, player)
-                            total += pts
+                # OPTIMIZATION: Access only this team's rosters (12-14 items) instead of all rosters (140+ items)
+                team_rosters = rosters_by_team.get(team_id, [])
+                for roster_entry in team_rosters:
+                    week_added = roster_entry.week_added or 0
+                    week_dropped = roster_entry.week_dropped or 999
+                    if week_added <= week_obj.week_number < week_dropped:
+                        player = roster_entry.player
+                        stat = next(
+                            (s for s in player.game_stats.all() if s.game.week_id == week_obj.id),
+                            None
+                        )
+                        pts = fantasy_points(stat, player)
+                        total += pts
                 return total
             
             # Process each completed week
@@ -942,6 +949,12 @@ def _calculate_draft_order_from_standings(league, season_year):
             .prefetch_related("player__game_stats__game__week")
         )
         
+        # OPTIMIZATION: Group rosters by team_id for O(1) lookup instead of looping all rosters
+        from collections import defaultdict
+        rosters_by_team = defaultdict(list)
+        for roster_entry in all_rosters:
+            rosters_by_team[roster_entry.team_id].append(roster_entry)
+        
         # Calculate points for each team in each completed week
         for week in completed_weeks:
             # Simple matchup: pair teams sequentially
@@ -951,35 +964,37 @@ def _calculate_draft_order_from_standings(league, season_year):
                     team2 = teams[i + 1]
                     
                     # Calculate team 1 points
+                    # OPTIMIZATION: Access only team1's rosters (12-14 items) instead of all rosters (140+ items)
                     team1_total = 0.0
-                    for roster_entry in all_rosters:
-                        if roster_entry.team_id == team1.id:
-                            week_added = roster_entry.week_added or 0
-                            week_dropped = roster_entry.week_dropped or 999
-                            if week_added <= week.week_number < week_dropped:
-                                player = roster_entry.player
-                                # Look for stat for this week
-                                stat = next(
-                                    (s for s in player.game_stats.all() if s.game.week_id == week.id),
-                                    None
-                                )
-                                if stat:
-                                    team1_total += fantasy_points(stat, player)
+                    team1_rosters = rosters_by_team.get(team1.id, [])
+                    for roster_entry in team1_rosters:
+                        week_added = roster_entry.week_added or 0
+                        week_dropped = roster_entry.week_dropped or 999
+                        if week_added <= week.week_number < week_dropped:
+                            player = roster_entry.player
+                            # Look for stat for this week
+                            stat = next(
+                                (s for s in player.game_stats.all() if s.game.week_id == week.id),
+                                None
+                            )
+                            if stat:
+                                team1_total += fantasy_points(stat, player)
                     
                     # Calculate team 2 points
+                    # OPTIMIZATION: Access only team2's rosters (12-14 items) instead of all rosters (140+ items)
                     team2_total = 0.0
-                    for roster_entry in all_rosters:
-                        if roster_entry.team_id == team2.id:
-                            week_added = roster_entry.week_added or 0
-                            week_dropped = roster_entry.week_dropped or 999
-                            if week_added <= week.week_number < week_dropped:
-                                player = roster_entry.player
-                                stat = next(
-                                    (s for s in player.game_stats.all() if s.game.week_id == week.id),
-                                    None
-                                )
-                                if stat:
-                                    team2_total += fantasy_points(stat, player)
+                    team2_rosters = rosters_by_team.get(team2.id, [])
+                    for roster_entry in team2_rosters:
+                        week_added = roster_entry.week_added or 0
+                        week_dropped = roster_entry.week_dropped or 999
+                        if week_added <= week.week_number < week_dropped:
+                            player = roster_entry.player
+                            stat = next(
+                                (s for s in player.game_stats.all() if s.game.week_id == week.id),
+                                None
+                            )
+                            if stat:
+                                team2_total += fantasy_points(stat, player)
                     
                     # Update standings
                     standings_map[team1.id]["total_points"] += team1_total
