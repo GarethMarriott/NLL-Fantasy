@@ -1608,13 +1608,80 @@ def trade_center(request, team_id):
         week_dropped__isnull=True
     ).select_related('player')
     
-    # Add schedule data to each player in all rosters
-    for roster_entry in user_roster:
-        roster_entry.player.upcoming_schedule = get_player_upcoming_schedule(roster_entry.player, num_weeks=5)
+    # OPTIMIZATION: Batch load all schedules at once instead of per-player queries
+    # Get all upcoming weeks once
+    from django.utils import timezone
+    today = timezone.now().date()
+    upcoming_weeks = list(
+        Week.objects.filter(start_date__gte=today).order_by('week_number')[:5]
+    )
     
-    for other_team in other_teams:
-        for roster_entry in other_team.roster_entries.all():
-            roster_entry.player.upcoming_schedule = get_player_upcoming_schedule(roster_entry.player, num_weeks=5)
+    # Get all games for these weeks
+    if upcoming_weeks:
+        all_games = list(
+            Game.objects.filter(week__in=upcoming_weeks).select_related('week')
+        )
+        
+        # Build schedule map by NLL team name
+        schedule_by_team = {}
+        for week in upcoming_weeks:
+            schedule_by_team[week.week_number] = {'week': week, 'games_by_team': {}}
+        
+        for game in all_games:
+            week_num = game.week.week_number
+            # Add game for home team
+            if game.home_team not in schedule_by_team[week_num]['games_by_team']:
+                schedule_by_team[week_num]['games_by_team'][game.home_team] = []
+            schedule_by_team[week_num]['games_by_team'][game.home_team].append(game)
+            
+            # Add game for away team
+            if game.away_team not in schedule_by_team[week_num]['games_by_team']:
+                schedule_by_team[week_num]['games_by_team'][game.away_team] = []
+            schedule_by_team[week_num]['games_by_team'][game.away_team].append(game)
+        
+        # Assign schedules to players from the map
+        def assign_schedule_from_map(roster_entry):
+            """Assign upcoming schedule to a player using the precomputed map"""
+            schedule = []
+            if roster_entry.player.nll_team:
+                for week in upcoming_weeks:
+                    games_for_team = schedule_by_team[week.week_number]['games_by_team'].get(roster_entry.player.nll_team, [])
+                    opponent_teams = set()
+                    for game in games_for_team:
+                        if game.home_team == roster_entry.player.nll_team:
+                            opponent_teams.add(game.away_team)
+                        else:
+                            opponent_teams.add(game.home_team)
+                    
+                    schedule.append({
+                        'week_number': week.week_number,
+                        'game_count': len(games_for_team),
+                        'opponents': list(opponent_teams) if opponent_teams else []
+                    })
+            else:
+                # Player has no NLL team, add empty schedule for upcoming weeks
+                for week in upcoming_weeks:
+                    schedule.append({
+                        'week_number': week.week_number,
+                        'game_count': 0,
+                        'opponents': []
+                    })
+            return schedule
+        
+        # Apply schedules to all roster entries
+        for roster_entry in user_roster:
+            roster_entry.player.upcoming_schedule = assign_schedule_from_map(roster_entry)
+        
+        for other_team in other_teams:
+            for roster_entry in other_team.roster_entries.all():
+                roster_entry.player.upcoming_schedule = assign_schedule_from_map(roster_entry)
+    else:
+        # No upcoming weeks
+        for roster_entry in user_roster:
+            roster_entry.player.upcoming_schedule = []
+        for other_team in other_teams:
+            for roster_entry in other_team.roster_entries.all():
+                roster_entry.player.upcoming_schedule = []
     
     # Get future picks for dynasty leagues with feature enabled
     user_future_picks = []
