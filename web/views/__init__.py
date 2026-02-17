@@ -1462,60 +1462,6 @@ def move_transition_player(request, team_id):
     return redirect("team_detail", team_id=team.id)
 
 
-def get_player_upcoming_schedule(player, num_weeks=10):
-    """
-    Get the upcoming schedule for a player.
-    
-    Returns a list of tuples (week_number, game_count, nll_team_list) for upcoming weeks.
-    If a player has no games that week, game_count will be 0 (bye week).
-    """
-    from django.utils import timezone
-    
-    today = timezone.now().date()
-    schedule = []
-    
-    try:
-        # Get upcoming weeks
-        weeks = Week.objects.filter(
-            start_date__gte=today
-        ).order_by('week_number')[:num_weeks]
-        
-        for week in weeks:
-            # Get games for this week where the player's NLL team plays
-            if player.nll_team:
-                games = Game.objects.filter(
-                    Q(week=week) &
-                    (Q(home_team=player.nll_team) | Q(away_team=player.nll_team))
-                )
-                game_count = games.count()
-                
-                # Collect opponent teams
-                opponent_teams = set()
-                for game in games:
-                    if game.home_team == player.nll_team:
-                        opponent_teams.add(game.away_team)
-                    else:
-                        opponent_teams.add(game.home_team)
-                
-                schedule.append({
-                    'week_number': week.week_number,
-                    'game_count': game_count,
-                    'opponents': list(opponent_teams) if opponent_teams else []
-                })
-            else:
-                # Player has no NLL team assigned
-                schedule.append({
-                    'week_number': week.week_number,
-                    'game_count': 0,
-                    'opponents': []
-                })
-    except Exception:
-        # If there's any error, return empty schedule
-        pass
-    
-    return schedule
-
-
 @login_required
 def trade_center(request, team_id):
     """Show trade center with other teams and their players"""
