@@ -10,6 +10,7 @@ from django.utils import timezone
 from functools import wraps
 import hashlib
 import json
+from .models import Week
 
 
 # Cache TTL (Time to Live) strategies
@@ -55,11 +56,25 @@ def get_matchups_cache_key_from_request(request):
     # Get league_id from session
     league_id = request.session.get('selected_league_id', 'default')
     
-    # Get week from GET params, default to 1
+    # Get the default week: prefer current/active week, fall back to week 1
+    today = timezone.now().date()
+    latest_week = Week.objects.order_by('-season', '-week_number').first()
+    league_season = latest_week.season if latest_week else timezone.now().year
+    
+    # Find current week (where today falls within the week's date range)
+    current_week_obj = Week.objects.filter(
+        season=league_season,
+        start_date__lte=today,
+        end_date__gte=today
+    ).first()
+    
+    default_week = current_week_obj.week_number if current_week_obj else 1
+    
+    # Get week from GET params, default to current week
     try:
-        week_num = int(request.GET.get('week', 1))
+        week_num = int(request.GET.get('week', default_week))
     except (ValueError, TypeError):
-        week_num = 1
+        week_num = default_week
     
     return get_matchups_cache_key(league_id, week_num)
 
