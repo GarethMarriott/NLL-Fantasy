@@ -50,6 +50,20 @@ def get_matchups_cache_key(league_id, week_num):
     return f"matchups:{league_id}:week_{week_num}"
 
 
+def get_matchups_cache_key_from_request(request):
+    """Generate cache key for matchups view (extracts params from request)"""
+    # Get league_id from session
+    league_id = request.session.get('selected_league_id', 'default')
+    
+    # Get week from GET params, default to 1
+    try:
+        week_num = int(request.GET.get('week', 1))
+    except (ValueError, TypeError):
+        week_num = 1
+    
+    return get_matchups_cache_key(league_id, week_num)
+
+
 def get_schedule_cache_key(team_ids_hash, playoff_weeks=None, playoff_teams=None):
     """Generate cache key for schedule build"""
     key = f"schedule:{team_ids_hash}"
