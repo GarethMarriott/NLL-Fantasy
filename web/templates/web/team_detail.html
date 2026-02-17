@@ -1142,28 +1142,39 @@ function showPlayerModal(playerId, playerName) {
             weekDiv.innerHTML = scheduleHTML;
           } else {
             // Past week - show stats
-            let statsHTML = `<div class="flex justify-between items-center mb-2"><h4 class="font-semibold text-gray-800">${week.week} (${week.games_count} game${week.games_count !== 1 ? 's' : ''})</h4><span class="text-lg font-bold text-blue-600">${week.fantasy_points} pts</span></div>`;
-            statsHTML += '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">';
+            let statsHTML = '';
             
-            // Show different stats based on position (infer from content)
-            if (week.wins > 0 || week.saves > 0) {
-              // Goalie stats
-              statsHTML += `<div><span class="font-semibold">W:</span> ${week.wins}</div>`;
-              statsHTML += `<div><span class="font-semibold">SV:</span> ${week.saves}</div>`;
-              statsHTML += `<div><span class="font-semibold">GA:</span> ${week.goals_against}</div>`;
-              statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
-              statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
+            // Check if it's a bye week or no-stats week
+            if (week.is_bye) {
+              statsHTML = `<div class="font-semibold text-orange-600 text-lg">${week.week} <span>(BYE)</span></div>`;
+            } else if (week.is_no_stats) {
+              // Week with no stats but team played
+              statsHTML = `<div class="font-semibold text-gray-800">${week.week} <span class="text-gray-500">(No stats recorded)</span></div>`;
             } else {
-              // Field player stats
-              statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
-              statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
-              statsHTML += `<div><span class="font-semibold">LB:</span> ${week.loose_balls}</div>`;
-              statsHTML += `<div><span class="font-semibold">CT:</span> ${week.caused_turnovers}</div>`;
-              statsHTML += `<div><span class="font-semibold">BS:</span> ${week.blocked_shots}</div>`;
-              statsHTML += `<div><span class="font-semibold">TO:</span> ${week.turnovers}</div>`;
+              // Normal week with stats
+              statsHTML = `<div class="flex justify-between items-center mb-2"><h4 class="font-semibold text-gray-800">${week.week} (${week.games_count} game${week.games_count !== 1 ? 's' : ''})</h4><span class="text-lg font-bold text-blue-600">${week.fantasy_points} pts</span></div>`;
+              statsHTML += '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">';
+              
+              // Show different stats based on position (infer from content)
+              if (week.wins > 0 || week.saves > 0) {
+                // Goalie stats
+                statsHTML += `<div><span class="font-semibold">W:</span> ${week.wins}</div>`;
+                statsHTML += `<div><span class="font-semibold">SV:</span> ${week.saves}</div>`;
+                statsHTML += `<div><span class="font-semibold">GA:</span> ${week.goals_against}</div>`;
+                statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
+                statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
+              } else {
+                // Field player stats
+                statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
+                statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
+                statsHTML += `<div><span class="font-semibold">LB:</span> ${week.loose_balls}</div>`;
+                statsHTML += `<div><span class="font-semibold">CT:</span> ${week.caused_turnovers}</div>`;
+                statsHTML += `<div><span class="font-semibold">BS:</span> ${week.blocked_shots}</div>`;
+                statsHTML += `<div><span class="font-semibold">TO:</span> ${week.turnovers}</div>`;
+              }
+              
+              statsHTML += '</div>';
             }
-            
-            statsHTML += '</div>';
             weekDiv.innerHTML = statsHTML;
           }
           container.appendChild(weekDiv);

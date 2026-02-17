@@ -2538,6 +2538,7 @@ def player_detail_modal(request, player_id):
     # Add stats for all weeks (past and upcoming)
     for week in all_weeks_in_season:
         week_key = f"Week {week.week_number} (S{week.season})"
+        is_upcoming = week.start_date > today
         
         if week_key in stats_by_week:
             # Player has stats for this week
@@ -2567,6 +2568,7 @@ def player_detail_modal(request, player_id):
                 'saves': sum(g['saves'] for g in games),
                 'goals_against': sum(g['goals_against'] for g in games),
                 'fantasy_points': round(weekly_fpts, 1),
+                'is_upcoming': is_upcoming,
                 'games': games
             }
             week_stats.append(agg_stat)
@@ -2603,7 +2605,8 @@ def player_detail_modal(request, player_id):
                 'fantasy_points': 0.0,
                 'is_no_stats': True,  # Mark as no stats for this week
                 'is_bye': is_bye_week,  # True if team didn't play this week
-                'games': upcoming_games if week.start_date >= today else []
+                'is_upcoming': is_upcoming,
+                'games': upcoming_games if is_upcoming else []
             }
             week_stats.append(agg_stat)
     
