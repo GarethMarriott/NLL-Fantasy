@@ -229,7 +229,63 @@ def cache_function_result(cache_key_func, ttl_key='standings', use_self=False):
     return decorator
 
 
-def get_cache_stats():
+def get_waiver_priority_cache_key(league_id):
+    """Generate cache key for waiver priority order"""
+    return f"waiver_priority:{league_id}"
+
+
+def cache_schedule_generation(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="fixed"):
+    """
+    Cache the result of schedule generation.
+    Creates a hash of parameters to use as cache key.
+    """
+    # Create deterministic hash of parameters
+    params = f"{sorted(team_ids)}:{playoff_weeks}:{playoff_teams}:{playoff_reseed}"
+    param_hash = hashlib.md5(params.encode()).hexdigest()[:8]
+    return f"schedule:{param_hash}"
+
+
+def get_player_stats_by_position_cache_key(season, position, stat_type):
+    """Generate cache key for pre-aggregated player stats by position"""
+    return f"player_stats:{season}:{position}:{stat_type}"
+
+
+def get_waiver_priority_cache_key(league_id):
+    """Generate cache key for cached waiver priority order"""
+    return f"waiver_priority_order:{league_id}"
+
+
+def cache_get_waiver_priority_order(league_id):
+    """
+    Get cached waiver priority order for a league.
+    
+    This caches the result of sorting teams by waiver_priority to avoid
+    repeated database queries during waiver processing.
+    
+    Args:
+        league_id: League ID
+    
+    Returns:
+        List of team IDs ordered by waiver priority
+    """
+    cache_key = get_waiver_priority_cache_key(league_id)
+    
+    # Try to get from cache
+    cached_order = cache.get(cache_key)
+    if cached_order is not None:
+        return cached_order
+    
+    # Not in cache, query database
+    from web.models import Team
+    teams = Team.objects.filter(league_id=league_id).order_by(
+        'waiver_priority'
+    ).values_list('id', flat=True)
+    team_ids = list(teams)
+    
+    # Cache for 1 hour (waiver priority changes during processing)
+    cache.set(cache_key, team_ids, CACHE_TTL.get('team_roster', 1800))
+    
+    return team_ids
     """Get cache statistics (for monitoring)"""
     return {
         'backend': 'redis',

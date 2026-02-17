@@ -2440,6 +2440,41 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="
     return schedule
 
 
+def get_cached_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="fixed"):
+    """
+    Get schedule with caching to avoid expensive recalculation.
+    
+    Args:
+        team_ids: List of team IDs
+        playoff_weeks: Number of playoff weeks (0-4)
+        playoff_teams: Number of teams that make playoffs (2, 4, 6, or 8)
+        playoff_reseed: Playoff reseed strategy ('fixed' or 'dynamic')
+    
+    Returns:
+        Cached or newly generated schedule
+    
+    This caches the result of _build_schedule() with 24-hour TTL since the schedule
+    is based on league settings which change infrequently.
+    """
+    from web.cache_utils import cache_schedule_generation, CACHE_TTL
+    
+    # Generate cache key based on parameters
+    cache_key = cache_schedule_generation(team_ids, playoff_weeks, playoff_teams, playoff_reseed)
+    
+    # Try to get from cache
+    cached_schedule = cache.get(cache_key)
+    if cached_schedule is not None:
+        return cached_schedule
+    
+    # Not in cache, build schedule
+    schedule = _build_schedule(team_ids, playoff_weeks, playoff_teams, playoff_reseed)
+    
+    # Cache for 24 hours (schedule only changes when league settings change)
+    cache.set(cache_key, schedule, CACHE_TTL.get('schedule', 86400))
+    
+    return schedule
+
+
 def player_detail_modal(request, player_id):
     """AJAX endpoint to get player details for modal popup"""
     from django.http import JsonResponse
@@ -2718,7 +2753,7 @@ def schedule(request):
     
     league = teams[0].league
     team_ids = [t.id for t in teams]
-    weeks = _build_schedule(team_ids, league.playoff_weeks, league.playoff_teams, getattr(league, 'playoff_reseed', 'fixed'))
+    weeks = get_cached_schedule(team_ids, league.playoff_weeks, league.playoff_teams, getattr(league, 'playoff_reseed', 'fixed'))
 
     # map ids back to team objects for display
     id_to_team = {t.id: t for t in teams}
@@ -2786,10 +2821,10 @@ def matchups(request):
     # Get league to access playoff settings
     if teams:
         league = teams[0].league
-        all_weeks = _build_schedule(team_ids, league.playoff_weeks, league.playoff_teams, getattr(league, 'playoff_reseed', 'fixed'))
+        all_weeks = get_cached_schedule(team_ids, league.playoff_weeks, league.playoff_teams, getattr(league, 'playoff_reseed', 'fixed'))
     else:
         league = League()  # Default scoring
-        all_weeks = _build_schedule(team_ids)
+        all_weeks = get_cached_schedule(team_ids)
     
     # Show all regular season weeks in matchups (filter out playoff weeks for now)
     # TODO: Implement playoff bracket display once regular season completes
@@ -2993,7 +3028,7 @@ def standings(request):
             continue
             
         team_ids = [t.id for t in teams]
-        all_weeks = _build_schedule(team_ids)
+        all_weeks = get_cached_schedule(team_ids)
         
         # Get current season and only process completed weeks (end_date has passed)
         latest_week = Week.objects.order_by('-season', '-week_number').first()
@@ -3699,6 +3734,10 @@ def league_settings(request, league_id):
                 )
             league_obj.save()
             form.save_m2m() if hasattr(form, 'save_m2m') else None
+            
+            # Note: Schedule cache has 24-hour TTL and will auto-refresh when settings change
+            # This is acceptable since league settings don't change frequently
+            
             return redirect("league_detail", league_id=league.id)
         else:
             # Form is not valid - show the errors

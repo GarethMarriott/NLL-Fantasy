@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db import transaction
+from django.core.cache import cache
 from web.models import WaiverClaim, League, Week, Roster, ChatMessage, Trade
 import logging
 
@@ -139,6 +140,13 @@ class Command(BaseCommand):
             f"  Trades:  {total_trades_successful}/{total_trades_processed} successful"
         ))
         self.stdout.write(f"{'='*60}\n")
+        
+        # Clear waiver priority cache for all processed leagues
+        # This ensures future requests get updated waiver order
+        for league in leagues:
+            cache_key = f"waiver_priority_order:{league.id}"
+            cache.delete(cache_key)
+            self.stdout.write(f"  ✓ Cleared waiver priority cache for {league.name}")
 
     def _process_waivers(self, league, current_week, next_week_number):
         """Process all pending waiver claims for a league"""
