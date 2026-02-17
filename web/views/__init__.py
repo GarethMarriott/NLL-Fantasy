@@ -2844,10 +2844,21 @@ def matchups(request):
     # determine target week object (same week_number, latest season available)
     selected_week_number = None
     if weeks:
+        # Get the current/active week (where today falls between start and end)
+        today = timezone.now().date()
+        current_week_obj = Week.objects.filter(
+            season=league_season,
+            start_date__lte=today,
+            end_date__gte=today
+        ).first()
+        
+        # Default to current week if it exists, otherwise default to week 1
+        default_week = current_week_obj.week_number if current_week_obj else 1
+        
         try:
-            selected_week_number = int(request.GET.get("week", 1))
+            selected_week_number = int(request.GET.get("week", default_week))
         except ValueError:
-            selected_week_number = 1
+            selected_week_number = default_week
 
     week_obj = None
     if selected_week_number is not None:
