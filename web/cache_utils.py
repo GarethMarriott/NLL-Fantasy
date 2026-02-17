@@ -20,6 +20,10 @@ CACHE_TTL = {
     'player_stats': 900,  # 15 minutes - stats update weekly
     'team_roster': 1800,  # 30 minutes - roster changes via trades/waivers
     'schedule': 86400,  # 24 hours - schedule is static
+    'nll_schedule': 86400,  # 24 hours - NLL schedule static seasonal data
+    'players': 3600,  # 1 hour - players list with stats
+    'league_detail': 3600,  # 1 hour - league settings and teams
+    'fantasy_points': 900,  # 15 minutes - calculated fantasy points
 }
 
 
@@ -52,6 +56,35 @@ def get_schedule_cache_key(team_ids_hash, playoff_weeks=None, playoff_teams=None
     if playoff_weeks:
         key += f":playoff_{playoff_weeks}_{playoff_teams}"
     return key
+
+
+def get_nll_schedule_cache_key(request):
+    """Generate cache key for NLL schedule (uses request GET params)"""
+    season = request.GET.get('season', 2026)
+    return f"nll_schedule:{season}"
+
+
+def get_players_cache_key(request):
+    """Generate cache key for players list view (uses request GET params)"""
+    # Extract filter parameters from GET params
+    season = request.GET.get('season', '')
+    position = request.GET.get('position', '')
+    stat_type = request.GET.get('stat_type', 'regular')
+    search = request.GET.get('search', '')
+    
+    # Include key filters in cache key to handle different filter combinations
+    key = f"players:{season}:{position or 'all'}:{stat_type}:{search or 'none'}"
+    return key
+
+
+def get_league_detail_cache_key(league_id):
+    """Generate cache key for league detail view"""
+    return f"league_detail:{league_id}"
+
+
+def get_fantasy_points_cache_key(stat_id, player_id, league_id):
+    """Generate cache key for calculated fantasy points (function-level caching)"""
+    return f"fantasy_points:{league_id}:{player_id}:{stat_id}"
 
 
 def invalidate_league_cache(league_id):
@@ -102,6 +135,42 @@ def cache_view_result(cache_key_func, ttl_key='standings'):
         def wrapper(request, *args, **kwargs):
             # Generate cache key
             cache_key = cache_key_func(*args, **kwargs)
+            
+            # Try to get from cache
+            cached_result = cache.get(cache_key)
+            if cached_result is not None:
+                return cached_result
+            
+            # Not in cache, call view
+            result = view_func(request, *args, **kwargs)
+            
+            # Cache the result
+            ttl = CACHE_TTL.get(ttl_key, 3600)
+            cache.set(cache_key, result, ttl)
+            
+            return result
+        return wrapper
+    return decorator
+
+
+def cache_view_with_request(cache_key_func, ttl_key='standings'):
+    """
+    Decorator to cache view results when cache key depends on request parameters
+    
+    Args:
+        cache_key_func: Function that takes request and returns cache key
+        ttl_key: Key in CACHE_TTL dict for expiration time
+    
+    Usage:
+        @cache_view_with_request(lambda request: f"my_view:{request.GET.get('season')}")
+        def my_view(request):
+            ...
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Generate cache key from request
+            cache_key = cache_key_func(request)
             
             # Try to get from cache
             cached_result = cache.get(cache_key)

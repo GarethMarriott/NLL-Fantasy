@@ -14,7 +14,7 @@ from ..forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, Leag
 from ..tasks import send_password_reset_email
 from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME, TEAM_ABBREVIATIONS
 from ..scoring import calculate_fantasy_points
-from ..cache_utils import cache_view_result, get_standings_cache_key, get_team_detail_cache_key, get_matchups_cache_key, invalidate_team_cache, invalidate_league_cache
+from ..cache_utils import cache_view_result, cache_view_with_request, get_standings_cache_key, get_team_detail_cache_key, get_matchups_cache_key, get_nll_schedule_cache_key, get_players_cache_key, get_league_detail_cache_key, invalidate_team_cache, invalidate_league_cache
 from django.views.decorators.http import require_POST
 
 
@@ -2016,6 +2016,7 @@ def cancel_trade(request, trade_id):
     return redirect("team_detail", team_id=trade.proposing_team.id)
 
 
+@cache_view_with_request(get_players_cache_key, 'players')
 def players(request):
     """Render players list with their latest weekly stats (if any)."""
     # Get position filter
@@ -2621,6 +2622,7 @@ def cache_stats(request):
     return JsonResponse(stats, json_dumps_params={'indent': 2})
 
 
+@cache_view_with_request(get_nll_schedule_cache_key, 'nll_schedule')
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
     season = request.GET.get('season', 2026)
@@ -3558,6 +3560,7 @@ def league_create(request):
     return render(request, "web/league_create.html", {"form": form})
 
 
+@cache_view_result(lambda league_id: get_league_detail_cache_key(league_id), 'league_detail')
 @login_required
 def league_detail(request, league_id):
     """View league details and teams"""
