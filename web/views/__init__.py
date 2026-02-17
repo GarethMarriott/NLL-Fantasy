@@ -14,6 +14,7 @@ from ..forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, Leag
 from ..tasks import send_password_reset_email
 from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME, TEAM_ABBREVIATIONS
 from ..scoring import calculate_fantasy_points
+from ..cache_utils import cache_view_result, get_standings_cache_key, get_team_detail_cache_key, get_matchups_cache_key
 from django.views.decorators.http import require_POST
 
 
@@ -218,6 +219,7 @@ def about(request):
     return render(request, "web/about.html")
 
 
+@cache_view_result(get_team_detail_cache_key, 'team_detail')
 def team_detail(request, team_id):
     team = get_object_or_404(Team, id=team_id)
     
@@ -2684,6 +2686,7 @@ def schedule(request):
     return render(request, "web/schedule.html", {"schedule_weeks": schedule_weeks})
 
 
+@cache_view_result(get_matchups_cache_key, 'matchups')
 def matchups(request):
     # Get selected league from session
     selected_league_id = request.session.get('selected_league_id')
@@ -2903,6 +2906,7 @@ def matchups(request):
     )
 
 
+@cache_view_result(get_standings_cache_key, 'standings')
 def standings(request):
     # Get selected league from session
     selected_league_id = request.session.get('selected_league_id')
