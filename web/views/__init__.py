@@ -2519,6 +2519,14 @@ def player_detail_modal(request, player_id):
     if not league:
         league = League()  # Default scoring
     
+    # Get all weeks from the season to fill in missing weeks with 0 stats
+    from django.utils import timezone
+    today = timezone.now().date()
+    latest_week = Week.objects.order_by('-season', '-week_number').first()
+    season = latest_week.season if latest_week else 2026
+    
+    all_weeks_in_season = Week.objects.filter(season=season).order_by('week_number')
+    
     # Sort by week number (numerically, not alphabetically)
     # week_key format: "Week 1 (S2026)" -> extract week number
     def extract_week_number(week_key):
@@ -2527,68 +2535,76 @@ def player_detail_modal(request, player_id):
         except (IndexError, ValueError):
             return 0
     
-    for week_key in sorted(stats_by_week.keys(), key=extract_week_number):
-        games = stats_by_week[week_key]
-        # Calculate fantasy points for each game
-        game_points = []
-        for stat in game_stats:
-            if f"Week {stat.game.week.week_number} (S{stat.game.week.season})" == week_key:
-                pts = calculate_fantasy_points(stat, player, league)
-                if pts is not None:
-                    game_points.append(pts)
-        
-        # Calculate weekly total (sum of all games that week)
-        weekly_fpts = sum(game_points) if game_points else 0
-        
-        # Aggregate stats for the week
-        agg_stat = {
-            'week': week_key,
-            'games_count': len(games),
-            'goals': sum(g['goals'] for g in games),
-            'assists': sum(g['assists'] for g in games),
-            'loose_balls': sum(g['loose_balls'] for g in games),
-            'caused_turnovers': sum(g['caused_turnovers'] for g in games),
-            'blocked_shots': sum(g['blocked_shots'] for g in games),
-            'turnovers': sum(g['turnovers'] for g in games),
-            'wins': sum(g['wins'] for g in games),
-            'saves': sum(g['saves'] for g in games),
-            'goals_against': sum(g['goals_against'] for g in games),
-            'fantasy_points': round(weekly_fpts, 1),
-            'games': games
-        }
-        week_stats.append(agg_stat)
-    
-    # Add upcoming weeks (no stats yet)
-    today = timezone.now().date()
-    upcoming_weeks = Week.objects.filter(
-        start_date__gte=today,
-        season=2026
-    ).order_by('week_number')
-    
-    # Get player's team ID
-    player_team_id = TEAM_NAME_TO_ID.get(player.nll_team, None)
-    
-    for week in upcoming_weeks:
+    # Add stats for all weeks (past and upcoming)
+    for week in all_weeks_in_season:
         week_key = f"Week {week.week_number} (S{week.season})"
-        # Check if this week already has stats
-        if not any(ws['week'] == week_key for ws in week_stats):
-            # Get upcoming games for this player's team
+        
+        if week_key in stats_by_week:
+            # Player has stats for this week
+            games = stats_by_week[week_key]
+            # Calculate fantasy points for each game
+            game_points = []
+            for stat in game_stats:
+                if f"Week {stat.game.week.week_number} (S{stat.game.week.season})" == week_key:
+                    pts = calculate_fantasy_points(stat, player, league)
+                    if pts is not None:
+                        game_points.append(pts)
+            
+            # Calculate weekly total (sum of all games that week)
+            weekly_fpts = sum(game_points) if game_points else 0
+            
+            # Aggregate stats for the week
+            agg_stat = {
+                'week': week_key,
+                'games_count': len(games),
+                'goals': sum(g['goals'] for g in games),
+                'assists': sum(g['assists'] for g in games),
+                'loose_balls': sum(g['loose_balls'] for g in games),
+                'caused_turnovers': sum(g['caused_turnovers'] for g in games),
+                'blocked_shots': sum(g['blocked_shots'] for g in games),
+                'turnovers': sum(g['turnovers'] for g in games),
+                'wins': sum(g['wins'] for g in games),
+                'saves': sum(g['saves'] for g in games),
+                'goals_against': sum(g['goals_against'] for g in games),
+                'fantasy_points': round(weekly_fpts, 1),
+                'games': games
+            }
+            week_stats.append(agg_stat)
+        else:
+            # Player has no stats for this week (didn't play)
+            # Show empty week
             upcoming_games = []
-            if player_team_id:
-                games = Game.objects.filter(
-                    Q(week=week) &
-                    (Q(home_team=player_team_id) | Q(away_team=player_team_id))
-                )
-                upcoming_games = [{
-                    'date': game.date.strftime('%Y-%m-%d'),
-                    'opponent': f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} vs {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}",
-                } for game in games]
+            if week.start_date >= today:
+                # For future weeks, show upcoming games for player's team
+                player_team_id = TEAM_NAME_TO_ID.get(player.nll_team, None)
+                if player_team_id:
+                    games = Game.objects.filter(
+                        week=week,
+                        home_team=player_team_id
+                    ) | Game.objects.filter(
+                        week=week,
+                        away_team=player_team_id
+                    )
+                    upcoming_games = [{
+                        'date': game.date.strftime('%Y-%m-%d'),
+                        'opponent': f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} vs {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}",
+                    } for game in games]
             
             agg_stat = {
                 'week': week_key,
                 'games_count': len(upcoming_games),
-                'is_upcoming': True,
-                'games': upcoming_games
+                'goals': 0,
+                'assists': 0,
+                'loose_balls': 0,
+                'caused_turnovers': 0,
+                'blocked_shots': 0,
+                'turnovers': 0,
+                'wins': 0,
+                'saves': 0,
+                'goals_against': 0,
+                'fantasy_points': 0.0,
+                'is_no_stats': True,  # Mark as no stats for this week
+                'games': upcoming_games if week.start_date >= today else []
             }
             week_stats.append(agg_stat)
     
