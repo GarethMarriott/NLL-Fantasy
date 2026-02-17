@@ -2571,24 +2571,22 @@ def player_detail_modal(request, player_id):
             }
             week_stats.append(agg_stat)
         else:
-            # Player has no stats for this week (didn't play)
-            # Show empty week
+            # Player has no stats for this week (didn't play or team had bye)
+            # Check if player's team had any games scheduled this week
+            player_team_id = TEAM_NAME_TO_ID.get(player.nll_team, None)
             upcoming_games = []
-            if week.start_date >= today:
-                # For future weeks, show upcoming games for player's team
-                player_team_id = TEAM_NAME_TO_ID.get(player.nll_team, None)
-                if player_team_id:
-                    games = Game.objects.filter(
-                        week=week,
-                        home_team=player_team_id
-                    ) | Game.objects.filter(
-                        week=week,
-                        away_team=player_team_id
-                    )
-                    upcoming_games = [{
-                        'date': game.date.strftime('%Y-%m-%d'),
-                        'opponent': f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} vs {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}",
-                    } for game in games]
+            is_bye_week = True
+            
+            if player_team_id:
+                games = Game.objects.filter(
+                    Q(week=week, home_team=player_team_id) | 
+                    Q(week=week, away_team=player_team_id)
+                )
+                upcoming_games = [{
+                    'date': game.date.strftime('%Y-%m-%d'),
+                    'opponent': f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} vs {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}",
+                } for game in games]
+                is_bye_week = len(upcoming_games) == 0
             
             agg_stat = {
                 'week': week_key,
@@ -2604,6 +2602,7 @@ def player_detail_modal(request, player_id):
                 'goals_against': 0,
                 'fantasy_points': 0.0,
                 'is_no_stats': True,  # Mark as no stats for this week
+                'is_bye': is_bye_week,  # True if team didn't play this week
                 'games': upcoming_games if week.start_date >= today else []
             }
             week_stats.append(agg_stat)
