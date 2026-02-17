@@ -2519,7 +2519,15 @@ def player_detail_modal(request, player_id):
     if not league:
         league = League()  # Default scoring
     
-    for week_key in sorted(stats_by_week.keys()):
+    # Sort by week number (numerically, not alphabetically)
+    # week_key format: "Week 1 (S2026)" -> extract week number
+    def extract_week_number(week_key):
+        try:
+            return int(week_key.split()[1])
+        except (IndexError, ValueError):
+            return 0
+    
+    for week_key in sorted(stats_by_week.keys(), key=extract_week_number):
         games = stats_by_week[week_key]
         # Calculate fantasy points for each game
         game_points = []
