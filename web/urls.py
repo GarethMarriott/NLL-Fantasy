@@ -4,7 +4,7 @@ from .views import (
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, start_draft, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
-    nll_schedule, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
+    nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
@@ -74,4 +74,7 @@ urlpatterns = [
     path("bugs/<int:bug_id>/status/", update_bug_status, name="update_bug_status"),
     path("bugs/<int:bug_id>/note/", add_bug_note, name="add_bug_note"),
     path("api/bugs/report/", bug_report_api, name="bug_report_api"),
+    
+    # Cache Monitoring
+    path("admin/cache-stats/", cache_stats, name="cache_stats"),
 ]

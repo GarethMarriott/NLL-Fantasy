@@ -2569,6 +2569,58 @@ def player_detail_modal(request, player_id):
     return JsonResponse(data)
 
 
+def cache_stats(request):
+    """Display cache statistics and performance metrics"""
+    from django.core.cache import cache
+    from django.core.cache.backends.redis import RedisCache
+    from django.http import HttpResponse
+    
+    # Only allow admin users to see cache stats
+    if not request.user.is_staff:
+        return HttpResponse("Unauthorized", status=403)
+    
+    stats = {
+        'cache_backend': 'Unknown',
+        'redis_info': {},
+        'cache_keys_monitored': [],
+        'status': 'OK',
+    }
+    
+    try:
+        if isinstance(cache, RedisCache):
+            stats['cache_backend'] = 'Redis'
+            redis_conn = cache._cache
+            info = redis_conn.info()
+            
+            stats['redis_info'] = {
+                'memory_used': info.get('used_memory_human', 'N/A'),
+                'memory_peak': info.get('used_memory_peak_human', 'N/A'),
+                'connected_clients': info.get('connected_clients', 0),
+                'total_commands': info.get('total_commands_processed', 0),
+                'hits': info.get('keyspace_hits', 0),
+                'misses': info.get('keyspace_misses', 0),
+                'hit_rate': f"{(info.get('keyspace_hits', 0) / (info.get('keyspace_hits', 0) + info.get('keyspace_misses', 1))) * 100:.1f}%",
+                'uptime_seconds': info.get('uptime_in_seconds', 0),
+                'database_0_keys': info.get('db0', {}).get('keys', 0) if 'db0' in info else 'N/A',
+            }
+            
+            # Check cache keys
+            from web.cache_utils import get_standings_cache_key, get_team_detail_cache_key, get_matchups_cache_key
+            
+            standings_key = get_standings_cache_key(None)
+            stats['cache_keys_monitored'].append({
+                'key': 'standings (sample)',
+                'cached': cache.get(standings_key) is not None,
+                'ttl': 'unknown'
+            })
+    
+    except Exception as e:
+        stats['status'] = f'Error: {str(e)}'
+    
+    # Return JSON response
+    return JsonResponse(stats, json_dumps_params={'indent': 2})
+
+
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
     season = request.GET.get('season', 2026)
