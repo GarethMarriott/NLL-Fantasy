@@ -2457,6 +2457,7 @@ def get_cached_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_rese
     is based on league settings which change infrequently.
     """
     from web.cache_utils import cache_schedule_generation, CACHE_TTL
+    from django.core.cache import cache
     
     # Generate cache key based on parameters
     cache_key = cache_schedule_generation(team_ids, playoff_weeks, playoff_teams, playoff_reseed)
