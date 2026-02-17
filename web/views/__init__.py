@@ -2851,8 +2851,22 @@ def matchups(request):
             end_date__gte=today
         ).first()
         
-        # Default to current week if it exists, otherwise default to week 1
-        default_week = current_week_obj.week_number if current_week_obj else 1
+        if current_week_obj:
+            # Week is currently active
+            default_week = current_week_obj.week_number
+        else:
+            # No active week - find the next upcoming week
+            next_week_obj = Week.objects.filter(
+                season=league_season,
+                start_date__gt=today
+            ).order_by('week_number').first()
+            
+            if next_week_obj:
+                # Show the next upcoming week
+                default_week = next_week_obj.week_number
+            else:
+                # No future week - use Week 1 (season hasn't started yet or is over)
+                default_week = 1
         
         try:
             selected_week_number = int(request.GET.get("week", default_week))

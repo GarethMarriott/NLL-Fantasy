@@ -56,7 +56,7 @@ def get_matchups_cache_key_from_request(request):
     # Get league_id from session
     league_id = request.session.get('selected_league_id', 'default')
     
-    # Get the default week: prefer current/active week, fall back to week 1
+    # Get the default week: prefer current week, then next upcoming, then Week 1
     today = timezone.now().date()
     latest_week = Week.objects.order_by('-season', '-week_number').first()
     league_season = latest_week.season if latest_week else timezone.now().year
@@ -68,9 +68,24 @@ def get_matchups_cache_key_from_request(request):
         end_date__gte=today
     ).first()
     
-    default_week = current_week_obj.week_number if current_week_obj else 1
+    if current_week_obj:
+        # Week is currently active
+        default_week = current_week_obj.week_number
+    else:
+        # No active week - find the next upcoming week
+        next_week_obj = Week.objects.filter(
+            season=league_season,
+            start_date__gt=today
+        ).order_by('week_number').first()
+        
+        if next_week_obj:
+            # Show the next upcoming week
+            default_week = next_week_obj.week_number
+        else:
+            # No future week - use Week 1 (season hasn't started yet or is over)
+            default_week = 1
     
-    # Get week from GET params, default to current week
+    # Get week from GET params, default to current/next week
     try:
         week_num = int(request.GET.get('week', default_week))
     except (ValueError, TypeError):
