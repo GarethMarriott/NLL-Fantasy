@@ -2798,7 +2798,6 @@ def schedule(request):
     return render(request, "web/schedule.html", {"schedule_weeks": schedule_weeks})
 
 
-@cache_view_with_request(get_matchups_cache_key_from_request, 'matchups')
 def matchups(request):
     # Get selected league from session
     selected_league_id = request.session.get('selected_league_id')
