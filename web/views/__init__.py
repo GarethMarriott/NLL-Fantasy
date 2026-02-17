@@ -14,7 +14,7 @@ from ..forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, Leag
 from ..tasks import send_password_reset_email
 from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME, TEAM_ABBREVIATIONS
 from ..scoring import calculate_fantasy_points
-from ..cache_utils import cache_view_result, get_standings_cache_key, get_team_detail_cache_key, get_matchups_cache_key
+from ..cache_utils import cache_view_result, get_standings_cache_key, get_team_detail_cache_key, get_matchups_cache_key, invalidate_team_cache, invalidate_league_cache
 from django.views.decorators.http import require_POST
 
 
@@ -1383,6 +1383,10 @@ def assign_player(request, team_id):
         messages.success(request, f"Moved {player.last_name}")
 
 
+    # Invalidate team caches after any roster modification
+    invalidate_team_cache(team.id)
+    invalidate_league_cache(team.league.id)
+
     return redirect("team_detail", team_id=team.id)
 
 
@@ -1849,6 +1853,11 @@ def execute_trade(trade):
     message_text = f"ðŸ¤ Trade completed! {trade.proposing_team.name} receives ({receiving_names}) and {trade.receiving_team.name} receives ({proposing_names})"
     post_league_message(trade.league, message_text)
     
+    # Invalidate caches for both teams and league standings
+    invalidate_team_cache(trade.proposing_team.id)
+    invalidate_team_cache(trade.receiving_team.id)
+    invalidate_league_cache(trade.league.id)
+    
     return True, "Trade executed successfully"
 
 
@@ -1920,6 +1929,11 @@ def accept_trade(request, trade_id):
         success, msg = execute_trade(trade)
         if not success:
             messages.error(request, f"Trade accepted but execution failed: {msg}")
+    
+    # Invalidate relevant caches after trade status update
+    invalidate_team_cache(trade.proposing_team.id)
+    invalidate_team_cache(trade.receiving_team.id)
+    invalidate_league_cache(trade.league.id)
     
     return redirect("team_detail", team_id=trade.receiving_team.id)
 
