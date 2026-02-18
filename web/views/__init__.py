@@ -2683,6 +2683,7 @@ def cache_stats(request):
     return JsonResponse(stats, json_dumps_params={'indent': 2})
 
 
+@login_required
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
     season = request.GET.get('season', 2026)
@@ -2766,7 +2767,8 @@ def nll_schedule(request):
     return render(request, "web/nll_schedule.html", {
         "schedule_weeks": schedule_weeks,
         "season": season,
-        "available_seasons": available_seasons
+        "available_seasons": available_seasons,
+        "user": request.user,
     })
 
 
