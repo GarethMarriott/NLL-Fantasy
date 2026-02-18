@@ -2706,11 +2706,15 @@ def nll_schedule(request):
     ).order_by('week_number')
     
     if not weeks.exists():
-        return render(request, "web/nll_schedule.html", {
+        response = render(request, "web/nll_schedule.html", {
             "schedule_weeks": [],
             "season": season,
             "available_seasons": []
         })
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
     
     # Build schedule data
     schedule_weeks = []
@@ -2759,11 +2763,18 @@ def nll_schedule(request):
     # Get available seasons from database
     available_seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
     
-    return render(request, "web/nll_schedule.html", {
+    response = render(request, "web/nll_schedule.html", {
         "schedule_weeks": schedule_weeks,
         "season": season,
         "available_seasons": available_seasons,
     })
+    
+    # Explicitly prevent all caching - this ensures user sessions are not cached
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    
+    return response
 
 
 def schedule(request):
