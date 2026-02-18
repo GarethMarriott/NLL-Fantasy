@@ -3595,6 +3595,11 @@ def league_create(request):
     return render(request, "web/league_create.html", {"form": form})
 
 
+def test_auth(request):
+    """Test endpoint to check authentication"""
+    return HttpResponse(f"User: {request.user}, Authenticated: {request.user.is_authenticated}, Session Key: {request.session.session_key}, Cookies: {request.COOKIES}")
+
+
 @login_required
 def league_detail(request, league_id):
     """View league details and teams"""
