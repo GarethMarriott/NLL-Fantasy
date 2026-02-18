@@ -180,7 +180,7 @@
               {% endif %}
               {% if user.fantasy_teams.exists %}
                 <li>
-                  <a rel="noopener noreferrer" href="{% url 'team_settings' user.fantasy_teams.first.team.id %}" class="flex items-center p-2 space-x-3 rounded-md">
+                  <a rel="noopener noreferrer" href="{% url 'team_settings' active_team.id %}" class="flex items-center p-2 space-x-3 rounded-md">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
                       <path d="M256,16C123.452,16,16,123.452,16,256S123.452,496,256,496,496,388.548,496,256,388.548,16,256,16ZM403.078,403.078a207.253,207.253,0,1,1,44.589-66.125A207.332,207.332,0,0,1,403.078,403.078Z"></path>
                       <path d="M256,384A104,104,0,0,0,360,280H152A104,104,0,0,0,256,384Z"></path>
