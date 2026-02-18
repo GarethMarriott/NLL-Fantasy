@@ -2717,6 +2717,7 @@ def nll_schedule(request):
         "schedule_weeks": schedule_weeks,
         "season": season,
         "available_seasons": available_seasons,
+        "user": request.user,
     }
     
     response = render(request, "web/nll_schedule.html", context)
