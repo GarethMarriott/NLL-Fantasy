@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db import models
 from django.db.models import Q
@@ -2682,6 +2682,13 @@ def cache_stats(request):
     
     # Return JSON response
     return JsonResponse(stats, json_dumps_params={'indent': 2})
+
+
+@login_required
+@never_cache
+def nll_schedule_debug(request):
+    """Debug endpoint to test authentication"""
+    return HttpResponse(f"User: {request.user.username}, Authenticated: {request.user.is_authenticated}, Session Key: {request.session.session_key}")
 
 
 @login_required
