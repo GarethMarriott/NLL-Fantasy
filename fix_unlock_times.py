@@ -30,12 +30,19 @@ for week in weeks:
         unlock_day_of_week = unlock_time.weekday()  # Returns 0-6 (Monday=0, Tuesday=1, etc)
         lock_day_of_week = lock_time.weekday()
         
-        # The unlock should be the Tuesday before the Friday lock (3 days before)
-        expected_days_before_lock = 3  # Tuesday to Friday = 3 days
-        
-        # Calculate what the unlock time should be: Tuesday 5pm UTC
+        # The lock time is Friday 7pm PT (Saturday 2am UTC)
+        # The unlock should be Tuesday 9am PT (Tuesday 5pm UTC)
+        # Friday to Tuesday going backwards is 3 days
+        # Calculate what the unlock time should be: Tuesday 9am PT (Tuesday 5pm UTC)
         if lock_time:
-            expected_unlock_time = lock_time - timedelta(days=expected_days_before_lock)
+            # Lock time is on the first game day (Friday)
+            # Subtract 3 days to get to Tuesday
+            expected_unlock_date = lock_time.date() - timedelta(days=3)
+            expected_unlock_time = lock_time.replace(
+                year=expected_unlock_date.year,
+                month=expected_unlock_date.month,
+                day=expected_unlock_date.day
+            )
             
             if unlock_time != expected_unlock_time:
                 print(f"  Week {week.week_number} (Season {week.season}): {unlock_time} -> {expected_unlock_time}")
