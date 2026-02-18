@@ -33,7 +33,7 @@ DEBUG = env('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1,shamrockfantasy.com,www.shamrockfantasy.com,138.68.228.237', cast=lambda v: [s.strip() for s in v.split(',')])
 
-CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000,https://shamrockfantasy.com,https://www.shamrockfantasy.com', cast=lambda v: [s.strip() for s in v.split(',')])
+CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000,https://shamrockfantasy.com,https://www.shamrockfantasy.com,http://138.68.228.237', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Application definition
 

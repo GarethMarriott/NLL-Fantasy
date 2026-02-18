@@ -845,10 +845,6 @@ def assign_player(request, team_id):
     action = request.POST.get("action")
     player_id = request.POST.get("player_id")
     
-    import logging
-    logger = logging.getLogger('django')
-    logger.warning(f"ASSIGN_PLAYER VIEW: action={action}, player_id={player_id}, method={request.method}")
-    
     if not player_id:
         messages.error(request, "No player specified.")
         return redirect("team_detail", team_id=team.id)
@@ -2686,9 +2682,6 @@ def cache_stats(request):
 @login_required
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
-    import sys
-    print(f"DEBUG: nll_schedule - User: {request.user}, Authenticated: {request.user.is_authenticated}, Session: {request.session.session_key}", file=sys.stderr)
-    
     season = request.GET.get('season', 2026)
     
     try:
