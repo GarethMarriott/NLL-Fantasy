@@ -750,21 +750,93 @@ class Command(BaseCommand):
                 if not game_date:
                     game_date = week.start_date
                 
-                # Create or update game using date/home/away as primary key (more reliable than nll_game_id)
-                # This prevents duplicate games even if the API returns the same game with different IDs
-                game_obj, created = Game.objects.update_or_create(
-                    date=game_date,
-                    home_team=home_team,
-                    away_team=away_team,
-                    defaults={
-                        'week': week,
-                        'nll_game_id': str(game_id) if game_id else None,
-                        'home_score': home_score,
-                        'away_score': away_score,
-                        'winner': winner,
-                        'loser': loser,
-                    }
-                )
+                # Try to find existing game first by nll_game_id, then by date + team IDs
+                game_obj = None
+                created = False
+                
+                if game_id:
+                    game_obj = Game.objects.filter(nll_game_id=str(game_id)).first()
+                
+                # If not found by nll_game_id, try by date and team IDs (backward compatibility)
+                if not game_obj:
+                    # Look for games with team IDs or names (since older games might be stored as IDs)
+                    # Try exact name match first, then try ID match
+                    game_obj = Game.objects.filter(
+                        date=game_date,
+                        home_team=home_team,
+                        away_team=away_team,
+                    ).first()
+                    
+                    if not game_obj:
+                        game_obj = Game.objects.filter(
+                            date=game_date,
+                            home_team__in=[str(home_team_id)],
+                            away_team__in=[str(away_team_id)],
+                        ).first()
+                    
+                    # If still not found, look by team names (case with old IDs)
+                    if not game_obj:
+                        # Maybe the game  exists with the new names from a previous partial run
+                        try:
+                            game_obj = Game.objects.get(date=game_date, home_team=home_team, away_team=away_team)
+                        except:
+                            pass
+                
+                if not game_obj:
+                    # Create new game
+                    try:
+                        game_obj = Game(
+                            date=game_date,
+                            home_team=home_team,
+                            away_team=away_team,
+                            week=week,
+                            nll_game_id=str(game_id) if game_id else None,
+                        )
+                        created = True
+                    except Exception:
+                        # If creation fails due to constraint, just skip this game
+                        continue
+                
+                # Update fields
+                try:
+                    game_obj.week = week
+                    game_obj.home_team = home_team
+                    game_obj.away_team = away_team
+                    if game_id:
+                        game_obj.nll_game_id = str(game_id)
+                    game_obj.home_score = home_score
+                    game_obj.away_score = away_score
+                    game_obj.winner = winner
+                    game_obj.loser = loser
+                    game_obj.save()
+                except Exception as e:
+                    # Skip if there's a constraint violation
+                    if 'unique' in str(e).lower() or 'constraint' in str(e).lower():
+                        # Try to find and update the existing game with IDs
+                        try:
+                            existing = Game.objects.get(date=game_date, home_team=str(home_team_id), away_team=str(away_team_id))
+                            existing.home_team = home_team
+                            existing.away_team = away_team
+                            existing.home_score = home_score
+                            existing.away_score = away_score
+                            existing.winner = winner
+                            existing.loser = loser
+                            existing.week = week
+                            if game_id:
+                                existing.nll_game_id = str(game_id)
+                            existing.save()
+                            if created:
+                                games_created += 1
+                            else:
+                                games_updated += 1
+                        except Exception:
+                            pass
+                    continue
+                
+                if created:
+                    games_created += 1
+                else:
+                    games_updated += 1
                 
                 if created:
                     games_created += 1
