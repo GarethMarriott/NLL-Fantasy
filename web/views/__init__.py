@@ -4206,7 +4206,7 @@ def draft_room(request):
 
 @login_required
 def draft_settings(request):
-    """View to display and configure future rookie picks settings"""
+    """View to configure draft settings (future picks for dynasty, basic settings for redraft)"""
     selected_league_id = request.session.get('selected_league_id')
     
     if not selected_league_id:
@@ -4214,10 +4214,12 @@ def draft_settings(request):
         return redirect('league_list')
     
     league = get_object_or_404(League, id=selected_league_id)
+    draft = getattr(league, 'draft', None)
     
-    # Check if it's a dynasty league
-    if league.league_type != 'dynasty':
-        messages.error(request, "Draft settings are only available for dynasty leagues.")
+    # For redraft leagues: only allow access before draft starts
+    # For dynasty leagues: always allow access
+    if league.league_type != 'dynasty' and draft and draft.is_active:
+        messages.error(request, "Draft settings cannot be modified after the draft has started.")
         return redirect('draft_room')
     
     # Check if user is commissioner (for POST requests)
@@ -4228,44 +4230,63 @@ def draft_settings(request):
         if not is_commissioner:
             messages.error(request, "Only the commissioner can modify draft settings.")
             return redirect('draft_room')
-        from ..forms import DraftSettingsForm
-        form = DraftSettingsForm(request.POST, league=league)
-        if form.is_valid():
-            years_ahead = form.cleaned_data['years_ahead']
-            num_rounds = form.cleaned_data['num_rounds']
-            
-            # Update draft total_rounds if draft exists
-            draft = getattr(league, 'draft', None)
-            if draft:
-                draft.total_rounds = num_rounds
-                draft.save()
-                logger.info(f"Updated draft rounds to {num_rounds} for {league.name}")
-            
-            # Delete existing future picks and recreate with new settings
-            from ..models import FutureRookiePick
-            FutureRookiePick.objects.filter(league=league).delete()
-            
-            # Create future picks with new settings
-            from ..tasks import create_future_rookie_picks
-            success, message, picks_created = create_future_rookie_picks(
-                league.id,
-                years_ahead=years_ahead,
-                num_rounds=num_rounds
-            )
-            
-            if success:
-                post_league_message(league, f"ðŸ“‹ Commissioner updated draft settings: {years_ahead} years of picks, {num_rounds} rounds each")
-            else:
-                messages.error(request, f"âœ— Error updating settings: {message}")
+        
+        # Handle dynasty league future picks
+        if league.league_type == 'dynasty':
+            from ..forms import DraftSettingsForm
+            form = DraftSettingsForm(request.POST, league=league)
+            if form.is_valid():
+                years_ahead = form.cleaned_data['years_ahead']
+                num_rounds = form.cleaned_data['num_rounds']
+                
+                # Update draft total_rounds if draft exists
+                if draft:
+                    draft.total_rounds = num_rounds
+                    draft.save()
+                    logger.info(f"Updated draft rounds to {num_rounds} for {league.name}")
+                
+                # Delete existing future picks and recreate with new settings
+                from ..models import FutureRookiePick
+                FutureRookiePick.objects.filter(league=league).delete()
+                
+                # Create future picks with new settings
+                from ..tasks import create_future_rookie_picks
+                success, message, picks_created = create_future_rookie_picks(
+                    league.id,
+                    years_ahead=years_ahead,
+                    num_rounds=num_rounds
+                )
+                
+                if success:
+                    post_league_message(league, f"📋 Commissioner updated draft settings: {years_ahead} years of picks, {num_rounds} rounds each")
+                else:
+                    messages.error(request, f"✘ Error updating settings: {message}")
+                
+                return redirect('draft_room')
+        else:
+            # Handle redraft league draft configuration
+            if draft and not draft.is_active:
+                total_rounds = request.POST.get('total_rounds')
+                if total_rounds:
+                    try:
+                        draft.total_rounds = int(total_rounds)
+                        draft.save()
+                        messages.success(request, f"Draft rounds updated to {total_rounds}")
+                        post_league_message(league, f"📋 Commissioner updated draft rounds to {total_rounds}")
+                    except (ValueError, TypeError):
+                        messages.error(request, "Invalid number of rounds")
             
             return redirect('draft_room')
     else:
-        from ..forms import DraftSettingsForm
-        form = DraftSettingsForm(league=league)
+        form = None
+        if league.league_type == 'dynasty':
+            from ..forms import DraftSettingsForm
+            form = DraftSettingsForm(league=league)
     
     return render(request, 'web/draft_settings.html', {
         'league': league,
         'form': form,
+        'draft': draft,
         'is_commissioner': is_commissioner,
     })
 
@@ -4308,107 +4329,14 @@ def reorder_draft_picks(request):
     # Reorder using task function
     from ..tasks import reorder_rookie_draft_picks
     success, message = reorder_rookie_draft_picks(draft.id, new_team_order)
-    
+
     if success:
-        post_league_message(league, f"ðŸ”„ Draft order has been manually reordered by the commissioner")
-        return JsonResponse({'success': True, 'message': message})
+        messages.success(request, message)
+        post_league_message(league, f"📋 Commissioner reordered draft picks")
     else:
-        return JsonResponse({'success': False, 'error': message}, status=400)
-
-
-@login_required
-@require_POST
-def start_draft(request):
-    """Start a draft for the selected league (commissioner only)"""
-    selected_league_id = request.session.get('selected_league_id')
+        messages.error(request, message)
     
-    if not selected_league_id:
-        messages.error(request, "Please select a league first.")
-        return redirect('league_list')
-    
-    league = get_object_or_404(League, id=selected_league_id)
-    
-    # Check if user is commissioner
-    if league.commissioner != request.user:
-        messages.error(request, "Only the commissioner can start the draft.")
-        return redirect('draft_room')
-    
-    # Check if league is full
-    teams = Team.objects.filter(league=league)
-    team_count = teams.count()
-    if team_count != league.max_teams:
-        messages.error(request, f"League must be full to start draft. Currently {team_count}/{league.max_teams} teams.")
-        return redirect('draft_room')
-    
-    # Check if draft already exists
-    if hasattr(league, 'draft'):
-        messages.error(request, "Draft already exists for this league.")
-        return redirect('draft_room')
-    
-    # Get draft order type and style
-    order_type = request.POST.get('order_type', 'RANDOM')
-    draft_style = request.POST.get('draft_style', 'SNAKE')
-    
-    # For MANUAL order, create draft but don't activate it yet
-    is_active = order_type == 'RANDOM'
-    started_at = timezone.now() if is_active else None
-    
-    # Create draft
-    draft = Draft.objects.create(
-        league=league,
-        is_active=is_active,
-        draft_order_type=order_type,
-        draft_style=draft_style,
-        total_rounds=league.roster_size,
-        started_at=started_at
-    )
-    
-    # Create draft positions
-    teams_list = list(teams)
-    
-    if order_type == 'RANDOM':
-        import random
-        random.shuffle(teams_list)
-    # If MANUAL, use default order (commissioner will reorder in next step)
-    
-    for position, team in enumerate(teams_list, start=1):
-        DraftPosition.objects.create(
-            draft=draft,
-            team=team,
-            position=position
-        )
-    
-    # Create all draft pick slots
-    overall_pick = 1
-    for round_num in range(1, draft.total_rounds + 1):
-        for pick_num in range(1, team_count + 1):
-            # Determine which team picks based on draft style
-            if draft.draft_style == 'SNAKE':
-                if round_num % 2 == 1:  # Odd round
-                    position = pick_num
-                else:  # Even round
-                    position = team_count - pick_num + 1
-            else:  # LINEAR
-                position = pick_num
-            
-            # Find team at this position
-            draft_pos = DraftPosition.objects.get(draft=draft, position=position)
-            
-            DraftPick.objects.create(
-                draft=draft,
-                round=round_num,
-                pick_number=pick_num,
-                overall_pick=overall_pick,
-                team=draft_pos.team
-            )
-            overall_pick += 1
-    
-    if order_type == 'MANUAL':
-        messages.info(request, "Draft created! Please arrange the team order.")
-    else:
-        post_league_message(league, f"ðŸ Draft has started! ({draft.get_draft_style_display()})")
-        messages.success(request, "Draft started!")
-    return redirect('draft_room')
+    return JsonResponse({'success': success, 'message': message})
 
 
 @login_required
