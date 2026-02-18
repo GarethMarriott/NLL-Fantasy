@@ -1,10 +1,12 @@
+# Generated migration for adding game score fields
+
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('web', '0044_add_celery_task_status'),
+        ('web', '0064_futurerookiepick_order_finalized'),
     ]
 
     operations = [
