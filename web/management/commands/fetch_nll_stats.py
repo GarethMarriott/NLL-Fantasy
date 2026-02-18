@@ -576,6 +576,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No schedule data found'))
             return {'created': 0, 'updated': 0}
         
+        # Build team ID to name mapping
+        teams_by_id = {t.get('id'): t.get('name') for t in data.get('teams', [])}
+        
         self.stdout.write(f'\nProcessing {len(schedule_data)} scheduled games from {season_filter} season...')
         
         # Group schedule by week and collect dates
@@ -692,8 +695,13 @@ class Command(BaseCommand):
                 continue
                 
             date_str = game.get('date') or game.get('dt')
-            home_team = game.get('home', 'TBA')
-            away_team = game.get('away', 'TBA')
+            # Get team IDs from API and convert to names
+            home_team_id = game.get('home', 'TBA')
+            away_team_id = game.get('away', 'TBA')
+            
+            # Convert IDs to team names if mapping is available
+            home_team = teams_by_id.get(home_team_id, home_team_id) if str(home_team_id).isdigit() else home_team_id
+            away_team = teams_by_id.get(away_team_id, away_team_id) if str(away_team_id).isdigit() else away_team_id
             
             # Create a unique key to avoid duplicates
             game_key = str(game_id)
