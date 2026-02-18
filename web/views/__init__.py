@@ -346,17 +346,18 @@ def team_detail(request, team_id):
             stats_by_player_week_num.setdefault((player.id, week_num), []).append(stat)
     
     # OPTIMIZATION: Fetch all games for selected week upfront to avoid N+1 queries
-    # Build a map of games by team_id for O(1) lookups
-    games_by_team_id = {}
+    # Build a map of games by team_name for O(1) lookups
+    # Games now store team names (like "Toronto Rock") not IDs
+    games_by_team_name = {}
     if selected_week_num:
         week_games = Game.objects.filter(
             week__week_number=selected_week_num,
             week__season=league_season
         )
         for game in week_games:
-            # Store game keyed by home and away team IDs
-            games_by_team_id[game.home_team] = game
-            games_by_team_id[game.away_team] = game
+            # Store game keyed by home and away team names
+            games_by_team_name[game.home_team] = game
+            games_by_team_name[game.away_team] = game
     
     for roster_entry in roster:
         p = roster_entry.player
@@ -395,12 +396,11 @@ def team_detail(request, team_id):
 
         # Get opponent for the selected week
         opponent = "BYE"
-        player_team_id = TEAM_NAME_TO_ID.get(p.nll_team) if p.nll_team else None
-        if p.nll_team and player_team_id:
-            # Use pre-fetched games lookup instead of querying for each player
-            game = games_by_team_id.get(player_team_id)
+        if p.nll_team:
+            # Use pre-fetched games lookup by team name
+            game = games_by_team_name.get(p.nll_team)
             if game:
-                opponent = f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} @ {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}"
+                opponent = f"{game.away_team} @ {game.home_team}"
         
         entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
 
@@ -2577,18 +2577,21 @@ def player_detail_modal(request, player_id):
         else:
             # Player has no stats for this week (didn't play or team had bye)
             # Check if player's team had any games scheduled this week
-            player_team_id = TEAM_NAME_TO_ID.get(player.nll_team, None)
+            player_team_name = player.nll_team  # Team name like "Toronto Rock"
             upcoming_games = []
             is_bye_week = True
             
-            if player_team_id:
+            if player_team_name:
+                # Query games by team name (games now store team names, not IDs)
                 games = Game.objects.filter(
-                    Q(week=week, home_team=player_team_id) | 
-                    Q(week=week, away_team=player_team_id)
+                    week=week
+                ).filter(
+                    Q(home_team=player_team_name) | 
+                    Q(away_team=player_team_name)
                 )
                 upcoming_games = [{
                     'date': game.date.strftime('%Y-%m-%d'),
-                    'opponent': f"{TEAM_ID_TO_NAME.get(game.home_team, game.home_team)} vs {TEAM_ID_TO_NAME.get(game.away_team, game.away_team)}",
+                    'opponent': f"{game.away_team} @ {game.home_team}",
                 } for game in games]
                 is_bye_week = len(upcoming_games) == 0
             
