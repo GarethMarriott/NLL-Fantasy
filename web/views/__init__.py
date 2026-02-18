@@ -2293,7 +2293,6 @@ def players(request):
         # Check if league uses waivers
         use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
 
-    logger = logging.getLogger(__name__)
     logger.info(f"PLAYERS VIEW RENDER: user={request.user}, user_team={user_team}, selected_league={selected_league}")
 
     return render(
