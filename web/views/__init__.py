@@ -2016,7 +2016,6 @@ def cancel_trade(request, trade_id):
     return redirect("team_detail", team_id=trade.proposing_team.id)
 
 
-@cache_view_with_request(get_players_cache_key, 'players')
 def players(request):
     """Render players list with their latest weekly stats (if any)."""
     # Get position filter
@@ -3009,7 +3008,6 @@ def matchups(request):
     )
 
 
-@cache_view_with_request(get_standings_cache_key_from_request, 'standings')
 def standings(request):
     # Get selected league from session
     selected_league_id = request.session.get('selected_league_id')
