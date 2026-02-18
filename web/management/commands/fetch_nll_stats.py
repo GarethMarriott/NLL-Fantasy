@@ -577,7 +577,7 @@ class Command(BaseCommand):
             return {'created': 0, 'updated': 0}
         
         # Build team ID to name mapping
-        teams_by_id = {t.get('id'): t.get('name') for t in data.get('teams', [])}
+        teams_by_id = {t.get('id'): t.get('team') for t in data.get('teams', [])}
         
         self.stdout.write(f'\nProcessing {len(schedule_data)} scheduled games from {season_filter} season...')
         
