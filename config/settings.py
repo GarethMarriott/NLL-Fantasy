@@ -165,6 +165,7 @@ SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = False  # Allow HTTP (only HTTPS is True)
 SESSION_COOKIE_SAMESITE = 'Lax'  # Allow session in cross-site requests
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database for sessions (more reliable than cache)
 # ===== EMAIL CONFIGURATION =====
 # Support multiple email backends via environment variables
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
