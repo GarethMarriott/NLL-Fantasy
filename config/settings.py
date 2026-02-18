@@ -160,12 +160,11 @@ LOGOUT_REDIRECT_URL = '/'
 # Message storage using session instead of database
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
-# Session cookie settings for HTTPS
+# Session cookie settings
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = env('SESSION_COOKIE_SECURE', default=True, cast=bool)  # Only send over HTTPS
+SESSION_COOKIE_SECURE = False  # Allow HTTP (only HTTPS is True)
 SESSION_COOKIE_SAMESITE = 'Lax'  # Allow session in cross-site requests
-SESSION_COOKIE_DOMAIN = env('SESSION_COOKIE_DOMAIN', default=None)  # Allow all domains
 # ===== EMAIL CONFIGURATION =====
 # Support multiple email backends via environment variables
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')

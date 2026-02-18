@@ -4,7 +4,7 @@ from .views import (
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, start_draft, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
-    nll_schedule, test_auth, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
+    nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
@@ -30,7 +30,6 @@ urlpatterns = [
     path("players/<int:player_id>/modal/", player_detail_modal, name="player_detail_modal"),
     path("schedule/", schedule, name="schedule"),
     path("nll-schedule/", nll_schedule, name="nll_schedule"),
-    path("test-auth/", test_auth, name="test_auth"),
     path("matchups/", matchups, name="matchups"),
     path("standings/", standings, name="standings"),
     

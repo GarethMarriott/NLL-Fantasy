@@ -3595,18 +3595,9 @@ def league_create(request):
     return render(request, "web/league_create.html", {"form": form})
 
 
-def test_auth(request):
-    """Test endpoint to check authentication"""
-    return HttpResponse(f"User: {request.user}, Authenticated: {request.user.is_authenticated}, Session Key: {request.session.session_key}, Cookies: {request.COOKIES}")
-
-
 @login_required
 def league_detail(request, league_id):
     """View league details and teams"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning(f"LEAGUE_DETAIL - User: {request.user}, Is Authenticated: {request.user.is_authenticated}, Session Key: {request.session.session_key}, User ID: {request.user.id if request.user.is_authenticated else 'N/A'}")
-    
     league = get_object_or_404(League, id=league_id)
     teams = league.teams.select_related('owner__user').all()
     
