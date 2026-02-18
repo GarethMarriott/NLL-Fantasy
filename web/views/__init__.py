@@ -2687,94 +2687,119 @@ def cache_stats(request):
 @never_cache
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
-    season = request.GET.get('season', 2026)
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Ensure session is loaded and user is authenticated
+    # Force session creation to maintain session across requests
+    _ = request.session.session_key  # This ensures the session is loaded
+    
+    # Log user status
+    logger.info(f"NLL Schedule accessed - User: {request.user}, Authenticated: {request.user.is_authenticated}, Session: {request.session.session_key}")
     
     try:
-        season = int(season)
-    except (ValueError, TypeError):
-        season = 2026
+        season = request.GET.get('season', 2026)
+        
+        try:
+            season = int(season)
+        except (ValueError, TypeError):
+            season = 2026
+        
+        # Use shared extended team mapping (imported at top of file)
+        nll_teams = EXTENDED_TEAM_ID_TO_NAME
+        
+        # Get all weeks for this season, ordered by week number
+        # Important: Prefetch player_stats to check completion status without N+1 queries
+        from django.db.models import Prefetch
+        weeks = Week.objects.filter(season=season).prefetch_related(
+            'games',
+            Prefetch('games__player_stats')  # Prefetch player_stats for all games
+        ).order_by('week_number')
+        
+        if not weeks.exists():
+            response = render(request, "web/nll_schedule.html", {
+                "schedule_weeks": [],
+                "season": season,
+                "available_seasons": []
+            })
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
+        
+        # Build schedule data
+        schedule_weeks = []
+        for week in weeks:
+            games = week.games.all().order_by('date')
+            
+            week_games = []
+            for game in games:
+                home_name = game.home_team
+                away_name = game.away_team
+                
+                # Try to convert team IDs to names
+                if game.home_team and game.away_team:
+                    try:
+                        home_id = int(game.home_team)
+                        home_name = nll_teams.get(home_id, game.home_team)
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    try:
+                        away_id = int(game.away_team)
+                        away_name = nll_teams.get(away_id, game.away_team)
+                    except (ValueError, TypeError):
+                        pass
+                
+                game_dict = {
+                    "id": game.id,
+                    "date": game.date,
+                    "home_team": home_name,
+                    "away_team": away_name,
+                    "nll_game_id": game.nll_game_id,
+                    # Check if game has stats (completed) vs upcoming - use prefetched data length
+                    "is_completed": len(game.player_stats.all()) > 0
+                }
+                week_games.append(game_dict)
+            
+            week_data = {
+                "week_number": week.week_number,
+                "start_date": week.start_date,
+                "end_date": week.end_date,
+                "is_playoff": week.is_playoff,
+                "games": week_games
+            }
+            schedule_weeks.append(week_data)
+        
+        # Get available seasons from database
+        available_seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
+        
+        response = render(request, "web/nll_schedule.html", {
+            "schedule_weeks": schedule_weeks,
+            "season": season,
+            "available_seasons": available_seasons,
+        })
+        
+        # Explicitly prevent all caching - this ensures user sessions are not cached
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        response['Vary'] = 'Cookie, Accept-Encoding'
+        
+        return response
     
-    # Use shared extended team mapping (imported at top of file)
-    nll_teams = EXTENDED_TEAM_ID_TO_NAME
-    
-    # Get all weeks for this season, ordered by week number
-    # Important: Prefetch player_stats to check completion status without N+1 queries
-    from django.db.models import Prefetch
-    weeks = Week.objects.filter(season=season).prefetch_related(
-        'games',
-        Prefetch('games__player_stats')  # Prefetch player_stats for all games
-    ).order_by('week_number')
-    
-    if not weeks.exists():
+    except Exception as e:
+        logger.error(f"Error in nll_schedule view: {str(e)}", exc_info=True)
+        # Return error response with proper headers
         response = render(request, "web/nll_schedule.html", {
             "schedule_weeks": [],
-            "season": season,
+            "season": 2026,
             "available_seasons": []
         })
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
         return response
-    
-    # Build schedule data
-    schedule_weeks = []
-    for week in weeks:
-        games = week.games.all().order_by('date')
-        
-        week_games = []
-        for game in games:
-            home_name = game.home_team
-            away_name = game.away_team
-            
-            # Try to convert team IDs to names
-            if game.home_team and game.away_team:
-                try:
-                    home_id = int(game.home_team)
-                    home_name = nll_teams.get(home_id, game.home_team)
-                except (ValueError, TypeError):
-                    pass
-                
-                try:
-                    away_id = int(game.away_team)
-                    away_name = nll_teams.get(away_id, game.away_team)
-                except (ValueError, TypeError):
-                    pass
-            
-            game_dict = {
-                "id": game.id,
-                "date": game.date,
-                "home_team": home_name,
-                "away_team": away_name,
-                "nll_game_id": game.nll_game_id,
-                # Check if game has stats (completed) vs upcoming - use prefetched data length
-                "is_completed": len(game.player_stats.all()) > 0
-            }
-            week_games.append(game_dict)
-        
-        week_data = {
-            "week_number": week.week_number,
-            "start_date": week.start_date,
-            "end_date": week.end_date,
-            "is_playoff": week.is_playoff,
-            "games": week_games
-        }
-        schedule_weeks.append(week_data)
-    
-    # Get available seasons from database
-    available_seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
-    
-    response = render(request, "web/nll_schedule.html", {
-        "schedule_weeks": schedule_weeks,
-        "season": season,
-        "available_seasons": available_seasons,
-    })
-    
-    # Explicitly prevent all caching - this ensures user sessions are not cached
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    
-    return response
 
 
 def schedule(request):
