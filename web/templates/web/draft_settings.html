@@ -1,4 +1,4 @@
-{% extends "web/base.html" %}
+      {% extends "web/base.html" %}
 
 {% block title %}Draft Settings - {{ league.name }}{% endblock %}
 
@@ -27,6 +27,7 @@
   </div>
   {% endif %}
 
+  {% if league.league_type == 'dynasty' %}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Main Settings Form -->
     <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
@@ -114,13 +115,25 @@
         <div>
           <h4 class="font-medium text-gray-900 mb-1">⚙️ Schema</h4>
           <p>
+            {% if form %}
             <strong>Years Ahead:</strong> {{ form.years_ahead.value }}<br>
             <strong>Rounds:</strong> {{ form.num_rounds.value }}<br>
             <strong>Total Picks:</strong> {{ form.years_ahead.value|add:form.num_rounds.value }} (approximate)
+            {% else %}
+            <em>No draft configuration available</em>
+            {% endif %}
           </p>
         </div>
       </div>
     </div>
   </div>
+  {% else %}
+  <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+    <h2 class="text-xl font-semibold mb-4 text-gray-800">Redraft League</h2>
+    <p class="text-blue-900">
+      This is a redraft league. Draft settings are managed in the <a href="{% url 'draft_room' %}" class="font-semibold text-blue-700 hover:text-blue-900">Draft Room</a>.
+    </p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
