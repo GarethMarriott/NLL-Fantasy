@@ -2686,6 +2686,9 @@ def cache_stats(request):
 @login_required
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
+    import sys
+    print(f"DEBUG: nll_schedule - User: {request.user}, Authenticated: {request.user.is_authenticated}, Session: {request.session.session_key}", file=sys.stderr)
+    
     season = request.GET.get('season', 2026)
     
     try:
