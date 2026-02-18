@@ -3598,6 +3598,10 @@ def league_create(request):
 @login_required
 def league_detail(request, league_id):
     """View league details and teams"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"LEAGUE_DETAIL - User: {request.user}, Is Authenticated: {request.user.is_authenticated}, Session Key: {request.session.session_key}, User ID: {request.user.id if request.user.is_authenticated else 'N/A'}")
+    
     league = get_object_or_404(League, id=league_id)
     teams = league.teams.select_related('owner__user').all()
     
@@ -3622,7 +3626,6 @@ def league_detail(request, league_id):
     })
 
 
-@login_required
 @login_required
 def team_create(request, league_id):
     """Create a team in a league and join as owner"""
