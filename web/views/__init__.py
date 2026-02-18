@@ -2014,6 +2014,10 @@ def cancel_trade(request, trade_id):
 
 def players(request):
     """Render players list with their latest weekly stats (if any)."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"PLAYERS VIEW: user={request.user}, authenticated={request.user.is_authenticated}, session_id={request.session.session_key}")
+    
     # Get position filter
     selected_position = request.GET.get("position", "")
     
@@ -2288,6 +2292,9 @@ def players(request):
         
         # Check if league uses waivers
         use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"PLAYERS VIEW RENDER: user={request.user}, user_team={user_team}, selected_league={selected_league}")
 
     return render(
         request,
