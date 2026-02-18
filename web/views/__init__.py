@@ -2698,15 +2698,35 @@ def nll_schedule(request):
     # Get weeks directly from database with minimal processing
     weeks_list = list(Week.objects.filter(season=season).order_by('week_number'))
     
-    # Build minimal schedule data
+    # Build schedule with team name mapping
     schedule_weeks = []
     for week in weeks_list:
+        games_data = []
+        for game in week.games.all():
+            # Get team names - they're stored as CharField in Game model
+            home_team_name = game.home_team
+            away_team_name = game.away_team
+            
+            # If they look like IDs (numeric), try to map them to team names
+            if home_team_name.isdigit():
+                home_team_name = TEAM_ID_TO_NAME.get(int(home_team_name), home_team_name)
+            if away_team_name.isdigit():
+                away_team_name = TEAM_ID_TO_NAME.get(int(away_team_name), away_team_name)
+            
+            games_data.append({
+                'id': game.id,
+                'date': game.date,
+                'home_team': home_team_name,
+                'away_team': away_team_name,
+                'is_completed': game.date < timezone.now().date() if game.date else False
+            })
+        
         schedule_weeks.append({
             "week_number": week.week_number,
             "start_date": week.start_date,
             "end_date": week.end_date,
             "is_playoff": week.is_playoff,
-            "games": list(week.games.all().values('id', 'date', 'home_team', 'away_team'))
+            "games": games_data
         })
     
     # Get available seasons
