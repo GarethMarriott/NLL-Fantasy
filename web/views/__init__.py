@@ -3595,7 +3595,6 @@ def league_create(request):
     return render(request, "web/league_create.html", {"form": form})
 
 
-@cache_view_result(lambda league_id: get_league_detail_cache_key(league_id), 'league_detail')
 @login_required
 def league_detail(request, league_id):
     """View league details and teams"""
