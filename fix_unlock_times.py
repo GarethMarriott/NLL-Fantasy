@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Update roster unlock times from Monday to Tuesday for weeks that need it."""
+"""Update roster unlock times to Tuesday 9am PT (Tuesday 5pm UTC) for all weeks."""
 
 import os
 import django
@@ -9,46 +9,51 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 from web.models import Week
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.utils import timezone
 
-# Get all weeks that have an unlock_time set
-weeks = Week.objects.filter(roster_unlock_time__isnull=False).order_by('season', 'week_number')
+# PT timezone
+pt_tz = pytz.timezone('America/Los_Angeles')
 
-print(f"Found {weeks.count()} weeks with unlock times")
+# Get all weeks that have a start_date
+weeks = Week.objects.filter(start_date__isnull=False).order_by('season', 'week_number')
+
+print(f"Found {weeks.count()} weeks with start dates")
 
 for week in weeks:
-    if week.roster_unlock_time:
-        # Get the lock time (Friday first game)
-        lock_time = week.roster_lock_time
-        unlock_time = week.roster_unlock_time
+    if week.start_date:
+        # Calculate the Tuesday before the week starts
+        week_start = week.start_date
         
-        # If unlock time is on Monday, move it to Tuesday 9am PT (Tuesday 5pm UTC)
-        # Monday 9am PT (5pm UTC) is day 0, Tuesday 9am PT is day 1
-        # Check if the unlock time is a Monday by looking at the day of week (0=Monday, 1=Tuesday, etc)
+        # Find how many days from Tuesday (weekday=1)
+        day_of_week = week_start.weekday()  # 0=Mon, 4=Fri, 6=Sun
         
-        unlock_day_of_week = unlock_time.weekday()  # Returns 0-6 (Monday=0, Tuesday=1, etc)
-        lock_day_of_week = lock_time.weekday()
+        # Calculate days to go back to Tuesday
+        # If today is Friday (4), Tuesday is (4-1)=3 days before
+        # If today is Monday (0), Tuesday is (0-1)%7=6 days before
+        days_back = (day_of_week - 1) % 7
+        if days_back == 0:  # week_start is Tuesday
+            days_back = 7  # Go back to previous Tuesday
         
-        # The lock time is Friday 7pm PT (Saturday 2am UTC)
-        # The unlock should be Tuesday 9am PT (Tuesday 5pm UTC)
-        # Friday to Tuesday going backwards is 3 days
-        # Calculate what the unlock time should be: Tuesday 9am PT (Tuesday 5pm UTC)
-        if lock_time:
-            # Lock time is on the first game day (Friday)
-            # Subtract 3 days to get to Tuesday
-            expected_unlock_date = lock_time.date() - timedelta(days=3)
-            expected_unlock_time = lock_time.replace(
-                year=expected_unlock_date.year,
-                month=expected_unlock_date.month,
-                day=expected_unlock_date.day
-            )
-            
-            if unlock_time != expected_unlock_time:
-                print(f"  Week {week.week_number} (Season {week.season}): {unlock_time} -> {expected_unlock_time}")
-                week.roster_unlock_time = expected_unlock_time
-                week.save()
-            else:
-                print(f"  Week {week.week_number} (Season {week.season}): OK (already Tuesday)")
+        tuesday = week_start - timedelta(days=days_back)
+        
+        # Set unlock time to Tuesday 9am PT
+        # Create naive datetime first
+        naive_unlock = datetime.combine(tuesday, datetime.min.time()).replace(hour=9, minute=0)
+        # Localize to PT timezone
+        expected_unlock_time = pt_tz.localize(naive_unlock)
+        
+        # Convert to UTC for comparison
+        expected_unlock_utc = expected_unlock_time.astimezone(pytz.UTC)
+        
+        current_unlock = week.roster_unlock_time
+        
+        if current_unlock != expected_unlock_utc:
+            print(f"  Week {week.week_number} (Season {week.season}): {current_unlock} -> {expected_unlock_utc}")
+            week.roster_unlock_time = expected_unlock_utc
+            week.save()
+        else:
+            print(f"  Week {week.week_number} (Season {week.season}): OK (already correct)")
 
 print("\nDone!")
+
