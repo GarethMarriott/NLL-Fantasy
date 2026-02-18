@@ -2688,6 +2688,10 @@ def cache_stats(request):
 @never_cache
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"NLL Schedule - User: {request.user}, Is Authenticated: {request.user.is_authenticated}, Session ID: {request.session.session_key}")
+    
     season = request.GET.get('season', 2026)
     
     try:
@@ -2719,6 +2723,8 @@ def nll_schedule(request):
         "available_seasons": available_seasons,
         "user": request.user,
     }
+    
+    logger.warning(f"Context user: {context['user']}, Authenticated: {context['user'].is_authenticated}")
     
     response = render(request, "web/nll_schedule.html", context)
     
