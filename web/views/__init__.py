@@ -2684,6 +2684,7 @@ def cache_stats(request):
     return JsonResponse(stats, json_dumps_params={'indent': 2})
 
 
+@login_required
 @never_cache
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
