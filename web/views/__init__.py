@@ -3624,6 +3624,7 @@ def league_detail(request, league_id):
 
 
 @login_required
+@login_required
 def team_create(request, league_id):
     """Create a team in a league and join as owner"""
     league = get_object_or_404(League, id=league_id)
