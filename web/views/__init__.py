@@ -2711,6 +2711,10 @@ def nll_schedule(request):
                 'date': game.date,
                 'home_team': game.home_team,
                 'away_team': game.away_team,
+                'home_score': game.home_score,
+                'away_score': game.away_score,
+                'winner': game.winner,
+                'loser': game.loser,
                 'is_completed': game.date < timezone.now().date() if game.date else False
             })
         

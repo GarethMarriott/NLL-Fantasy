@@ -594,6 +594,13 @@ class Game(models.Model):
     away_team = models.CharField(max_length=100)
     location = models.CharField(max_length=100, blank=True)
     nll_game_id = models.CharField(max_length=32, blank=True, null=True, help_text="External NLL game ID if available")
+    
+    # Final scores (populated after game is completed)
+    home_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    away_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    winner = models.CharField(max_length=100, blank=True, null=True)
+    loser = models.CharField(max_length=100, blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

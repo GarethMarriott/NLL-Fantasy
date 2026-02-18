@@ -703,6 +703,16 @@ class Command(BaseCommand):
             home_team = teams_by_id.get(home_team_id, home_team_id) if str(home_team_id).isdigit() else home_team_id
             away_team = teams_by_id.get(away_team_id, away_team_id) if str(away_team_id).isdigit() else away_team_id
             
+            # Get scores if available
+            home_score = game.get('home_score')
+            away_score = game.get('away_score')
+            winner_id = game.get('winner')
+            loser_id = game.get('loser')
+            
+            # Convert winner/loser IDs to team names
+            winner = teams_by_id.get(winner_id, None) if winner_id and str(winner_id).isdigit() else None
+            loser = teams_by_id.get(loser_id, None) if loser_id and str(loser_id).isdigit() else None
+            
             # Create a unique key to avoid duplicates
             game_key = str(game_id)
             
@@ -749,6 +759,10 @@ class Command(BaseCommand):
                     defaults={
                         'week': week,
                         'nll_game_id': str(game_id) if game_id else None,
+                        'home_score': home_score,
+                        'away_score': away_score,
+                        'winner': winner,
+                        'loser': loser,
                     }
                 )
                 

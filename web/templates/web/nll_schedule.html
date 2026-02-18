@@ -49,13 +49,37 @@
                   <tr class="bg-white dark:bg-gray-800">
                     <td class="px-6 py-4">
                       <div class="flex items-center justify-between">
-                        <span class="font-semibold text-black dark:text-white text-right flex-1">
-                          {{ game.away_team }}
-                        </span>
-                        <span class="mx-3 text-gray-500 dark:text-gray-400">@</span>
-                        <span class="font-semibold text-black dark:text-white flex-1">
-                          {{ game.home_team }}
-                        </span>
+                        {% if game.is_completed and game.away_score is not None and game.home_score is not None %}
+                          <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                              <span class="font-semibold text-black dark:text-white">
+                                {{ game.away_team }}
+                              </span>
+                              <span class="font-bold text-lg {% if game.winner == game.away_team %}text-green-600{% else %}text-gray-400{% endif %}">
+                                {{ game.away_score }}
+                              </span>
+                            </div>
+                          </div>
+                          <span class="mx-3 text-gray-500 dark:text-gray-400">-</span>
+                          <div class="flex-1 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                              <span class="font-bold text-lg {% if game.winner == game.home_team %}text-green-600{% else %}text-gray-400{% endif %}">
+                                {{ game.home_score }}
+                              </span>
+                              <span class="font-semibold text-black dark:text-white">
+                                {{ game.home_team }}
+                              </span>
+                            </div>
+                          </div>
+                        {% else %}
+                          <span class="font-semibold text-black dark:text-white text-right flex-1">
+                            {{ game.away_team }}
+                          </span>
+                          <span class="mx-3 text-gray-500 dark:text-gray-400">@</span>
+                          <span class="font-semibold text-black dark:text-white flex-1">
+                            {{ game.home_team }}
+                          </span>
+                        {% endif %}
                       </div>
                     </td>
                     <td class="px-6 py-4 text-center text-sm text-gray-600 dark:text-gray-400">
