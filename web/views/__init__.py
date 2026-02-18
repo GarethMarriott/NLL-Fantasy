@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.utils import timezone
 from django.db import models
 from django.db.models import Q
@@ -2685,20 +2685,8 @@ def cache_stats(request):
 
 
 @login_required
-@never_cache
-def nll_schedule_debug(request):
-    """Debug endpoint to test authentication"""
-    return HttpResponse(f"User: {request.user.username}, Authenticated: {request.user.is_authenticated}, Session Key: {request.session.session_key}")
-
-
-@login_required
-@never_cache
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning(f"NLL Schedule - User: {request.user}, Is Authenticated: {request.user.is_authenticated}, Session ID: {request.session.session_key}")
-    
     season = request.GET.get('season', 2026)
     
     try:
@@ -2728,20 +2716,9 @@ def nll_schedule(request):
         "schedule_weeks": schedule_weeks,
         "season": season,
         "available_seasons": available_seasons,
-        "user": request.user,
     }
     
-    logger.warning(f"Context user: {context['user']}, Authenticated: {context['user'].is_authenticated}")
-    
-    response = render(request, "web/nll_schedule.html", context)
-    
-    # Set cache-control headers
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    response['Vary'] = 'Cookie, Accept-Encoding'
-    
-    return response
+    return render(request, "web/nll_schedule.html", context)
 
 
 def schedule(request):
