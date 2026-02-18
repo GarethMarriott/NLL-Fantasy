@@ -94,6 +94,13 @@ def get_matchups_cache_key_from_request(request):
     return get_matchups_cache_key(league_id, week_num)
 
 
+def get_standings_cache_key_from_request(request):
+    """Generate cache key for standings view (extracts params from request)"""
+    # Get league_id from session
+    league_id = request.session.get('selected_league_id', 'default')
+    return get_standings_cache_key(league_id)
+
+
 def get_schedule_cache_key(team_ids_hash, playoff_weeks=None, playoff_teams=None):
     """Generate cache key for schedule build"""
     key = f"schedule:{team_ids_hash}"
