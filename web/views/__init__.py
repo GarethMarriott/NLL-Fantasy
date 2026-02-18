@@ -16,6 +16,7 @@ from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NA
 from ..scoring import calculate_fantasy_points
 from ..cache_utils import cache_view_result, cache_view_with_request, get_standings_cache_key, get_standings_cache_key_from_request, get_team_detail_cache_key, get_matchups_cache_key, get_matchups_cache_key_from_request, get_nll_schedule_cache_key, get_players_cache_key, get_league_detail_cache_key, invalidate_team_cache, invalidate_league_cache
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 
 
 def get_team_abbr(team_name):
@@ -2683,7 +2684,7 @@ def cache_stats(request):
     return JsonResponse(stats, json_dumps_params={'indent': 2})
 
 
-@login_required
+@never_cache
 def nll_schedule(request):
     """Display all NLL weeks and games (both completed and upcoming)"""
     season = request.GET.get('season', 2026)
@@ -2758,17 +2759,10 @@ def nll_schedule(request):
     # Get available seasons from database
     available_seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
     
-    # DEBUG: Log the first game's team data
-    if schedule_weeks and schedule_weeks[0]['games']:
-        first_game = schedule_weeks[0]['games'][0]
-        import sys
-        print(f"DEBUG: First game - away: {repr(first_game['away_team'])}, home: {repr(first_game['home_team'])}", file=sys.stderr)
-    
     return render(request, "web/nll_schedule.html", {
         "schedule_weeks": schedule_weeks,
         "season": season,
         "available_seasons": available_seasons,
-        "user": request.user,
     })
 
 
