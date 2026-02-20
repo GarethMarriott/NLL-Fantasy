@@ -2698,6 +2698,30 @@ def nll_schedule(request):
     except (ValueError, TypeError):
         season = 2026
     
+    # Build team ID to name mapping
+    teams_by_id = {}
+    try:
+        from web.cache_utils import get_nll_teams_mapping
+        teams_by_id = get_nll_teams_mapping()
+    except:
+        # If cache fails, build mapping from games in database
+        all_games = Game.objects.all()
+        for game in all_games:
+            if not game.home_team.isdigit():
+                teams_by_id[game.home_team.split()[-1] if ' ' in game.home_team else game.home_team] = game.home_team
+            if not game.away_team.isdigit():
+                teams_by_id[game.away_team.split()[-1] if ' ' in game.away_team else game.away_team] = game.away_team
+    
+    def convert_team_id_to_name(team_value):
+        """Convert numeric team ID to team name if needed"""
+        if not team_value:
+            return team_value
+        if str(team_value).isdigit():
+            # Try to find mapping - for now return the value as-is
+            # This would need actual team ID mapping from API
+            return team_value
+        return team_value
+    
     # Get weeks directly from database with minimal processing
     weeks_list = list(Week.objects.filter(season=season).order_by('week_number'))
     
@@ -2706,11 +2730,30 @@ def nll_schedule(request):
     for week in weeks_list:
         games_data = []
         for game in week.games.all():
+            home_team = game.home_team
+            away_team = game.away_team
+            
+            # Convert numeric IDs to team names for display if possible
+            # Try to find a game with the same date and opposite ID format
+            if str(home_team).isdigit() or str(away_team).isdigit():
+                # Look for corresponding game with team names
+                named_game = Game.objects.filter(
+                    date=game.date,
+                    home_score=game.home_score,
+                    away_score=game.away_score
+                ).exclude(
+                    id=game.id
+                ).first()
+                
+                if named_game and not named_game.home_team.isdigit():
+                    home_team = named_game.home_team
+                    away_team = named_game.away_team
+            
             games_data.append({
                 'id': game.id,
                 'date': game.date,
-                'home_team': game.home_team,
-                'away_team': game.away_team,
+                'home_team': home_team,
+                'away_team': away_team,
                 'home_score': game.home_score,
                 'away_score': game.away_score,
                 'winner': game.winner,
