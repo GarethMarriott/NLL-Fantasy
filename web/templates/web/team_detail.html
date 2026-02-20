@@ -349,7 +349,7 @@
                 <td class="p-1 sm:p-2 md:p-3 table-cell text-xs text-center">{{ slot.opponent|opponent_abbr }}</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">{% if slot.selected_week_points is not None %}{% if slot.selected_week_counts %}<strong class="text-green-600">{{ slot.selected_week_points }}</strong>{% else %}<span class="text-gray-600">{{ slot.selected_week_points }}</span>{% endif %}{% else %}-{% endif %}</td>
                 {% else %}
-                <td class="p-1 sm:p-2 md:p-3 table-cell">-</td>
+                <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                   <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
                 </td>
@@ -398,7 +398,7 @@
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                   <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
                 </td>
-                <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
+                <td class="p-1 sm:p-2 md:p-3 table-cell text-xs text-center">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
                 {% endif %}
               </tr>
@@ -443,7 +443,7 @@
                 <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                   <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
                 </td>
-                <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
+                <td class="p-1 sm:p-2 md:p-3 table-cell text-xs text-center">-</td>
                 <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
                 {% endif %}
               </tr>
@@ -505,7 +505,7 @@
             <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
               <span class="text-gray-500 italic text-xs sm:text-sm">Empty</span>
             </td>
-            <td class="p-1 sm:p-2 md:p-3 hidden sm:table-cell">-</td>
+            <td class="p-1 sm:p-2 md:p-3 table-cell text-xs text-center">-</td>
             <td class="p-1 sm:p-2 md:p-3 w-12 sm:w-16">-</td>
             {% endif %}
           </tr>
