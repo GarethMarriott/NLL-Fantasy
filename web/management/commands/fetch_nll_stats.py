@@ -85,11 +85,17 @@ class Command(BaseCommand):
             # Process schedule (upcoming games)
             schedule_result = self.process_schedule(data, season, week_filter, dry_run)
             
+            # Process game scores from games.json
+            scores_result = self.process_game_scores(data, season, week_filter, dry_run)
+            
             self.stdout.write(self.style.SUCCESS(
                 f'\nStats - Created: {stats_result["created"]}, Updated: {stats_result["updated"]}, Skipped: {stats_result["skipped"]}'
             ))
             self.stdout.write(self.style.SUCCESS(
                 f'Schedule - Created: {schedule_result["created"]}, Updated: {schedule_result["updated"]}'
+            ))
+            self.stdout.write(self.style.SUCCESS(
+                f'Scores - Updated: {scores_result["updated"]}'
             ))
 
         except requests.RequestException as e:
@@ -849,4 +855,87 @@ class Command(BaseCommand):
                 self.stdout.write(f'  [DRY RUN] Would create game: {away_team} @ {home_team} on {game_date}')
         
         return {'created': games_created, 'updated': games_updated}
+
+    def process_game_scores(self, data, season_filter, week_filter, dry_run):
+        """Extract scores from games.json and update Game records"""
+        games_data = data.get('games', [])
+        teams_by_id = {t.get('id'): t.get('team') for t in data.get('teams', [])}
+        
+        scores_updated = 0
+        
+        self.stdout.write(f'\nProcessing game scores from games.json for {season_filter} season...')
+        
+        for game in games_data:
+            # Only process games from the target season with scores
+            if game.get('season') != season_filter:
+                continue
+            
+            home_score = game.get('home_score')
+            away_score = game.get('away_score')
+            
+            # Skip if no scores available
+            if home_score is None or away_score is None:
+                continue
+            
+            game_id = game.get('id')
+            home_team_id = game.get('home')
+            away_team_id = game.get('away')
+            winner_id = game.get('winner')
+            loser_id = game.get('loser')
+            
+            # Convert team IDs to names
+            home_team = teams_by_id.get(home_team_id)
+            away_team = teams_by_id.get(away_team_id)
+            
+            # Skip if can't resolve team names
+            if not home_team or not away_team:
+                continue
+            
+            # Convert winner/loser IDs to team names
+            winner = teams_by_id.get(winner_id) if winner_id and str(winner_id).isdigit() else None
+            loser = teams_by_id.get(loser_id) if loser_id and str(loser_id).isdigit() else None
+            
+            if not dry_run:
+                # Try to find game by nll_game_id first
+                game_obj = Game.objects.filter(nll_game_id=str(game_id)).first()
+                
+                # If not found, try by date and team names
+                if not game_obj:
+                    date_str = game.get('dt')
+                    game_date = None
+                    try:
+                        if date_str:
+                            if ' ' in date_str and ':' in date_str:
+                                date_str_clean = date_str.split(' ')[0] + ' ' + date_str.split(' ')[1] + ' ' + date_str.split(' ')[2]
+                            else:
+                                date_str_clean = date_str
+                            
+                            for fmt in ('%b %d, %Y', '%Y-%m-%d', '%m/%d/%Y'):
+                                try:
+                                    game_date = datetime.strptime(date_str_clean.strip(), fmt).date()
+                                    break
+                                except ValueError:
+                                    continue
+                    except (ValueError, TypeError, AttributeError):
+                        pass
+                    
+                    if game_date:
+                        game_obj = Game.objects.filter(
+                            date=game_date,
+                            home_team=home_team,
+                            away_team=away_team,
+                        ).first()
+                
+                # Update game with scores if found
+                if game_obj:
+                    game_obj.home_score = home_score
+                    game_obj.away_score = away_score
+                    game_obj.winner = winner
+                    game_obj.loser = loser
+                    game_obj.nll_game_id = str(game_id)
+                    game_obj.save()
+                    scores_updated += 1
+                    self.stdout.write(f'  ✓ Updated: {away_team} {away_score} @ {home_team} {home_score} (Winner: {winner})')
+        
+        return {'updated': scores_updated}
 
