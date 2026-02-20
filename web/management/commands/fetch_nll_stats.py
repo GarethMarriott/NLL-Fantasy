@@ -14,7 +14,6 @@ import zipfile
 from datetime import datetime, timedelta
 import pytz
 from django.core.management.base import BaseCommand
-from django.db.models import Q
 from web.models import Player, Week, Game, PlayerGameStat
 
 
@@ -701,8 +700,22 @@ class Command(BaseCommand):
             away_team_id = game.get('away', 'TBA')
             
             # Convert IDs to team names if mapping is available
-            home_team = teams_by_id.get(home_team_id, home_team_id) if str(home_team_id).isdigit() else home_team_id
-            away_team = teams_by_id.get(away_team_id, away_team_id) if str(away_team_id).isdigit() else away_team_id
+            # Always prefer team name from mapping, never store numeric IDs
+            if str(home_team_id).isdigit():
+                home_team = teams_by_id.get(home_team_id)
+                if not home_team:
+                    # If team name not found, skip this game to avoid data corruption
+                    continue
+            else:
+                home_team = home_team_id
+            
+            if str(away_team_id).isdigit():
+                away_team = teams_by_id.get(away_team_id)
+                if not away_team:
+                    # If team name not found, skip this game to avoid data corruption
+                    continue
+            else:
+                away_team = away_team_id
             
             # Get scores if available
             home_score = game.get('home_score')
@@ -751,49 +764,22 @@ class Command(BaseCommand):
                 if not game_date:
                     game_date = week.start_date
                 
-                # Try to find existing game with robust lookup
+                # Try to find existing game first by nll_game_id, then by date + team IDs
                 game_obj = None
                 created = False
                 
-                # Strategy 1: Try by nll_game_id (most reliable)
                 if game_id:
                     game_obj = Game.objects.filter(nll_game_id=str(game_id)).first()
                 
-                # Strategy 2: Try by date + team names (case-insensitive)
-                if not game_obj and game_date:
+                # If not found by nll_game_id, try by date and team names
+                if not game_obj:
                     game_obj = Game.objects.filter(
                         date=game_date,
-                        home_team__iexact=home_team,
-                        away_team__iexact=away_team,
+                        home_team=home_team,
+                        away_team=away_team,
                     ).first()
                 
-                # Strategy 3: Check for games with numeric IDs that should be updated
-                # This handles the case where older games were stored with IDs instead of names
-                if not game_obj and game_date:
-                    # Check if there's a game with the same date but with team IDs instead of names
-                    # Find all games on this date and update any with numeric team IDs
-                    games_on_date = Game.objects.filter(date=game_date)
-                    for g in games_on_date:
-                        if (g.home_team == str(home_team_id) and g.away_team == str(away_team_id)):
-                            # Found a game with IDs that matches - update it to use names
-                            game_obj = g
-                            game_obj.home_team = home_team
-                            game_obj.away_team = away_team
-                            break
-                
-                # Strategy 4: Only create if truly not found
                 if not game_obj:
-                    # Final check: make sure there isn't already a game with these teams on this date
-                    # to avoid constraint violations
-                    existing_count = Game.objects.filter(date=game_date).filter(
-                        (Q(home_team__iexact=home_team) & Q(away_team__iexact=away_team)) |
-                        (Q(home_team__iexact=str(home_team_id)) & Q(away_team__iexact=str(away_team_id)))
-                    ).count()
-                    
-                    if existing_count > 0:
-                        # Game exists in some form, skip creating duplicate
-                        continue
-                    
                     # Create new game
                     try:
                         game_obj = Game(
