@@ -123,6 +123,20 @@ class Command(BaseCommand):
         # Build team lookup dictionary by ID
         teams_by_id = {t['id']: t for t in data.get('teams', [])}
         
+        # Helper function to convert numeric team IDs to team names
+        def convert_team_id_to_name(team_value):
+            """Convert numeric team ID to team name if needed"""
+            if not team_value:
+                return team_value
+            # If it's a numeric ID, try to convert it
+            if isinstance(team_value, int) or (isinstance(team_value, str) and team_value.isdigit()):
+                team_id = int(team_value) if isinstance(team_value, str) else team_value
+                team_obj = teams_by_id.get(team_id)
+                if team_obj:
+                    return team_obj.get('team', team_value)
+            # If it's already a team name, return as-is
+            return team_value
+        
         # Build jersey number lookup dictionary by player_id
         jersey_numbers = {}
         for jersey in data.get('jerseynumbers', []):
@@ -272,6 +286,11 @@ class Command(BaseCommand):
                 # Create or get Game for this specific game
                 home_team = game.get('home', 'TBA')
                 away_team = game.get('away', 'TBA')
+                
+                # Convert numeric IDs to team names
+                home_team = convert_team_id_to_name(home_team)
+                away_team = convert_team_id_to_name(away_team)
+                
                 try:
                     game_obj, _ = Game.objects.get_or_create(
                         week=week,
