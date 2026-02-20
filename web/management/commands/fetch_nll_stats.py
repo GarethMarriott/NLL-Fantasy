@@ -14,6 +14,7 @@ import zipfile
 from datetime import datetime, timedelta
 import pytz
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 from web.models import Player, Week, Game, PlayerGameStat
 
 
@@ -750,39 +751,49 @@ class Command(BaseCommand):
                 if not game_date:
                     game_date = week.start_date
                 
-                # Try to find existing game first by nll_game_id, then by date + team IDs
+                # Try to find existing game with robust lookup
                 game_obj = None
                 created = False
                 
+                # Strategy 1: Try by nll_game_id (most reliable)
                 if game_id:
                     game_obj = Game.objects.filter(nll_game_id=str(game_id)).first()
                 
-                # If not found by nll_game_id, try by date and team IDs (backward compatibility)
-                if not game_obj:
-                    # Look for games with team IDs or names (since older games might be stored as IDs)
-                    # Try exact name match first, then try ID match
+                # Strategy 2: Try by date + team names (case-insensitive)
+                if not game_obj and game_date:
                     game_obj = Game.objects.filter(
                         date=game_date,
-                        home_team=home_team,
-                        away_team=away_team,
+                        home_team__iexact=home_team,
+                        away_team__iexact=away_team,
                     ).first()
-                    
-                    if not game_obj:
-                        game_obj = Game.objects.filter(
-                            date=game_date,
-                            home_team__in=[str(home_team_id)],
-                            away_team__in=[str(away_team_id)],
-                        ).first()
-                    
-                    # If still not found, look by team names (case with old IDs)
-                    if not game_obj:
-                        # Maybe the game  exists with the new names from a previous partial run
-                        try:
-                            game_obj = Game.objects.get(date=game_date, home_team=home_team, away_team=away_team)
-                        except:
-                            pass
                 
+                # Strategy 3: Check for games with numeric IDs that should be updated
+                # This handles the case where older games were stored with IDs instead of names
+                if not game_obj and game_date:
+                    # Check if there's a game with the same date but with team IDs instead of names
+                    # Find all games on this date and update any with numeric team IDs
+                    games_on_date = Game.objects.filter(date=game_date)
+                    for g in games_on_date:
+                        if (g.home_team == str(home_team_id) and g.away_team == str(away_team_id)):
+                            # Found a game with IDs that matches - update it to use names
+                            game_obj = g
+                            game_obj.home_team = home_team
+                            game_obj.away_team = away_team
+                            break
+                
+                # Strategy 4: Only create if truly not found
                 if not game_obj:
+                    # Final check: make sure there isn't already a game with these teams on this date
+                    # to avoid constraint violations
+                    existing_count = Game.objects.filter(date=game_date).filter(
+                        (Q(home_team__iexact=home_team) & Q(away_team__iexact=away_team)) |
+                        (Q(home_team__iexact=str(home_team_id)) & Q(away_team__iexact=str(away_team_id)))
+                    ).count()
+                    
+                    if existing_count > 0:
+                        # Game exists in some form, skip creating duplicate
+                        continue
+                    
                     # Create new game
                     try:
                         game_obj = Game(
