@@ -23,32 +23,16 @@
       </div>
     </div>
 
-    {# Week Selector with Navigation #}
+    {# Week Selector #}
     <div class="mb-4">
       <label for="week-selector" class="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
-      <div class="flex items-center gap-2">
-        <button id="prev-week-btn" 
-                type="button"
-                onclick="navigateToPreviousWeek()"
-                class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium transition-colors"
-                title="Previous week">
-          ← Back
-        </button>
-        <select id="week-selector" onchange="window.location.href='?week=' + this.value" class="flex-1 sm:flex-0 sm:w-64 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-          {% for week in available_weeks %}
-            <option value="{{ week.week_number }}" {% if week.week_number == selected_week %}selected{% endif %}>
-              Week {{ week.week_number }} ({{ week.start_date|date:"M d, Y" }})
-            </option>
-          {% endfor %}
-        </select>
-        <button id="next-week-btn" 
-                type="button"
-                onclick="navigateToNextWeek()"
-                class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-medium transition-colors"
-                title="Next week">
-          Next →
-        </button>
-      </div>
+      <select id="week-selector" onchange="window.location.href='?week=' + this.value" class="block w-full sm:w-64 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+        {% for week in available_weeks %}
+          <option value="{{ week.week_number }}" {% if week.week_number == selected_week %}selected{% endif %}>
+            Week {{ week.week_number }} ({{ week.start_date|date:"M d, Y" }})
+          </option>
+        {% endfor %}
+      </select>
     </div>
 
     {# Roster Lock Status Banner #}
@@ -728,43 +712,6 @@
     // Global variable to track current player in move modal
     let currentModalPlayerId = null;
     let currentModalPlayerName = null;
-    
-    // Week navigation functions
-    function navigateToPreviousWeek() {
-      const selector = document.getElementById('week-selector');
-      const currentIndex = selector.selectedIndex;
-      if (currentIndex > 0) {
-        const previousOption = selector.options[currentIndex - 1];
-        window.location.href = '?week=' + previousOption.value;
-      }
-    }
-    
-    function navigateToNextWeek() {
-      const selector = document.getElementById('week-selector');
-      const currentIndex = selector.selectedIndex;
-      if (currentIndex < selector.options.length - 1) {
-        const nextOption = selector.options[currentIndex + 1];
-        window.location.href = '?week=' + nextOption.value;
-      }
-    }
-    
-    // Update button states on page load
-    function updateWeekNavigationButtonStates() {
-      const selector = document.getElementById('week-selector');
-      const prevBtn = document.getElementById('prev-week-btn');
-      const nextBtn = document.getElementById('next-week-btn');
-      
-      prevBtn.disabled = selector.selectedIndex === 0;
-      nextBtn.disabled = selector.selectedIndex === selector.options.length - 1;
-      
-      prevBtn.style.opacity = prevBtn.disabled ? '0.5' : '1';
-      prevBtn.style.cursor = prevBtn.disabled ? 'not-allowed' : 'pointer';
-      nextBtn.style.opacity = nextBtn.disabled ? '0.5' : '1';
-      nextBtn.style.cursor = nextBtn.disabled ? 'not-allowed' : 'pointer';
-    }
-    
-    // Initialize button states when page loads
-    document.addEventListener('DOMContentLoaded', updateWeekNavigationButtonStates);
     
     function handlePositionBadgeClick(playerId, playerName, currentPosition) {
       event.stopPropagation();
