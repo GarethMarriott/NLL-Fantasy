@@ -98,7 +98,7 @@ def cleanup_old_sessions():
 
 
 
-@shared_task(name='unlock_rosters_and_process_transactions', bind=True, max_retries=3)
+@shared_task(name='web.tasks.unlock_rosters_and_process_transactions', bind=True, max_retries=3)
 def unlock_rosters_and_process_transactions(self):
     """
     Unlock rosters (Tuesday 9am PT) and execute pending waivers/trades atomically.
