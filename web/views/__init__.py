@@ -402,7 +402,7 @@ def team_detail(request, team_id):
             if game:
                 opponent = f"{game.away_team} @ {game.home_team}"
         
-        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 18, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
+        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 21, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
 
         pos = getattr(p, "position", None)
         side = getattr(p, "assigned_side", None)
