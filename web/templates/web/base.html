@@ -178,7 +178,7 @@
                   {% endif %}
                 </li>
               {% endif %}
-              {% if user.fantasy_teams.exists %}
+              {% if user.fantasy_teams.exists and active_team %}
                 <li>
                   <a rel="noopener noreferrer" href="{% url 'team_settings' active_team.id %}" class="flex items-center p-2 space-x-3 rounded-md">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
