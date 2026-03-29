@@ -826,7 +826,11 @@ def assign_player(request, team_id):
     
     # Check if the user owns this team
     if not request.user.is_authenticated:
-        messages.error(request, "You must be logged in to make roster changes.")
+        error_msg = "You must be logged in to make roster changes."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=401)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
     team_owner = FantasyTeamOwner.objects.filter(
@@ -835,7 +839,11 @@ def assign_player(request, team_id):
     ).first()
     
     if not team_owner:
-        messages.error(request, "You don't have permission to modify this team.")
+        error_msg = "You don't have permission to modify this team."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=403)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
     # Check league settings for waiver status
@@ -846,16 +854,28 @@ def assign_player(request, team_id):
     player_id = request.POST.get("player_id")
     
     if not player_id:
-        messages.error(request, "No player specified.")
+        error_msg = "No player specified."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
 
     try:
         player = Player.objects.get(id=int(player_id))
     except Player.DoesNotExist:
-        messages.error(request, "Player not found.")
+        error_msg = "Player not found."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=404)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     except (ValueError, TypeError):
-        messages.error(request, "Invalid player ID.")
+        error_msg = "Invalid player ID."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
     # Check if roster changes are allowed - find the next unlocked week
@@ -898,12 +918,20 @@ def assign_player(request, team_id):
     
     # If rosters are locked and waivers are NOT enabled, prevent any roster moves (except drops)
     if rosters_are_locked and not use_waivers and action != "drop":
-        messages.error(request, "Roster Moves not Allowed While Rosters are Locked")
+        error_msg = "Roster Moves not Allowed While Rosters are Locked"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
     if not next_unlocked_week:
         # No unlocked weeks available and no waivers enabled
-        messages.error(request, "All weeks are currently locked. No roster changes allowed.")
+        error_msg = "All weeks are currently locked. No roster changes allowed."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
     # Verify changes are allowed for this week
@@ -1392,6 +1420,15 @@ def assign_player(request, team_id):
     invalidate_team_cache(team.id)
     invalidate_league_cache(team.league.id)
 
+    # Return JSON response for AJAX requests, or redirect for regular page requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        return JsonResponse({
+            'success': True,
+            'message': 'Roster updated successfully',
+            'player_id': player.id
+        })
+    
     return redirect("team_detail", team_id=team.id)
 
 
