@@ -896,6 +896,11 @@ def assign_player(request, team_id):
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
+    # If rosters are locked and waivers are NOT enabled, prevent any roster moves (except drops)
+    if rosters_are_locked and not use_waivers and action != "drop":
+        messages.error(request, "Roster Moves not Allowed While Rosters are Locked")
+        return redirect("team_detail", team_id=team.id)
+    
     if not next_unlocked_week:
         # No unlocked weeks available and no waivers enabled
         messages.error(request, "All weeks are currently locked. No roster changes allowed.")
@@ -904,7 +909,11 @@ def assign_player(request, team_id):
     # Verify changes are allowed for this week
     can_change, message, locked_until = team.can_make_roster_changes(next_unlocked_week)
     if not can_change:
-        messages.error(request, f"Roster changes not allowed: {message}")
+        # Use custom message for locked rosters
+        if "locked" in message.lower():
+            messages.error(request, "Roster Moves not Allowed While Rosters are Locked")
+        else:
+            messages.error(request, f"Roster changes not allowed: {message}")
         return redirect("team_detail", team_id=team.id)
     
     # Check if team is over roster limit - if so, only allow drops
@@ -1407,7 +1416,11 @@ def move_transition_player(request, team_id):
     # Check if roster changes are allowed
     can_change, message, locked_until = team.can_make_roster_changes()
     if not can_change:
-        messages.error(request, f"Roster changes not allowed: {message}")
+        # Use custom message for locked rosters
+        if "locked" in message.lower():
+            messages.error(request, "Roster Moves not Allowed While Rosters are Locked")
+        else:
+            messages.error(request, f"Roster changes not allowed: {message}")
         return redirect("team_detail", team_id=team.id)
     
     player_id = request.POST.get("player_id")
