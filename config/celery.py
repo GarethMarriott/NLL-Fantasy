@@ -17,7 +17,7 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'unlock-rosters-tuesday-9am-PT': {
         'task': 'web.tasks.unlock_rosters_and_process_transactions',
-        'schedule': crontab(day_of_week='tue', hour=17, minute=0),  # Tuesday 9am PT = Tuesday 5pm UTC (since PT is UTC-8)
+        'schedule': crontab(day_of_week='tue', hour=16, minute=0),  # Tuesday 9am PT = Tuesday 4pm UTC (PDT; UTC-7 during DST, UTC-8 during standard time)
         # Includes: roster unlock + waiver processing + trade processing + current_week update (all atomic)
     },
     'fetch-stats-friday-night': {
