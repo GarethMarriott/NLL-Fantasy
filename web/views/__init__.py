@@ -2916,6 +2916,100 @@ def matchups(request):
     weeks = [w for w in all_weeks if w]
 
     id_to_team = {t.id: t for t in teams}
+    
+    # Calculate standings to properly seed playoff teams
+    # This ensures seeds are assigned by record (wins, then points) not by team ID
+    from collections import defaultdict
+    
+    standings_map = {
+        t.id: {
+            "team": t,
+            "wins": 0,
+            "losses": 0,
+            "ties": 0,
+            "total_points": 0,
+            "points_against": 0,
+        }
+        for t in teams
+    }
+    
+    # Get rosters for standings calculation
+    rosters = (
+        Roster.objects.filter(team__in=teams, league=league, player__active=True)
+        .select_related("player", "team")
+        .prefetch_related("player__game_stats__game__week")
+    )
+    all_rosters = list(rosters)
+    rosters_by_team = defaultdict(list)
+    for roster_entry in all_rosters:
+        rosters_by_team[roster_entry.team_id].append(roster_entry)
+    
+    week_cache = {}
+    
+    def get_team_week_total_for_standings(team_id, week_number):
+        """Calculate a team's total points for a specific week"""
+        week_obj = week_cache.get(week_number)
+        if week_obj is None:
+            week_obj = Week.objects.filter(week_number=week_number, season=league_season).first()
+            week_cache[week_number] = week_obj
+        total = 0
+        
+        active_players = []
+        team_rosters = rosters_by_team.get(team_id, [])
+        for roster_entry in team_rosters:
+            week_added = roster_entry.week_added or 0
+            week_dropped = roster_entry.week_dropped or 999
+            if week_added <= week_number < week_dropped:
+                if league.roster_format == 'traditional':
+                    if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                        active_players.append(roster_entry.player)
+                else:
+                    active_players.append(roster_entry.player)
+        
+        for p in active_players:
+            stat = None
+            if week_obj:
+                stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+            pts = calculate_fantasy_points(stat, p, league)
+            if pts is not None:
+                total += pts
+        return total
+    
+    # Calculate standings from completed weeks only
+    for idx, games in enumerate(weeks[:max_week], start=1):
+        if not games:
+            continue
+        for game in games:
+            if isinstance(game, tuple) and len(game) == 4 and game[0] == 'playoff':
+                # Skip playoff weeks - use only regular season for seeding
+                continue
+            a, b = game
+            home_total = get_team_week_total_for_standings(a, idx)
+            away_total = get_team_week_total_for_standings(b, idx)
+            
+            standings_map[a]["total_points"] += home_total
+            standings_map[b]["total_points"] += away_total
+            standings_map[a]["points_against"] += away_total
+            standings_map[b]["points_against"] += home_total
+            
+            if home_total > away_total:
+                standings_map[a]["wins"] += 1
+                standings_map[b]["losses"] += 1
+            elif home_total < away_total:
+                standings_map[b]["wins"] += 1
+                standings_map[a]["losses"] += 1
+            else:
+                standings_map[a]["ties"] += 1
+                standings_map[b]["ties"] += 1
+    
+    # Sort teams by standings (wins, then points) to get proper seeding
+    standings_list = list(standings_map.values())
+    standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
+    
+    # Create mapping of seed index (1-based) to team for playoff resolution
+    seed_to_team = {}
+    for idx, standing in enumerate(standings_list, start=1):
+        seed_to_team[idx] = standing["team"]
 
     # determine target week object (same week_number, latest season available)
     selected_week_number = None
@@ -3093,8 +3187,8 @@ def matchups(request):
                 # Resolve team IDs from seeds (could be integers) or placeholders (W1, W2, etc.)
                 def resolve_seed(seed):
                     if isinstance(seed, int):
-                        # Seed number - return corresponding team
-                        return teams[seed - 1] if seed <= len(teams) else None
+                        # Seed number - return corresponding team from standings-based seeding
+                        return seed_to_team.get(seed) if seed in seed_to_team else None
                     else:
                         # Placeholder like 'W1', 'W2', 'LOWEST_W1', etc.
                         return None  # Will be resolved as TBD
