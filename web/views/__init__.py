@@ -3884,8 +3884,16 @@ def remove_team_from_league(request, league_id, team_id):
         form = RemoveTeamForm(request.POST)
         if form.is_valid():
             team_name = team.name
+            removed_priority = team.waiver_priority
             team.delete()
-            messages.success(request, f"Team '{team_name}' has been removed from the league.")
+            
+            # Update waiver priorities: teams with priority > removed_priority bump up one spot
+            teams_to_adjust = league.teams.filter(waiver_priority__gt=removed_priority)
+            for team_obj in teams_to_adjust:
+                team_obj.waiver_priority -= 1
+                team_obj.save()
+            
+            messages.success(request, f"Team '{team_name}' has been removed from the league. Waiver priority updated.")
             return redirect("league_settings", league_id=league.id)
     else:
         from ..forms import RemoveTeamForm
