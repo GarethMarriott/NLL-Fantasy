@@ -241,11 +241,10 @@ class League(models.Model):
         return f"{self.name} (by {self.commissioner.username})"
     
     def get_playoff_start_week(self):
-        """Calculate what week the fantasy playoffs start"""
-        if not self.current_week:
-            return None
-        # Playoffs start the week after current week
-        return self.current_week.week_number + 1
+        """Calculate what week the fantasy playoffs start (always ends at week 20, with 21 total weeks)"""
+        # Total NLL weeks = 21, playoffs always end at week 20
+        # Playoff start = 21 - playoff_weeks
+        return 21 - self.playoff_weeks
 
 
 class Team(models.Model):

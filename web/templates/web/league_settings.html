@@ -172,11 +172,9 @@
           <label class="block text-sm font-medium mb-2">Playoff Weeks</label>
           <div id="playoffWeeksDisplay" class="inline-block px-3 py-2 border border-gray-300 rounded-md bg-gray-100">3</div>
           <p id="playoffWeeksExplain" class="text-xs text-gray-500 mt-1">(3 weeks for 6-team playoff: QF, SF, Final)</p>
-          {% if league.get_playoff_start_week %}
-            <p class="text-xs text-gray-600 mt-2">
-              Fantasy playoffs start in <span class="font-semibold">Week {{ league.get_playoff_start_week }}</span>
-            </p>
-          {% endif %}
+          <p class="text-xs text-gray-600 mt-2">
+            Fantasy playoffs: <span class="font-semibold">Weeks {{ league.get_playoff_start_week }}-20</span> (season ends before Week 21)
+          </p>
           </div>
 
         <div class="mt-4">
