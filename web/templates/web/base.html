@@ -13,11 +13,16 @@
     <nav class="bg-white shadow dark:bg-gray-800">
       <div class="container flex items-center justify-center p-6 mx-auto text-black capitalize dark:text-gray-300">
         <!-- Mobile menu button -->
-        <button id="mobile-menu-button" class="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 absolute left-6">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-          </svg>
-        </button>
+        <div class="lg:hidden absolute left-6 relative">
+          <button id="mobile-menu-button" class="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          {% if total_unread_chats > 0 %}
+            <span class="absolute top-0 right-0 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full">{{ total_unread_chats }}</span>
+          {% endif %}
+        </div>
         
         <div class="flex items-center justify-center pl-12 lg:pl-0">
         <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">{% if user_has_league %}team{% else %}home{% endif %}</a>
