@@ -49,7 +49,7 @@
                     <span>{{ row.ties }}</span>
                   </td>
                   <td class="px-3 py-2">
-                    {% widthratio row.wins row.wins|add:row.losses|add:row.ties 1000 as win_pct %}
+                    {% widthratio row.wins row.wins|add:row.losses 1000 as win_pct %}
                     <span>.{% widthratio win_pct 1 1 %}</span>
                   </td>
                   <td class="px-3 py-2">
