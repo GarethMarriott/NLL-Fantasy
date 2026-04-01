@@ -14,6 +14,7 @@
                 <th title="Waiver Priority" class="p-3">WP</th>
                 <th title="Wins" class="p-3">W</th>
                 <th title="Losses" class="p-3">L</th>
+                <th title="Ties" class="p-3">T</th>
                 <th title="Win percentage" class="p-3">Win%</th>
                 <th title="Total fantasy points" class="p-3">FPTS</th>
                 <th title="Fantasy points against" class="p-3">PA</th>
@@ -45,7 +46,10 @@
                     <span>{{ row.losses }}</span>
                   </td>
                   <td class="px-3 py-2">
-                    {% widthratio row.wins row.wins|add:row.losses 1000 as win_pct %}
+                    <span>{{ row.ties }}</span>
+                  </td>
+                  <td class="px-3 py-2">
+                    {% widthratio row.wins row.wins|add:row.losses|add:row.ties 1000 as win_pct %}
                     <span>.{% widthratio win_pct 1 1 %}</span>
                   </td>
                   <td class="px-3 py-2">
