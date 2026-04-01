@@ -3241,9 +3241,23 @@ def standings(request):
         standings_list = list(standings_map.values())
         standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
         
+        # Determine if regular season has ended and which teams made playoffs
+        regular_season_end_week = 21 - league.playoff_weeks
+        season_ended = max_week >= regular_season_end_week
+        
+        playoff_info = {}
+        if season_ended:
+            # Mark playoff teams with their seed
+            for seed, standing in enumerate(standings_list[:league.playoff_teams], start=1):
+                standing['playoff_seed'] = seed
+                playoff_info[standing['team'].id] = seed
+        
         all_league_standings.append({
             'league': league,
-            'standings': standings_list
+            'standings': standings_list,
+            'season_ended': season_ended,
+            'regular_season_end_week': regular_season_end_week,
+            'playoff_info': playoff_info,
         })
 
     return render(

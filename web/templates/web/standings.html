@@ -21,12 +21,19 @@
             </thead>
             <tbody>
               {% for row in league_data.standings %}
-                <tr class="text-right border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100">
+                <tr class="text-right border-b border-opacity-20 dark:border-gray-300 dark:bg-gray-100 {% if row.playoff_seed %}bg-yellow-50{% endif %}">
                   <td class="px-3 py-2 text-left">
                     <span>{{ forloop.counter }}</span>
                   </td>
                   <td class="px-3 py-2 text-left">
-                    <a href="{% url 'team_detail' row.team.id %}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{{ row.team.name }}</a>
+                    <div class="flex items-center gap-2">
+                      <a href="{% url 'team_detail' row.team.id %}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{{ row.team.name }}</a>
+                      {% if row.playoff_seed %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-200 text-yellow-800">
+                          #{{ row.playoff_seed }}
+                        </span>
+                      {% endif %}
+                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <span>{{ row.team.waiver_priority }}</span>
@@ -52,6 +59,27 @@
             </tbody>
           </table>
         </div>
+
+        {% if league_data.season_ended %}
+        <div class="mt-8 p-4 rounded-md bg-blue-50 border border-blue-200">
+          <h3 class="text-lg font-semibold text-blue-900 mb-4">🏆 Regular Season Complete — Playoffs Begin Week {{ league_data.league.get_playoff_start_week }}</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for standing in league_data.standings %}
+              {% if standing.playoff_seed %}
+                <div class="bg-white border border-blue-300 rounded-lg p-4 text-center">
+                  <div class="text-3xl font-bold text-blue-600 mb-2">#{{ standing.playoff_seed }}</div>
+                  <h4 class="font-semibold text-gray-800 mb-1">{{ standing.team.name }}</h4>
+                  <div class="text-sm text-gray-600">
+                    <div>{{ standing.wins }}-{{ standing.losses }}{% if standing.ties %}-{{ standing.ties }}{% endif %}</div>
+                    <div class="text-blue-600 font-semibold">{{ standing.total_points|floatformat:1 }} pts</div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     {% endfor %}
   {% else %}
