@@ -3242,7 +3242,9 @@ def standings(request):
         standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
         
         # Determine if regular season has ended and which teams made playoffs
-        regular_season_end_week = 21 - league.playoff_weeks
+        # Regular season = weeks 1 through (21 - playoff_weeks - 1)
+        # Playoffs = weeks (21 - playoff_weeks) through 20
+        regular_season_end_week = 21 - league.playoff_weeks - 1
         season_ended = max_week >= regular_season_end_week
         
         playoff_info = {}
