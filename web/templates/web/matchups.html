@@ -11,21 +11,23 @@
     <p class="mb-4 text-sm text-gray-600">View weekly head-to-head matchups and team rosters</p>
 
     {% if schedule_weeks %}
-      <form method="get" class="inline-form mb-4">
-        <label for="week" class="text-sm font-medium mr-2">Week:</label>
-        <select name="week" id="week" onchange="this.form.submit()" class="px-3 py-1.5 border border-gray-300 rounded-md">
+      {# Horizontal scrollable week selector #}
+      <div class="mb-4">
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide" id="week-selector">
           {% for wk in schedule_weeks %}
-            <option value="{{ wk.week_number }}" {% if selected_week_number == wk.week_number %}selected{% endif %}>
+            <a href="?week={{ wk.week_number }}" 
+              data-week="{{ wk.week_number }}" 
+              class="px-3 py-2 whitespace-nowrap rounded-md border-2 font-medium text-sm transition-colors {% if selected_week_number == wk.week_number %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-gray-50{% endif %}"
+            >
               {% if wk.is_playoff %}
-                Playoffs - Week {{ wk.week_number }}
+                Playoffs {{ wk.week_number }}
               {% else %}
                 Week {{ wk.week_number }}
               {% endif %}
-            </option>
+            </a>
           {% endfor %}
-        </select>
-        <noscript><button type="submit" class="ml-2 px-3 py-1.5 bg-blue-500 text-white rounded-md">Go</button></noscript>
-      </form>
+        </div>
+      </div>
 
       {% if selected_week %}
         <section class="schedule-week">
@@ -371,7 +373,34 @@
               document.getElementById('playerModal').classList.remove('flex');
             }
           }
+
+          // Auto-scroll to selected week on page load
+          window.addEventListener('DOMContentLoaded', function() {
+            const selector = document.getElementById('week-selector');
+            const selectedBtn = selector.querySelector('[data-week="{{ selected_week_number }}"]');
+            if (selectedBtn && selector) {
+              // Scroll to center the selected button
+              setTimeout(() => {
+                const containerWidth = selector.clientWidth;
+                const btnLeft = selectedBtn.offsetLeft;
+                const btnWidth = selectedBtn.clientWidth;
+                const scrollLeft = btnLeft - (containerWidth / 2) + (btnWidth / 2);
+                selector.scrollLeft = scrollLeft;
+              }, 100);
+            }
+          });
         </script>
+
+        {# CSS for scrollbar hiding #}
+        <style>
+          .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;      /* Firefox */
+          }
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;              /* Chrome, Safari and Opera */
+          }
+        </style>
 
         <!-- Player Detail Modal -->
         <div id="playerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto" onclick="closePlayerModal(event)">
