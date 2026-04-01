@@ -1226,11 +1226,19 @@ class RookieDraft(models.Model):
     
     def _set_waiver_priorities_on_completion(self):
         """Set waiver priorities based on draft completion (reverse of team ordering)"""
-        teams = list(Team.objects.filter(league=self.league).order_by('id'))
+        # Only affect teams that participated in this draft
+        teams_in_draft = self.standings.values_list('team', flat=True).distinct()
+        if not teams_in_draft:
+            # Fallback: if no standings yet, get teams from league
+            teams = list(Team.objects.filter(league=self.league).order_by('id'))
+        else:
+            # Only set priorities for teams in this draft
+            teams = list(Team.objects.filter(id__in=teams_in_draft).order_by('id'))
+        
         total_teams = len(teams)
         
         for idx, team in enumerate(teams, start=1):
-            # Reverse order: first team gets highest priority (last)
+            # Reverse order: first team ID gets highest priority (8), last gets 1
             team.waiver_priority = total_teams - idx + 1
             team.save()
 

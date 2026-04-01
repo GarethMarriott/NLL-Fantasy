@@ -116,8 +116,11 @@ class Command(BaseCommand):
             teams_without_priority = league.teams.filter(waiver_priority=0)
             if teams_without_priority.exists():
                 self.stdout.write(f"  Initializing waiver priorities for {teams_without_priority.count()} teams")
-                for idx, team in enumerate(teams_without_priority.order_by('created_at'), start=1):
-                    team.waiver_priority = idx
+                teams_list = list(teams_without_priority.order_by('created_at'))
+                total_teams = len(teams_list)
+                # Reverse order: first created team gets best priority (lowest number = better)
+                for idx, team in enumerate(teams_list, start=1):
+                    team.waiver_priority = total_teams - idx + 1
                     team.save()
             
             # Process waivers
@@ -293,6 +296,7 @@ class Command(BaseCommand):
                 # Move this team to the back of the waiver line
                 league_teams = claim.league.teams.all().order_by('waiver_priority')
                 max_priority = league_teams.count()
+                # Teams after this one in priority move up (get better priority)
                 teams_to_adjust = league_teams.filter(waiver_priority__gt=claim.team.waiver_priority)
                 for team in teams_to_adjust:
                     team.waiver_priority -= 1
