@@ -1,0 +1,47 @@
+{% extends "web/base.html" %}
+{% block title %}Remove Team — {{ league.name }}{% endblock %}
+{% block content %}
+  <div class="container p-4 mx-auto max-w-md rounded-md sm:p-6 dark:text-gray-800 dark:bg-gray-50">
+    <div class="bg-white border border-red-300 rounded-lg p-6">
+      <h2 class="text-xl font-semibold text-red-600 mb-4">Remove Team from League?</h2>
+      
+      <p class="text-gray-700 mb-4">
+        You are about to remove <span class="font-bold">{{ team.name }}</span> from <span class="font-bold">{{ league.name }}</span>.
+      </p>
+      
+      <div class="bg-red-50 border border-red-200 rounded p-3 mb-4">
+        <p class="text-sm text-red-800 mb-1"><span class="font-bold">Warning:</span></p>
+        <ul class="text-sm text-red-800 list-disc list-inside space-y-1">
+          <li>All roster entries will be deleted</li>
+          <li>All waiver claims will be deleted</li>
+          <li>All trades will be deleted</li>
+          <li>This action cannot be undone</li>
+        </ul>
+      </div>
+
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        
+        <div class="flex items-start">
+          {{ form.confirm }}
+          <label for="{{ form.confirm.id_for_label }}" class="ml-3 text-sm text-gray-700">
+            I understand this will remove this team and all their roster data from the league
+          </label>
+        </div>
+
+        {% if form.confirm.errors %}
+          <p class="text-red-500 text-sm">{{ form.confirm.errors.0 }}</p>
+        {% endif %}
+
+        <div class="flex gap-3 pt-4">
+          <a href="{% url 'league_settings' league.id %}" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 text-center">
+            Cancel
+          </a>
+          <button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+            Remove Team
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

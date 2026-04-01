@@ -234,6 +234,17 @@ class LeagueRenewalForm(forms.Form):
 from django.utils import timezone
 
 
+class RemoveTeamForm(forms.Form):
+    """Form for confirming team removal from league"""
+    confirm = forms.BooleanField(
+        required=True,
+        label="I understand this will remove this team and all their roster data from the league",
+        widget=forms.CheckboxInput(attrs={
+            'class': 'w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded'
+        })
+    )
+
+
 class DraftSettingsForm(forms.Form):
     """Form for commissioners to configure future rookie picks settings"""
     

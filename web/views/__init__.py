@@ -3864,6 +3864,41 @@ def league_settings(request, league_id):
 
 
 @login_required
+def remove_team_from_league(request, league_id, team_id):
+    """Remove a team from a league (commissioner only)"""
+    league = get_object_or_404(League, id=league_id)
+    team = get_object_or_404(Team, id=team_id, league=league)
+    
+    # Only commissioner can remove teams
+    if league.commissioner != request.user:
+        messages.error(request, "Only the league commissioner can remove teams.")
+        return redirect("league_settings", league_id=league.id)
+    
+    # Prevent removing the only team in a league
+    if league.teams.count() <= 1:
+        messages.error(request, "Cannot remove the last team from a league.")
+        return redirect("league_settings", league_id=league.id)
+    
+    if request.method == "POST":
+        from .forms import RemoveTeamForm
+        form = RemoveTeamForm(request.POST)
+        if form.is_valid():
+            team_name = team.name
+            team.delete()
+            messages.success(request, f"Team '{team_name}' has been removed from the league.")
+            return redirect("league_settings", league_id=league.id)
+    else:
+        from .forms import RemoveTeamForm
+        form = RemoveTeamForm()
+    
+    return render(request, "web/remove_team_modal.html", {
+        "form": form,
+        "league": league,
+        "team": team,
+    })
+
+
+@login_required
 def renew_league(request, league_id):
     """Renew a completed league for the next season with same settings and members"""
     league = get_object_or_404(League, id=league_id)

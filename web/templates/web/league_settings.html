@@ -353,6 +353,53 @@
       </div>
     </form>
   </div>
+
+  {% if is_commissioner %}
+  <div class="container p-4 mx-auto max-w-4xl rounded-md sm:p-6 dark:text-gray-800 dark:bg-gray-50 mt-8">
+    <h2 class="text-2xl font-semibold leading-tight mb-4">Manage Teams</h2>
+    
+    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="px-4 py-3 text-left text-sm font-semibold">Team Name</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold">Owner(s)</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for team in league.teams.all %}
+            <tr class="border-t border-gray-200 hover:bg-gray-50">
+              <td class="px-4 py-3">
+                <span class="font-medium">{{ team.name }}</span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                {% with owners=team.fantasy_teams.all %}
+                  {% if owners %}
+                    {% for owner in owners %}
+                      <span>{{ owner.user.get_full_name|default:owner.user.username }}</span>{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                  {% else %}
+                    <span class="text-gray-400">No owner assigned</span>
+                  {% endif %}
+                {% endwith %}
+              </td>
+              <td class="px-4 py-3 text-right">
+                {% if league.teams.count > 1 %}
+                  <a href="{% url 'remove_team_from_league' league.id team.id %}" class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">
+                    Remove
+                  </a>
+                {% else %}
+                  <span class="text-xs text-gray-400">Cannot remove last team</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
   
   <script>
     function updateRosterTotal() {
