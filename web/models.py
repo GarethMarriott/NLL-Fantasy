@@ -239,6 +239,13 @@ class League(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} (by {self.commissioner.username})"
+    
+    def get_playoff_start_week(self):
+        """Calculate what week the fantasy playoffs start"""
+        if not self.current_week:
+            return None
+        # Playoffs start the week after current week
+        return self.current_week.week_number + 1
 
 
 class Team(models.Model):
