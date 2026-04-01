@@ -3880,7 +3880,7 @@ def remove_team_from_league(request, league_id, team_id):
         return redirect("league_settings", league_id=league.id)
     
     if request.method == "POST":
-        from .forms import RemoveTeamForm
+        from ..forms import RemoveTeamForm
         form = RemoveTeamForm(request.POST)
         if form.is_valid():
             team_name = team.name
@@ -3888,7 +3888,7 @@ def remove_team_from_league(request, league_id, team_id):
             messages.success(request, f"Team '{team_name}' has been removed from the league.")
             return redirect("league_settings", league_id=league.id)
     else:
-        from .forms import RemoveTeamForm
+        from ..forms import RemoveTeamForm
         form = RemoveTeamForm()
     
     return render(request, "web/remove_team_modal.html", {
