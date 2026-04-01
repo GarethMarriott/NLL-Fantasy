@@ -15,7 +15,13 @@
         <label for="week" class="text-sm font-medium mr-2">Week:</label>
         <select name="week" id="week" onchange="this.form.submit()" class="px-3 py-1.5 border border-gray-300 rounded-md">
           {% for wk in schedule_weeks %}
-            <option value="{{ wk.week_number }}" {% if selected_week_number == wk.week_number %}selected{% endif %}>Week {{ wk.week_number }}</option>
+            <option value="{{ wk.week_number }}" {% if selected_week_number == wk.week_number %}selected{% endif %}>
+              {% if wk.is_playoff %}
+                Playoffs - Week {{ wk.week_number }}
+              {% else %}
+                Week {{ wk.week_number }}
+              {% endif %}
+            </option>
           {% endfor %}
         </select>
         <noscript><button type="submit" class="ml-2 px-3 py-1.5 bg-blue-500 text-white rounded-md">Go</button></noscript>
@@ -23,7 +29,13 @@
 
       {% if selected_week %}
         <section class="schedule-week">
-          <h3 class="text-xl font-semibold mb-4">Week {{ selected_week.week_number }}</h3>
+          <h3 class="text-xl font-semibold mb-4">
+            {% if selected_week.is_playoff %}
+              {{ selected_week.games.0.round_name }} - Week {{ selected_week.week_number }}
+            {% else %}
+              Week {{ selected_week.week_number }}
+            {% endif %}
+          </h3>
           
           {% for game in selected_week.games %}
             <div class="mb-6 border border-gray-300 rounded-lg bg-white shadow-sm overflow-hidden">
@@ -32,37 +44,61 @@
                 <div class="grid grid-cols-2 gap-6">
                   {# Home Team Summary #}
                   <div class="flex flex-col items-start">
-                    <h4 class="text-lg font-bold mb-0">
-                      <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
-                        {{ game.home.name }}
-                      </a>
-                    </h4>
+                    {% if game.home %}
+                      <h4 class="text-lg font-bold mb-0">
+                        <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
+                          {{ game.home.name }}
+                        </a>
+                      </h4>
+                      {% if game.is_playoff %}
+                        <span class="text-sm text-gray-600">{% if game.home_seed %}Seed #{{ game.home_seed }}{% endif %}</span>
+                      {% endif %}
+                    {% else %}
+                      <h4 class="text-lg font-bold mb-0 text-gray-500">TBD</h4>
+                      {% if game.is_playoff %}
+                        <span class="text-sm text-gray-600">{% if game.home_seed %}{{ game.home_seed }}{% endif %}</span>
+                      {% endif %}
+                    {% endif %}
                     <span class="text-xl font-bold mt-1 {% if game.home_result == 'W' %}text-green-600{% elif game.home_result == 'L' %}text-red-600{% endif %}">
-                      {{ game.home_total }}
+                      {% if game.home %}{{ game.home_total }}{% else %}-{% endif %}
                     </span>
                   </div>
                   
                   {# Away Team Summary #}
                   <div class="flex flex-col items-start">
-                    <h4 class="text-lg font-bold mb-0">
-                      <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
-                        {{ game.away.name }}
-                      </a>
-                    </h4>
+                    {% if game.away %}
+                      <h4 class="text-lg font-bold mb-0">
+                        <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
+                          {{ game.away.name }}
+                        </a>
+                      </h4>
+                      {% if game.is_playoff %}
+                        <span class="text-sm text-gray-600">{% if game.away_seed %}Seed #{{ game.away_seed }}{% endif %}</span>
+                      {% endif %}
+                    {% else %}
+                      <h4 class="text-lg font-bold mb-0 text-gray-500">TBD</h4>
+                      {% if game.is_playoff %}
+                        <span class="text-sm text-gray-600">{% if game.away_seed %}{{ game.away_seed }}{% endif %}</span>
+                      {% endif %}
+                    {% endif %}
                     <span class="text-xl font-bold mt-1 {% if game.away_result == 'W' %}text-green-600{% elif game.away_result == 'L' %}text-red-600{% endif %}">
-                      {{ game.away_total }}
+                      {% if game.away %}{{ game.away_total }}{% else %}-{% endif %}
                     </span>
                   </div>
                 </div>
                 
                 {# Expand/Collapse Indicator #}
                 <div class="text-center mt-2 text-gray-500 text-sm">
-                  <span id="matchup-{{ forloop.counter }}-indicator">▼ Click to view rosters</span>
+                  {% if game.home and game.away %}
+                    <span id="matchup-{{ forloop.counter }}-indicator">▼ Click to view rosters</span>
+                  {% else %}
+                    <span id="matchup-{{ forloop.counter }}-indicator" class="text-gray-400">Pending results from previous week</span>
+                  {% endif %}
                 </div>
               </div>
               
               {# Matchup Details - Initially Hidden #}
-              <div id="matchup-{{ forloop.counter }}" class="hidden border-t border-gray-300">
+              {% if game.home and game.away %}
                 <div class="grid grid-cols-2 gap-6 p-4">
                   {# Home Team Details #}
                   <div>
@@ -186,7 +222,11 @@
                     </div>
                   </div>
                 </div>
-              </div>
+              {% else %}
+                <div class="p-4 text-center text-gray-500">
+                  <p class="text-sm">This matchup will be determined pending the results from previous week(s).</p>
+                </div>
+              {% endif %}
             </div>
           {% endfor %}
         </section>

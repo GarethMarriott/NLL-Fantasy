@@ -2912,9 +2912,8 @@ def matchups(request):
         league = League()  # Default scoring
         all_weeks = get_cached_schedule(team_ids)
     
-    # Show all regular season weeks in matchups (filter out playoff weeks for now)
-    # TODO: Implement playoff bracket display once regular season completes
-    weeks = [w for w in all_weeks if w and all(not (isinstance(g, tuple) and len(g) == 4 and g[0] == 'playoff') for g in w)]
+    # Include both regular season and playoff weeks in matchups
+    weeks = [w for w in all_weeks if w]
 
     id_to_team = {t.id: t for t in teams}
 
@@ -3077,33 +3076,80 @@ def matchups(request):
         team_totals[team.id] = week_total
 
     schedule_weeks = []
+    playoff_start_week = league.get_playoff_start_week() if hasattr(league, 'get_playoff_start_week') else 19
+    
     for idx, games in enumerate(weeks, start=1):
-        schedule_weeks.append(
-            {
-                "week_number": idx,
-                "games": [
-                    {
-                        "home": id_to_team.get(a),
-                        "away": id_to_team.get(b),
-                        "home_roster": team_rosters.get(a, {}),
-                        "away_roster": team_rosters.get(b, {}),
-                        "home_total": team_totals.get(a, 0),
-                        "away_total": team_totals.get(b, 0),
-                        "home_result": (
-                            "W" if team_totals.get(a, 0) > team_totals.get(b, 0)
-                            else "L" if team_totals.get(a, 0) < team_totals.get(b, 0)
-                            else "T"
-                        ),
-                        "away_result": (
-                            "W" if team_totals.get(b, 0) > team_totals.get(a, 0)
-                            else "L" if team_totals.get(b, 0) < team_totals.get(a, 0)
-                            else "T"
-                        ),
-                    }
-                    for (a, b) in games
-                ],
-            }
-        )
+        week_data = {
+            "week_number": idx,
+            "is_playoff": idx >= playoff_start_week,
+            "games": [],
+        }
+        
+        for game in games:
+            # Check if this is a playoff tuple: ('playoff', seed1, seed2, 'Round Name')
+            if isinstance(game, tuple) and len(game) == 4 and game[0] == 'playoff':
+                _, seed1, seed2, round_name = game
+                
+                # Resolve team IDs from seeds (could be integers) or placeholders (W1, W2, etc.)
+                def resolve_seed(seed):
+                    if isinstance(seed, int):
+                        # Seed number - return corresponding team
+                        return teams[seed - 1] if seed <= len(teams) else None
+                    else:
+                        # Placeholder like 'W1', 'W2', 'LOWEST_W1', etc.
+                        return None  # Will be resolved as TBD
+                
+                home_team = resolve_seed(seed1)
+                away_team = resolve_seed(seed2)
+                
+                game_data = {
+                    "is_playoff": True,
+                    "round_name": round_name,
+                    "home": home_team,
+                    "away": away_team,
+                    "home_seed": seed1 if isinstance(seed1, int) else seed1,
+                    "away_seed": seed2 if isinstance(seed2, int) else seed2,
+                    "home_roster": team_rosters.get(home_team.id, {}) if home_team else {},
+                    "away_roster": team_rosters.get(away_team.id, {}) if away_team else {},
+                    "home_total": team_totals.get(home_team.id, 0) if home_team else 0,
+                    "away_total": team_totals.get(away_team.id, 0) if away_team else 0,
+                    "home_result": (
+                        "W" if home_team and team_totals.get(home_team.id, 0) > team_totals.get(away_team.id, 0)
+                        else "L" if home_team and away_team and team_totals.get(home_team.id, 0) < team_totals.get(away_team.id, 0)
+                        else "T" if home_team and away_team else ""
+                    ),
+                    "away_result": (
+                        "W" if away_team and team_totals.get(away_team.id, 0) > team_totals.get(home_team.id, 0)
+                        else "L" if away_team and home_team and team_totals.get(away_team.id, 0) < team_totals.get(home_team.id, 0)
+                        else "T" if away_team and home_team else ""
+                    ),
+                }
+                week_data["games"].append(game_data)
+            else:
+                # Regular season matchup (a, b) tuple
+                a, b = game
+                game_data = {
+                    "is_playoff": False,
+                    "home": id_to_team.get(a),
+                    "away": id_to_team.get(b),
+                    "home_roster": team_rosters.get(a, {}),
+                    "away_roster": team_rosters.get(b, {}),
+                    "home_total": team_totals.get(a, 0),
+                    "away_total": team_totals.get(b, 0),
+                    "home_result": (
+                        "W" if team_totals.get(a, 0) > team_totals.get(b, 0)
+                        else "L" if team_totals.get(a, 0) < team_totals.get(b, 0)
+                        else "T"
+                    ),
+                    "away_result": (
+                        "W" if team_totals.get(b, 0) > team_totals.get(a, 0)
+                        else "L" if team_totals.get(b, 0) < team_totals.get(a, 0)
+                        else "T"
+                    ),
+                }
+                week_data["games"].append(game_data)
+        
+        schedule_weeks.append(week_data)
 
     selected_week = None
     if schedule_weeks and selected_week_number is not None:
@@ -3116,6 +3162,8 @@ def matchups(request):
             "schedule_weeks": schedule_weeks,
             "selected_week": selected_week,
             "selected_week_number": selected_week_number,
+            "league": league,
+            "playoff_start_week": playoff_start_week,
         },
     )
 
