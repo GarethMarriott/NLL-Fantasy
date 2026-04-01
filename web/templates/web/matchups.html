@@ -12,8 +12,8 @@
 
     {% if schedule_weeks %}
       {# Horizontal scrollable week selector #}
-      <div class="mb-4">
-        <div class="flex items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide" id="week-selector">
+      <div class="mb-4 overflow-hidden">
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 px-2 scrollbar-hide" id="week-selector">
           {% for wk in schedule_weeks %}
             <a href="?week={{ wk.week_number }}" 
               data-week="{{ wk.week_number }}" 
