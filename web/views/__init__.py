@@ -3002,9 +3002,9 @@ def matchups(request):
                 standings_map[a]["ties"] += 1
                 standings_map[b]["ties"] += 1
     
-    # Sort teams by standings (wins, then points) to get proper seeding
+    # Sort teams by standings (wins, then ties, then points) to get proper seeding
     standings_list = list(standings_map.values())
-    standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
+    standings_list.sort(key=lambda r: (-r["wins"], -r["ties"], -r["total_points"], r["team"].name))
     
     # Create mapping of seed index (1-based) to team for playoff resolution
     seed_to_team = {}
@@ -3381,7 +3381,7 @@ def standings(request):
                     standings_map[b]["ties"] += 1
 
         standings_list = list(standings_map.values())
-        standings_list.sort(key=lambda r: (-r["wins"], -r["total_points"], r["team"].name))
+        standings_list.sort(key=lambda r: (-r["wins"], -r["ties"], -r["total_points"], r["team"].name))
         
         # Determine if regular season has ended and which teams made playoffs
         # Regular season = weeks 1 through (21 - playoff_weeks - 1)
