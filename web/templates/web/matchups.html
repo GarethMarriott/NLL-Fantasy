@@ -41,8 +41,8 @@
           
           {% for game in selected_week.games %}
             <div class="mb-6 border border-gray-300 rounded-lg bg-white shadow-sm overflow-hidden">
-              {# Matchup Header - Always Visible #}
-              <div class="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="toggleMatchup('matchup-{{ forloop.counter }}')">
+              {# Matchup Header #}
+              <div class="p-4">
                 <div class="grid grid-cols-2 gap-6">
                   {# Home Team Summary #}
                   <div class="flex flex-col items-start">
@@ -88,15 +88,9 @@
                     </span>
                   </div>
                 </div>
-                
-                {# Expand/Collapse Indicator #}
-                <div class="text-center mt-2 text-gray-500 text-sm">
-                  {% if game.home and game.away %}
-                    <span id="matchup-{{ forloop.counter }}-indicator">▼ Click to view rosters</span>
-                  {% else %}
-                    <span id="matchup-{{ forloop.counter }}-indicator" class="text-gray-400">Pending results from previous week</span>
-                  {% endif %}
-                </div>
+                {% if not game.home or not game.away %}
+                <div class="text-center mt-2 text-gray-400 text-sm">Pending results from previous week</div>
+                {% endif %}
               </div>
               
               {# Matchup Details - Initially Hidden #}
@@ -234,19 +228,6 @@
         </section>
         
         <script>
-          function toggleMatchup(id) {
-            const details = document.getElementById(id);
-            const indicator = document.getElementById(id + '-indicator');
-            
-            if (details.classList.contains('hidden')) {
-              details.classList.remove('hidden');
-              indicator.textContent = '▲ Click to hide rosters';
-            } else {
-              details.classList.add('hidden');
-              indicator.textContent = '▼ Click to view rosters';
-            }
-          }
-
           function getPositionColor(position) {
             switch(position) {
               case 'O':
