@@ -1,7 +1,7 @@
 {% extends "web/base.html" %}
 {% block title %}Matchups — NLL Fantasy{% endblock %}
 {% block content %}
-  <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
+  <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50 overflow-x-hidden">
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-2xl font-semibold leading-tight">Matchups</h2>
       <a href="{% url 'schedule' %}" class="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium">
@@ -12,8 +12,8 @@
 
     {% if schedule_weeks %}
       {# Horizontal scrollable week selector #}
-      <div class="mb-4 overflow-hidden">
-        <div class="flex items-center gap-2 overflow-x-auto pb-2 px-2 scrollbar-hide" id="week-selector">
+      <div class="mb-4 overflow-hidden -mx-2 sm:-mx-4">
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 px-2 sm:px-4 scrollbar-hide" id="week-selector">
           {% for wk in schedule_weeks %}
             <a href="?week={{ wk.week_number }}" 
               data-week="{{ wk.week_number }}" 
