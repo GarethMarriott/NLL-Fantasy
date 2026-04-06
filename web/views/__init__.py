@@ -3359,7 +3359,12 @@ def standings(request):
             return total
 
         for idx, games in enumerate(weeks, start=1):
-            for (a, b) in games:
+            for matchup in games:
+                # Skip playoff matchups (they have 4 elements, regular matchups have 2)
+                if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
+                    continue
+                
+                a, b = matchup
                 home_total = team_week_total(a, idx)
                 away_total = team_week_total(b, idx)
 
