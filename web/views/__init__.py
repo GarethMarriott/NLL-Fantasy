@@ -3181,8 +3181,70 @@ def matchups(request):
     playoff_winners = {}  # Track winners: 'W1', 'W2', 'W5', 'W6', etc. -> team object
     winner_index = 1  # Counter for numbering winners across all playoff weeks/matchups
     
+    # Pre-calculate playoff winners from all COMPLETED playoff weeks
+    # This ensures that when rendering any week, we know the outcomes of previous playoff rounds
+    def get_week_team_total(team_id, week_number):
+        """Get a team's total for a specific past week"""
+        week_obj = Week.objects.filter(week_number=week_number, season=league_season).first()
+        if not week_obj:
+            return 0
+        total = 0
+        active_players = []
+        team_rosters_list = rosters_by_team.get(team_id, [])
+        for roster_entry in team_rosters_list:
+            week_added = roster_entry.week_added or 0
+            week_dropped = roster_entry.week_dropped or 999
+            if week_added <= week_number < week_dropped:
+                if league.roster_format == 'traditional':
+                    if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                        active_players.append(roster_entry.player)
+                else:
+                    active_players.append(roster_entry.player)
+        
+        for p in active_players:
+            stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+            pts = calculate_fantasy_points(stat, p, league)
+            if pts is not None:
+                total += pts
+        return total
+    
+    # Process each completed playoff week to determine winners
+    temp_winner_idx = 1
+    for playoff_week_num in range(playoff_start_week, max_week + 1):
+        if playoff_week_num >= len(weeks):
+            break
+        games = weeks[playoff_week_num - 1]  # weeks is 0-indexed
+        if not games:
+            continue
+        
+        for game in games:
+            if isinstance(game, tuple) and len(game) == 4 and game[0] == 'playoff':
+                _, seed1, seed2, round_name = game
+                
+                # Resolve teams for this playoff matchup
+                def resolve_seed_for_past_week(seed):
+                    if isinstance(seed, int):
+                        return seed_to_team.get(seed)
+                    else:
+                        # It's a winner placeholder (W1, W2, etc.)
+                        return playoff_winners.get(seed)
+                
+                home_team = resolve_seed_for_past_week(seed1)
+                away_team = resolve_seed_for_past_week(seed2)
+                
+                # Get scores for this specific week
+                if home_team and away_team:
+                    home_total = get_week_team_total(home_team.id, playoff_week_num)
+                    away_total = get_week_team_total(away_team.id, playoff_week_num)
+                    
+                    # Determine and store winner
+                    if home_total > away_total:
+                        playoff_winners[f'W{temp_winner_idx}'] = home_team
+                    elif away_total > home_total:
+                        playoff_winners[f'W{temp_winner_idx}'] = away_team
+                    temp_winner_idx += 1
+    
     # First pass: build the schedule weeks and track playoff winners
-    temp_schedule_weeks = []
     for idx, games in enumerate(weeks, start=1):
         week_data = {
             "week_number": idx,
