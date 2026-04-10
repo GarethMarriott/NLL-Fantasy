@@ -3138,36 +3138,62 @@ def matchups(request):
         while len(goalie_slots) < 2:
             goalie_slots.append(None)
         
-        # Calculate totals based on best-ball: top 3 offense, top 3 defense, top 1 goalie
-        offense_scores = []
-        for slot in offence_slots:
-            if slot and slot["fantasy_points"] is not None:
-                offense_scores.append((slot["fantasy_points"], slot))
+        # Calculate totals respecting league format (traditional vs best-ball)
+        is_traditional = league.roster_format == 'traditional' if hasattr(league, 'roster_format') else False
         
-        defense_scores = []
-        for slot in defence_slots:
-            if slot and slot["fantasy_points"] is not None:
-                defense_scores.append((slot["fantasy_points"], slot))
-        
-        goalie_scores = []
-        for slot in goalie_slots:
-            if slot and slot["fantasy_points"] is not None:
-                goalie_scores.append((slot["fantasy_points"], slot))
-        
-        # Sort by score descending
-        offense_scores.sort(key=lambda x: x[0], reverse=True)
-        defense_scores.sort(key=lambda x: x[0], reverse=True)
-        goalie_scores.sort(key=lambda x: x[0], reverse=True)
-        
-        # Mark top scorers
-        for score, slot in offense_scores[:3]:
-            slot['counts_for_total'] = True
-        for score, slot in defense_scores[:3]:
-            slot['counts_for_total'] = True
-        for score, slot in goalie_scores[:1]:
-            slot['counts_for_total'] = True
-        
-        week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
+        if is_traditional:
+            # For traditional leagues, only count starters
+            # Get slot assignments for this team to identify starters
+            roster_with_slots = Roster.objects.filter(team=team).select_related('player')
+            player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
+            
+            # Get league's starter counts
+            num_starter_offense = league.roster_forwards or 6
+            num_starter_defense = league.roster_defense or 6
+            num_starter_goalie = league.roster_goalies or 2
+            
+            # Get assigned starters from slots
+            starter_offense = [slot for slot in offence_slots if slot and player_to_slot.get(slot['player'].id, '').startswith('starter_o')][:num_starter_offense]
+            starter_defense = [slot for slot in defence_slots if slot and player_to_slot.get(slot['player'].id, '').startswith('starter_d')][:num_starter_defense]
+            starter_goalie = [slot for slot in goalie_slots if slot and player_to_slot.get(slot['player'].id, '').startswith('starter_g')][:num_starter_goalie]
+            
+            # Mark starters and calculate total
+            for slot in starter_offense + starter_defense + starter_goalie:
+                if slot:
+                    slot['counts_for_total'] = True
+            
+            week_total = sum(s['fantasy_points'] for s in starter_offense + starter_defense + starter_goalie if s and s['fantasy_points'] is not None)
+        else:
+            # For best-ball: top 3 offense, top 3 defense, top 1 goalie
+            offense_scores = []
+            for slot in offence_slots:
+                if slot and slot["fantasy_points"] is not None:
+                    offense_scores.append((slot["fantasy_points"], slot))
+            
+            defense_scores = []
+            for slot in defence_slots:
+                if slot and slot["fantasy_points"] is not None:
+                    defense_scores.append((slot["fantasy_points"], slot))
+            
+            goalie_scores = []
+            for slot in goalie_slots:
+                if slot and slot["fantasy_points"] is not None:
+                    goalie_scores.append((slot["fantasy_points"], slot))
+            
+            # Sort by score descending
+            offense_scores.sort(key=lambda x: x[0], reverse=True)
+            defense_scores.sort(key=lambda x: x[0], reverse=True)
+            goalie_scores.sort(key=lambda x: x[0], reverse=True)
+            
+            # Mark top scorers
+            for score, slot in offense_scores[:3]:
+                slot['counts_for_total'] = True
+            for score, slot in defense_scores[:3]:
+                slot['counts_for_total'] = True
+            for score, slot in goalie_scores[:1]:
+                slot['counts_for_total'] = True
+            
+            week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
         
         team_rosters[team.id] = {
             "offence_slots": offence_slots,
@@ -3188,24 +3214,51 @@ def matchups(request):
         week_obj = Week.objects.filter(week_number=week_number, season=league_season).first()
         if not week_obj:
             return 0
+        
         total = 0
-        active_players = []
+        is_traditional = league.roster_format == 'traditional' if hasattr(league, 'roster_format') else False
+        
+        # Group players by position and calculate scores
+        players_by_position = {"O": [], "D": [], "G": [], "T": []}
         team_rosters_list = rosters_by_team.get(team_id, [])
+        
         for roster_entry in team_rosters_list:
+            p = roster_entry.player
             week_added = roster_entry.week_added or 0
             week_dropped = roster_entry.week_dropped or 999
-            if week_added <= week_number < week_dropped:
-                if league.roster_format == 'traditional':
-                    if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
-                        active_players.append(roster_entry.player)
-                else:
-                    active_players.append(roster_entry.player)
+            if week_added <= week_number < week_dropped and p.active:
+                stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+                pts = calculate_fantasy_points(stat, p, league)
+                
+                if pts is not None:
+                    entry = {"player": p, "fantasy_points": pts, "slot_assignment": roster_entry.slot_assignment}
+                    pos = getattr(p, "position", None)
+                    side = getattr(p, "assigned_side", None)
+                    target = side or ("O" if pos == "T" else pos)
+                    if target in players_by_position:
+                        players_by_position[target].append(entry)
+                    else:
+                        players_by_position["O"].append(entry)
         
-        for p in active_players:
-            stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
-            pts = calculate_fantasy_points(stat, p, league)
-            if pts is not None:
-                total += pts
+        if is_traditional:
+            # For traditional: sum all starters
+            num_starter_offense = league.roster_forwards or 6
+            num_starter_defense = league.roster_defense or 6
+            num_starter_goalie = league.roster_goalies or 2
+            
+            starter_offense = [e for e in players_by_position["O"] if e["slot_assignment"] and e["slot_assignment"].startswith('starter_o')][:num_starter_offense]
+            starter_defense = [e for e in players_by_position["D"] if e["slot_assignment"] and e["slot_assignment"].startswith('starter_d')][:num_starter_defense]
+            starter_goalie = [e for e in players_by_position["G"] if e["slot_assignment"] and e["slot_assignment"].startswith('starter_g')][:num_starter_goalie]
+            
+            total = sum(e["fantasy_points"] for e in starter_offense + starter_defense + starter_goalie if e["fantasy_points"] is not None)
+        else:
+            # For best-ball: top 3 offense + top 3 defense + top 1 goalie
+            offense_scores = sorted([e["fantasy_points"] for e in players_by_position["O"] if e["fantasy_points"] is not None], reverse=True)
+            defense_scores = sorted([e["fantasy_points"] for e in players_by_position["D"] if e["fantasy_points"] is not None], reverse=True)
+            goalie_scores = sorted([e["fantasy_points"] for e in players_by_position["G"] if e["fantasy_points"] is not None], reverse=True)
+            
+            total = sum(offense_scores[:3]) + sum(defense_scores[:3]) + sum(goalie_scores[:1])
+        
         return total
     
     # Process each completed playoff week to determine winners
