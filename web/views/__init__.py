@@ -3178,7 +3178,11 @@ def matchups(request):
 
     schedule_weeks = []
     playoff_start_week = league.get_playoff_start_week() if hasattr(league, 'get_playoff_start_week') else 19
+    playoff_winners = {}  # Track winners: 'W1', 'W2', 'W5', 'W6', etc. -> team object
+    winner_index = 1  # Counter for numbering winners across all playoff weeks/matchups
     
+    # First pass: build the schedule weeks and track playoff winners
+    temp_schedule_weeks = []
     for idx, games in enumerate(weeks, start=1):
         week_data = {
             "week_number": idx,
@@ -3197,8 +3201,9 @@ def matchups(request):
                         # Seed number - return corresponding team from standings-based seeding
                         return seed_to_team.get(seed) if seed in seed_to_team else None
                     else:
-                        # Placeholder like 'W1', 'W2', 'LOWEST_W1', etc.
-                        return None  # Will be resolved as TBD
+                        # Placeholder like 'W1', 'W2', 'W5', 'W6', 'LOWEST_W', etc.
+                        # Look it up from previously determined winners
+                        return playoff_winners.get(seed)
                 
                 home_team = resolve_seed(seed1)
                 away_team = resolve_seed(seed2)
@@ -3226,6 +3231,18 @@ def matchups(request):
                     ),
                 }
                 week_data["games"].append(game_data)
+                
+                # Track the winner for future playoff rounds
+                # Both teams must be present and scores must be different to have a winner
+                if home_team and away_team:
+                    home_total = team_totals.get(home_team.id, 0)
+                    away_total = team_totals.get(away_team.id, 0)
+                    if home_total > away_total:
+                        playoff_winners[f'W{winner_index}'] = home_team
+                    elif away_total > home_total:
+                        playoff_winners[f'W{winner_index}'] = away_team
+                    # If tied, we don't assign a winner yet - would need tiebreaker logic
+                    winner_index += 1
             else:
                 # Regular season matchup (a, b) tuple
                 a, b = game
