@@ -359,6 +359,13 @@ def team_detail(request, team_id):
             games_by_team_name[game.home_team] = game
             games_by_team_name[game.away_team] = game
     
+    # Determine the maximum week number to calculate points for
+    # Support up to week 20 for playoffs
+    max_week_to_calculate = 20
+    if selected_week_obj:
+        # If viewing a specific week, ensure we calculate up to that week
+        max_week_to_calculate = max(max_week_to_calculate, selected_week_obj.week_number)
+    
     for roster_entry in roster:
         p = roster_entry.player
         
@@ -371,10 +378,10 @@ def team_detail(request, team_id):
         # Find latest stat (most recent game)
         latest = max(all_player_stats, key=lambda s: (s.game.date, s.game.id), default=None)
 
-        # Calculate weekly points for all 18 weeks
+        # Calculate weekly points for all weeks in the season (including playoffs)
         weekly_points = []
         total_points = 0
-        for wk in range(1, 19):
+        for wk in range(1, max_week_to_calculate + 1):
             # OPTIMIZATION: O(1) lookup instead of building dict per-player
             stats_list = stats_by_player_week_num.get((p.id, wk), [])
             if not stats_list:
@@ -593,7 +600,7 @@ def team_detail(request, team_id):
     
     # Calculate overall total across all weeks (for the Total column)
     overall_total = 0
-    for week_idx_all in range(18):
+    for week_idx_all in range(max_week_to_calculate):
         if is_traditional:
             # For traditional, sum all starter scores across all weeks using league's configured counts
             starter_offense_all = [slot for slot in offence_slots if slot and slot.get('is_starter') and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None][:num_starter_offense]
