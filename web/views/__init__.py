@@ -3270,6 +3270,13 @@ def matchups(request):
                 home_team = resolve_seed(seed1)
                 away_team = resolve_seed(seed2)
                 
+                # For playoff weeks, calculate scores for THIS SPECIFIC WEEK, not cumulative
+                home_week_total = 0
+                away_week_total = 0
+                if home_team and away_team and idx >= playoff_start_week:
+                    home_week_total = get_week_team_total(home_team.id, idx)
+                    away_week_total = get_week_team_total(away_team.id, idx)
+                
                 game_data = {
                     "is_playoff": True,
                     "round_name": round_name,
@@ -3279,16 +3286,16 @@ def matchups(request):
                     "away_seed": seed2 if isinstance(seed2, int) else seed2,
                     "home_roster": team_rosters.get(home_team.id, {}) if home_team else {},
                     "away_roster": team_rosters.get(away_team.id, {}) if away_team else {},
-                    "home_total": team_totals.get(home_team.id, 0) if home_team else 0,
-                    "away_total": team_totals.get(away_team.id, 0) if away_team else 0,
+                    "home_total": home_week_total,
+                    "away_total": away_week_total,
                     "home_result": (
-                        "W" if home_team and team_totals.get(home_team.id, 0) > team_totals.get(away_team.id, 0)
-                        else "L" if home_team and away_team and team_totals.get(home_team.id, 0) < team_totals.get(away_team.id, 0)
+                        "W" if home_team and away_team and home_week_total > away_week_total
+                        else "L" if home_team and away_team and home_week_total < away_week_total
                         else "T" if home_team and away_team else ""
                     ),
                     "away_result": (
-                        "W" if away_team and team_totals.get(away_team.id, 0) > team_totals.get(home_team.id, 0)
-                        else "L" if away_team and home_team and team_totals.get(away_team.id, 0) < team_totals.get(home_team.id, 0)
+                        "W" if away_team and home_team and away_week_total > home_week_total
+                        else "L" if away_team and home_team and away_week_total < home_week_total
                         else "T" if away_team and home_team else ""
                     ),
                 }
