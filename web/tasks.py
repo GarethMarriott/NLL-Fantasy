@@ -1094,14 +1094,14 @@ def auto_complete_seasons():
 def scrape_nll_transactions_celery_task(self):
     """
     Scrape NLL transactions from nll.com
-    Called daily at 3 AM PT via Celery Beat schedule
+    Called daily at 4 AM UTC via Celery Beat schedule
     """
     from web.management.commands.scrape_nll_transactions import scrape_nll_transactions_task
     
     try:
         logger.info("Starting nightly NLL transactions scrape...")
-        count, html = scrape_nll_transactions_task(headless=True)
-        logger.info(f"NLL transactions scrape completed. Found {count} potential transactions")
+        count, html = scrape_nll_transactions_task()
+        logger.info(f"NLL transactions scrape completed. Found {count} transaction articles")
         return f"Scraped {count} transactions"
     
     except Exception as e:

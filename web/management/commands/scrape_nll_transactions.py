@@ -1,74 +1,52 @@
 """
 Management command to scrape NLL transactions from nll.com
 """
-import os
+import requests
 from django.core.management.base import BaseCommand
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-import time
+from bs4 import BeautifulSoup
+import re
 from datetime import datetime
 from web.models import NLLTransaction, Player, Team as NLLTeam
 
 
-def scrape_nll_transactions_task(headless=True):
+def scrape_nll_transactions_task():
     """
     Scrape NLL transactions from nll.com
-    Returns count of transactions scraped
+    Returns tuple of (count, scraped_html)
     """
     try:
-        # Set up Chrome options
-        chrome_options = webdriver.ChromeOptions()
-        if headless:
-            chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-extensions')
-        chrome_options.add_argument('--single-process')
-        chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-        
-        # Initialize driver
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=chrome_options
+        # Fetch the transactions page
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(
+            'https://www.nll.com/news/transactions/',
+            headers=headers,
+            timeout=30
         )
+        response.raise_for_status()
         
-        driver.get('https://www.nll.com/news/transactions/')
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
         
-        # Wait for page to load
-        time.sleep(3)
+        # Find transaction articles/items
+        transactions = soup.find_all('article', class_=re.compile('article|post|transaction|news'))
         
-        # Try to find transaction elements
-        wait = WebDriverWait(driver, 10)
+        if not transactions:
+            # Try alternate selectors
+            transactions = soup.find_all('div', class_=re.compile('transaction|article-item|news-item'))
         
-        # Look for common transaction container patterns
-        try:
-            # Wait for transaction items to load
-            wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'transaction')))
-            transactions_html = driver.find_elements(By.CLASS_NAME, 'transaction')
-        except:
-            # If that doesn't work, try alternate selectors
-            try:
-                wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'news-item')))
-                transactions_html = driver.find_elements(By.CLASS_NAME, 'news-item')
-            except:
-                # Try to get all article elements
-                transactions_html = driver.find_elements(By.TAG_NAME, 'article')
+        if not transactions:
+            # Fallback to all articles
+            transactions = soup.find_all('article')
         
-        # Get page HTML for manual parsing
-        page_html = driver.page_source
+        count = len(transactions)
         
         # Save HTML to file for inspection
         with open('transactions_page.html', 'w', encoding='utf-8') as f:
-            f.write(page_html)
+            f.write(html_content)
         
-        driver.quit()
-        
-        return len(transactions_html), page_html
+        return count, html_content
         
     except Exception as e:
         raise Exception(f'Error during scraping: {str(e)}')
@@ -78,18 +56,14 @@ class Command(BaseCommand):
     help = 'Scrape NLL transactions from nll.com'
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            '--headless',
-            action='store_true',
-            help='Run browser in headless mode',
-        )
+        pass  # No arguments needed
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting NLL transactions scrape...'))
         
         try:
-            count, html = scrape_nll_transactions_task(headless=options.get('headless', True))
-            self.stdout.write(self.style.SUCCESS(f'Scraped {count} potential transactions'))
+            count, html = scrape_nll_transactions_task()
+            self.stdout.write(self.style.SUCCESS(f'Scraped {count} transaction articles'))
             self.stdout.write(self.style.SUCCESS('Saved page HTML to transactions_page.html for inspection'))
             
         except Exception as e:
