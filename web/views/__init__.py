@@ -5801,7 +5801,7 @@ def get_available_slots(request, team_id):
                     response_data['empty_slot_options']['G'] = ['G']
             
             # Add IR slots support for best ball if enabled
-            if league.allow_ir_slots and hasattr(league, 'ir_slots'):
+            if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
                 if current_player.is_on_injured_reserve:
                     # Player already on IR can move out
                     response_data['empty_slot_options']['IR'] = ['IR']
@@ -5809,7 +5809,7 @@ def get_available_slots(request, team_id):
                 else:
                     # Player not on IR can move into IR if there's space
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
-                    max_ir = league.ir_slots or 0
+                    max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
                         response_data['empty_slot_options']['IR'] = ['IR']
                         print(f"DEBUG best ball: IR slots available: {ir_count}/{max_ir}", file=sys.stderr)
@@ -5995,7 +5995,7 @@ def get_available_slots(request, team_id):
             response_data['empty_slot_options']['Bench'] = ['bench']
             
             # Add IR slots if enabled and player can move to IR
-            if league.allow_ir_slots and hasattr(league, 'ir_slots'):
+            if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
                 # Check if current player has IR designation (is on injured reserve)
                 if current_player.is_on_injured_reserve:
                     # Player already on IR can move out
@@ -6008,7 +6008,7 @@ def get_available_slots(request, team_id):
                 else:
                     # Player not on IR can move into IR if there's space
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
-                    max_ir = league.ir_slots or 0
+                    max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
                         response_data['empty_slot_options']['IR'] = ['ir']
                         print(f"  IR slots available: {ir_count}/{max_ir}")
