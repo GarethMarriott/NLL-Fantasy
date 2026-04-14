@@ -1075,35 +1075,40 @@ def auto_complete_seasons():
                 try:
                     league.status = 'season_complete'
                     league.save()
-                    
-                    # Lock all rosters for offseason
-                    from web.models import Roster
-                    Roster.objects.filter(
-                        league=league,
-                        season=league.season
-                    ).update(
-                        is_locked=True,
-                        locked_reason='offseason'
-                    )
-                    
-                    logger.info(f"[AUTO COMPLETE] Marked league '{league.name}' as season_complete")
+                    logger.info(f"[AUTO COMPLETE] Marked {league.name} as season_complete")
                     updated_count += 1
-                    
-                    # TODO: Send email to commissioner with renewal link
-                    
                 except Exception as e:
-                    logger.error(f"[AUTO COMPLETE] Error completing league {league.id}: {str(e)}")
+                    logger.error(f"[AUTO COMPLETE] Error marking {league.name} as complete: {str(e)}")
             
             if updated_count > 0:
-                logger.info(f"[AUTO COMPLETE] Successfully marked {updated_count} leagues as season_complete for season {today.year}")
-                return f"Completed {updated_count} leagues"
-            else:
-                logger.info(f"[AUTO COMPLETE] No active leagues to complete for season {today.year}")
-                return "No leagues to complete"
+                logger.info(f"[AUTO COMPLETE] Completed {updated_count} leagues")
         else:
-            logger.info(f"[AUTO COMPLETE] Final week not yet ended or not Tuesday (week {latest_week.week_number} ends: {latest_week.end_date}, today: {today.date()}, weekday: {today.weekday()})")
-            return "Final week not ready for completion"
-            
+            logger.info(f"[AUTO COMPLETE] Season not ready for completion - check conditions")
+        
     except Exception as e:
-        logger.error(f"[AUTO COMPLETE] Error in auto_complete_seasons: {str(e)}")
+        logger.error(f"[AUTO COMPLETE] Error in auto_complete_season_task: {str(e)}")
         raise
+
+
+@shared_task(name='web.tasks.scrape_nll_transactions_task', bind=True, max_retries=3)
+def scrape_nll_transactions_celery_task(self):
+    """
+    Scrape NLL transactions from nll.com
+    Called daily at 3 AM PT via Celery Beat schedule
+    """
+    from web.management.commands.scrape_nll_transactions import scrape_nll_transactions_task
+    
+    try:
+        logger.info("Starting nightly NLL transactions scrape...")
+        count, html = scrape_nll_transactions_task(headless=True)
+        logger.info(f"NLL transactions scrape completed. Found {count} potential transactions")
+        return f"Scraped {count} transactions"
+    
+    except Exception as e:
+        logger.error(f"Error scraping NLL transactions: {str(e)}")
+        # Retry with exponential backoff: 60s, 300s, 900s
+        try:
+            self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+        except Exception as retry_error:
+            logger.critical(f"NLL scrape task failed after {self.request.retries} retries: {str(retry_error)}")
+            raise

@@ -65,6 +65,10 @@ app.conf.beat_schedule = {
         'task': 'web.tasks.archive_old_leagues',
         'schedule': crontab(hour=3, minute=0),  # Daily at 3 AM - check if season ended
     },
+    'scrape-nll-transactions-nightly': {
+        'task': 'web.tasks.scrape_nll_transactions_task',
+        'schedule': crontab(hour=4, minute=0),  # Daily at 4 AM UTC (9 PM PT / 8 PM PST)
+    },
 }
 
 @app.task(bind=True)
