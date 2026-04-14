@@ -345,6 +345,7 @@
                     <div class="text-left flex-1">
                       <div class="font-semibold truncate flex items-center gap-1.5">
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                        {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                         {% if slot.player.position == 'O' %}
                           <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                         {% elif slot.player.position == 'D' %}
@@ -390,6 +391,7 @@
                     <div class="text-left flex-1">
                       <div class="font-semibold truncate flex items-center gap-1.5">
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                        {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                         {% if slot.player.position == 'O' %}
                           <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                         {% elif slot.player.position == 'D' %}
@@ -435,6 +437,7 @@
                     <div class="text-left flex-1">
                       <div class="font-semibold truncate flex items-center gap-1.5">
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                        {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                         {% if slot.player.position == 'O' %}
                           <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                         {% elif slot.player.position == 'D' %}
@@ -501,6 +504,7 @@
                 <div class="text-left flex-1">
                   <div class="font-semibold truncate flex items-center gap-1.5">
                     <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                    {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                     {% if slot.player.position == 'O' %}
                       <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                     {% elif slot.player.position == 'D' %}
@@ -545,6 +549,7 @@
                 <div class="text-left">
                   <div class="font-semibold truncate">
                     <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ taxi_entry.player.id }}, '{{ taxi_entry.player.first_name }} {{ taxi_entry.player.last_name }}')">{{ taxi_entry.player.last_name }}, {{ taxi_entry.player.first_name }}</span>
+                    {% if taxi_entry.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                     {% if taxi_entry.player.is_rookie %}<span class="ml-1 text-xs bg-yellow-200 text-yellow-800 px-1 rounded">ROOKIE</span>{% endif %}
                   </div>
                   {% if taxi_entry.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ taxi_entry.player.nll_team }}</strong></div>{% endif %}
@@ -658,6 +663,7 @@
         <div class="flex items-center gap-3">
           <h2 class="text-2xl font-semibold" id="playerModalTitle"></h2>
           <span id="playerRookieBadge" class="hidden px-2 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded">ROOKIE</span>
+          <span id="playerIRBadge" class="hidden px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">IR</span>
         </div>
         <button onclick="closePlayerModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
       </div>
@@ -1179,6 +1185,14 @@ function showPlayerModal(playerId, playerName) {
         rookieBadge.classList.remove('hidden');
       } else {
         rookieBadge.classList.add('hidden');
+      }
+      
+      // Show IR badge if applicable
+      const irBadge = document.getElementById('playerIRBadge');
+      if (data.player.is_on_ir) {
+        irBadge.classList.remove('hidden');
+      } else {
+        irBadge.classList.add('hidden');
       }
       
       // Apply position color to header
