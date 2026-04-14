@@ -2441,9 +2441,10 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="
                 ('playoff', 2, 3, 'Semifinal'),
             ])
             if playoff_weeks >= 2:
-                # Finals: winners of semifinals
+                # Championship week: finals + third place game
                 schedule.append([
                     ('playoff', 'W1', 'W2', 'Championship'),
+                    ('playoff', 'L1', 'L2', 'Third Place'),
                 ])
         elif playoff_teams == 6:
             # First round: 3v6, 4v5 (1 and 2 get byes)
@@ -2466,9 +2467,10 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="
                         ('playoff', 2, 'W2', 'Semifinal'),
                     ])
             if playoff_weeks >= 3:
-                # Finals
+                # Finals + third place game
                 schedule.append([
                     ('playoff', 'W3', 'W4', 'Championship'),
+                    ('playoff', 'L3', 'L4', 'Third Place'),
                 ])
         elif playoff_teams == 8:
             # Quarterfinals: 1v8, 2v7, 3v6, 4v5
@@ -2485,9 +2487,10 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="
                     ('playoff', 'W3', 'W4', 'Semifinal'),
                 ])
             if playoff_weeks >= 3:
-                # Finals
+                # Finals + third place game
                 schedule.append([
                     ('playoff', 'W5', 'W6', 'Championship'),
+                    ('playoff', 'L5', 'L6', 'Third Place'),
                 ])
         elif playoff_teams == 2:
             # Direct championship: 1v2
@@ -3212,6 +3215,7 @@ def matchups(request):
     schedule_weeks = []
     playoff_start_week = league.get_playoff_start_week() if hasattr(league, 'get_playoff_start_week') else 19
     playoff_winners = {}  # Track winners: 'W1', 'W2', 'W5', 'W6', etc. -> team object
+    playoff_losers = {}   # Track losers: 'L1', 'L2', 'L5', 'L6', etc. -> team object
     winner_index = 1  # Counter for numbering winners across all playoff weeks/matchups
     
     # Pre-calculate playoff winners from all COMPLETED playoff weeks
@@ -3286,8 +3290,11 @@ def matchups(request):
                     if isinstance(seed, int):
                         return seed_to_team.get(seed)
                     else:
-                        # It's a winner placeholder (W1, W2, etc.)
-                        return playoff_winners.get(seed)
+                        # It's a winner or loser placeholder (W1, W2, L1, L2, etc.)
+                        if seed.startswith('L'):
+                            return playoff_losers.get(seed)
+                        else:
+                            return playoff_winners.get(seed)
                 
                 home_team = resolve_seed_for_past_week(seed1)
                 away_team = resolve_seed_for_past_week(seed2)
@@ -3297,11 +3304,17 @@ def matchups(request):
                     home_total = get_week_team_total(home_team.id, playoff_week_num)
                     away_total = get_week_team_total(away_team.id, playoff_week_num)
                     
-                    # Determine and store winner
+                    # Determine and store winner and loser
                     if home_total > away_total:
                         playoff_winners[f'W{temp_winner_idx}'] = home_team
+                        playoff_losers[f'L{temp_winner_idx}'] = away_team
                     elif away_total > home_total:
                         playoff_winners[f'W{temp_winner_idx}'] = away_team
+                        playoff_losers[f'L{temp_winner_idx}'] = home_team
+                    else:
+                        # Tie - give to home team as winner (shouldn't happen in real playoffs)
+                        playoff_winners[f'W{temp_winner_idx}'] = home_team
+                        playoff_losers[f'L{temp_winner_idx}'] = away_team
                     temp_winner_idx += 1
     
     # First pass: build the schedule weeks and track playoff winners
@@ -3317,15 +3330,18 @@ def matchups(request):
             if isinstance(game, tuple) and len(game) == 4 and game[0] == 'playoff':
                 _, seed1, seed2, round_name = game
                 
-                # Resolve team IDs from seeds (could be integers) or placeholders (W1, W2, etc.)
+                # Resolve team IDs from seeds (could be integers) or placeholders (W1, W2, L1, L2, etc.)
                 def resolve_seed(seed):
                     if isinstance(seed, int):
                         # Seed number - return corresponding team from standings-based seeding
                         return seed_to_team.get(seed) if seed in seed_to_team else None
                     else:
-                        # Placeholder like 'W1', 'W2', 'W5', 'W6', 'LOWEST_W', etc.
-                        # Look it up from previously determined winners
-                        return playoff_winners.get(seed)
+                        # Placeholder like 'W1', 'W2', 'W5', 'W6', 'L1', 'L2', 'L5', 'L6', 'LOWEST_W', etc.
+                        # Look it up from previously determined winners or losers
+                        if seed.startswith('L'):
+                            return playoff_losers.get(seed)
+                        else:
+                            return playoff_winners.get(seed)
                 
                 home_team = resolve_seed(seed1)
                 away_team = resolve_seed(seed2)
