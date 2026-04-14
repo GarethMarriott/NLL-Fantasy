@@ -102,7 +102,7 @@
             <td class="px-4 py-3 font-bold text-lg">{{ forloop.counter }}</td>
             <td class="px-4 py-3 text-gray-900">
               <a href="{% url 'player_detail_modal' entry.player.id %}" class="text-blue-600 hover:text-blue-800 hover:underline font-semibold">
-                {{ entry.player.full_name }}
+                {{ entry.player.first_name }} {{ entry.player.last_name }}
               </a>
             </td>
             <td class="px-4 py-3 text-center">
