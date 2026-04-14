@@ -575,6 +575,7 @@ class Player(models.Model):
         num = f" #{self.number}" if self.number is not None else ""
         return f"{self.last_name}, {self.first_name}{middle}{num}"
     
+    @property
     def is_on_injured_reserve(self):
         """
         Check if player is currently on injured reserve.
