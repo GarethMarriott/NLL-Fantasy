@@ -2111,6 +2111,10 @@ def players(request):
     if selected_position == "R":
         # Filter for rookies only
         qs = qs.filter(is_rookie=True)
+    elif selected_position == "IR":
+        # Filter for injured reserve players - will be done in post-processing
+        # since is_on_injured_reserve() is a method, not a database field
+        pass
     elif selected_position:
         qs = qs.filter(position=selected_position)
     else:
@@ -2237,6 +2241,10 @@ def players(request):
             "roster_status": roster_status,
             "rostered_team": rostered_team,
         })
+
+    # Filter for injured reserve if selected
+    if selected_position == "IR":
+        players_with_stats = [item for item in players_with_stats if item["player"].is_on_injured_reserve()]
 
     def sort_key(item):
         player = item["player"]
