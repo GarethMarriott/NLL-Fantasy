@@ -1497,12 +1497,18 @@ def assign_player(request, team_id):
         # If AJAX request, return JSON
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             logger.warning(f"MOVE_TO_EMPTY_SLOT: Returning JSON response - success")
-            return JsonResponse({
-                'success': True,
-                'message': f"Moved {player.last_name}",
-                'player_id': player.id,
-                'player_slot': player_roster.slot_assignment
-            })
+            try:
+                response_data = {
+                    'success': True,
+                    'message': f"Moved {player.last_name}",
+                    'player_id': player.id,
+                    'player_slot': player_roster.slot_assignment
+                }
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Response data prepared: {response_data}")
+                return JsonResponse(response_data)
+            except Exception as e:
+                logger.error(f"MOVE_TO_EMPTY_SLOT: Exception in JsonResponse: {type(e).__name__}: {str(e)}", exc_info=True)
+                return JsonResponse({'success': False, 'error': f"Move succeeded but response error: {str(e)}"}, status=200)
         
         messages.success(request, f"Moved {player.last_name}")
 
