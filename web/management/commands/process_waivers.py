@@ -20,12 +20,12 @@ def check_roster_capacity(team, position, exclude_player=None):
     Returns:
         Tuple of (can_add: bool, current_count: int, max_allowed: int)
     """
-    # Count active players in this position
+    # Count active players in this position (excluding IR entries since they don't take up position slots)
     query = Roster.objects.filter(
         team=team,
         league=team.league,
         week_dropped__isnull=True
-    ).select_related('player')
+    ).exclude(slot_assignment='ir').select_related('player')
     
     if exclude_player:
         query = query.exclude(player=exclude_player)
