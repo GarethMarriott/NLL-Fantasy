@@ -1,0 +1,96 @@
+{% extends "web/base.html" %}
+{% block title %}{{ league.name }} - {{ year }} Matchups{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+  <div class="mb-6">
+    <a href="{% url 'league_history' league.id %}" class="text-blue-600 hover:text-blue-800">&larr; Back to Historical Seasons</a>
+  </div>
+
+  <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+    <p class="text-yellow-700">
+      📖 <strong>Historical View:</strong> This is read-only data from the {{ year }} season. No changes can be made.
+    </p>
+  </div>
+
+  <h1 class="text-3xl font-bold mb-2">{{ league.name }}</h1>
+  <h2 class="text-2xl text-gray-600 mb-6">{{ year }} Weekly Matchups</h2>
+
+  {% if matchups_by_week %}
+  <div class="space-y-8">
+    {% for week_data in matchups_by_week %}
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h3 class="text-xl font-bold mb-4 text-blue-600">Week {{ week_data.week.week_number }}</h3>
+      
+      <div class="space-y-4">
+        {% for matchup in week_data.matchups %}
+        <div class="border border-gray-300 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <!-- Home Team -->
+            <div class="flex-1 text-center pr-4">
+              <div class="font-bold text-lg">{{ matchup.home_team.name }}</div>
+              <div class="text-sm text-gray-500">{{ matchup.home_team.owner.user.username }}</div>
+              <div class="text-3xl font-bold mt-2
+                {% if matchup.winner == matchup.home_team %}
+                  text-green-600
+                {% elif matchup.is_tie %}
+                  text-gray-600
+                {% else %}
+                  text-gray-400
+                {% endif %}
+              ">
+                {{ matchup.home_score|floatformat:1 }}
+              </div>
+            </div>
+
+            <!-- VS Indicator -->
+            <div class="px-4 text-center">
+              <div class="text-xl font-bold text-gray-400">VS</div>
+              {% if matchup.is_tie %}
+              <div class="text-sm text-gray-500 mt-2">TIE</div>
+              {% elif matchup.winner == matchup.home_team %}
+              <div class="text-sm text-green-600 font-bold mt-2">W</div>
+              {% else %}
+              <div class="text-sm text-red-600 font-bold mt-2">L</div>
+              {% endif %}
+            </div>
+
+            <!-- Away Team -->
+            <div class="flex-1 text-center pl-4">
+              <div class="font-bold text-lg">{{ matchup.away_team.name }}</div>
+              <div class="text-sm text-gray-500">{{ matchup.away_team.owner.user.username }}</div>
+              <div class="text-3xl font-bold mt-2
+                {% if matchup.winner == matchup.away_team %}
+                  text-green-600
+                {% elif matchup.is_tie %}
+                  text-gray-600
+                {% else %}
+                  text-gray-400
+                {% endif %}
+              ">
+                {{ matchup.away_score|floatformat:1 }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+    <p class="text-gray-600">No matchup data available for {{ year }}.</p>
+  </div>
+  {% endif %}
+
+  <div class="mt-8 flex gap-4">
+    <a href="{% url 'league_history_standings' league.id year %}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+      View Standings
+    </a>
+    <a href="{% url 'league_history_playoffs' league.id year %}" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition">
+      View Playoffs →
+    </a>
+  </div>
+</div>
+{% endblock %}

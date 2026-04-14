@@ -4,9 +4,14 @@
   <div class="container p-4 mx-auto max-w-4xl rounded-md sm:p-6 dark:text-gray-800 dark:bg-gray-50">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-2xl font-semibold leading-tight">League Settings</h2>
-      <a href="{% url 'league_detail' league.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
-        ← Back to League
-      </a>
+      <div class="flex gap-3">
+        <a href="{% url 'league_history' league.id %}" class="text-green-600 hover:text-green-800 hover:underline">
+          📖 View History
+        </a>
+        <a href="{% url 'league_detail' league.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+          ← Back to League
+        </a>
+      </div>
     </div>
 
     <p class="mb-6 text-sm text-gray-600">

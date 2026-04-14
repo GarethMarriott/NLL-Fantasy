@@ -1,0 +1,55 @@
+{% extends "web/base.html" %}
+{% block title %}{{ league.name }} - Historical Seasons{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+  <div class="mb-6">
+    <a href="{% url 'league_detail' league.id %}" class="text-blue-600 hover:text-blue-800">&larr; Back to League</a>
+  </div>
+
+  <h1 class="text-3xl font-bold mb-2">{{ league.name }}</h1>
+  <p class="text-gray-600 mb-6">Historical Season Records</p>
+
+  {% if seasons %}
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for season in seasons %}
+    <div class="bg-white border border-gray-300 rounded-lg p-4 shadow-md hover:shadow-lg transition">
+      <h3 class="text-xl font-bold mb-4 
+        {% if season == current_season %}
+          text-blue-600
+        {% else %}
+          text-gray-800
+        {% endif %}
+      ">
+        {{ season }}{% if season == current_season %} <span class="text-sm font-normal text-gray-500">(Current)</span>{% endif %}
+      </h3>
+
+      <div class="space-y-2">
+        <a href="{% url 'league_history_standings' league.id season %}" class="block w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded text-center font-semibold transition">
+          📊 View Standings
+        </a>
+        <a href="{% url 'league_history_matchups' league.id season %}" class="block w-full bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded text-center font-semibold transition">
+          🏁 View Matchups
+        </a>
+        <a href="{% url 'league_history_playoffs' league.id season %}" class="block w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-3 rounded text-center font-semibold transition">
+          🏆 View Playoffs
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <p class="text-yellow-800">No historical data available for this league yet.</p>
+  </div>
+  {% endif %}
+
+  {% if is_commissioner %}
+  <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <p class="text-sm text-blue-700">
+      💡 As commissioner, you can manage the league from the <a href="{% url 'league_settings' league.id %}" class="font-bold hover:underline">league settings</a> page.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
