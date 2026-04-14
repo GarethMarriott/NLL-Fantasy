@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('web', '0027_league_use_waivers_waiverclaim'),
+        ('web', '0065_add_game_scores'),
     ]
 
     operations = [
