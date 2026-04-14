@@ -3,7 +3,12 @@
 {% block content %}
 <div class="container mx-auto p-6">
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-4xl font-bold">NLL Schedule</h1>
+    <div>
+      <h1 class="text-4xl font-bold">NLL Schedule</h1>
+      <a href="{% url 'nll_transactions' %}" class="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-block">
+        📋 View NLL Transactions
+      </a>
+    </div>
     
     {% if available_seasons %}
     <div class="flex items-center gap-2">
