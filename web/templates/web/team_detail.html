@@ -899,48 +899,65 @@
               button.type = 'button';
               button.className = 'w-full px-4 py-2 text-left bg-white hover:bg-blue-50 rounded border-b border-gray-200 text-sm flex items-center gap-2';
               
-              // Create position badge with inline styles
-              const badge = document.createElement('span');
-              badge.className = 'inline-block px-1.5 py-0.5 rounded font-semibold border text-xs min-w-fit';
-              
-              // Set inline styles for color based on position
-              let bgColor, textColor, borderColor;
-              const pos = option.player_position;
-              
-              if (pos === 'O') {
-                bgColor = '#dcfce7';
-                textColor = '#166534';
-                borderColor = '#86efac';
-              } else if (pos === 'D') {
-                bgColor = '#fed7aa';
-                textColor = '#92400e';
-                borderColor = '#fdba74';
-              } else if (pos === 'T') {
-                bgColor = '#e9d5ff';
-                textColor = '#6b21a8';
-                borderColor = '#d8b4fe';
-              } else if (pos === 'G') {
-                bgColor = '#dbeafe';
-                textColor = '#1e3a8a';
-                borderColor = '#93c5fd';
-              } else {
-                bgColor = '#f3f4f6';
-                textColor = '#374151';
-                borderColor = '#d1d5db';
+              // Helper function to get slot display name
+              function getSlotDisplay(slotAssignment) {
+                if (!slotAssignment) return 'N/A';
+                if (slotAssignment.startsWith('starter_o')) return 'O';
+                if (slotAssignment.startsWith('starter_d')) return 'D';
+                if (slotAssignment === 'starter_g') return 'G';
+                if (slotAssignment === 'bench') return 'Bench';
+                if (slotAssignment === 'ir') return 'IR';
+                return slotAssignment;
               }
               
-              badge.style.backgroundColor = bgColor;
-              badge.style.color = textColor;
-              badge.style.borderColor = borderColor;
-              badge.style.borderStyle = 'solid';
-              badge.style.borderWidth = '1px';
-              badge.textContent = pos || 'N/A';
+              // Helper function to get colors for a slot/position
+              function getColors(value) {
+                if (value === 'O') {
+                  return { bg: '#dcfce7', text: '#166534', border: '#86efac' };
+                } else if (value === 'D') {
+                  return { bg: '#fed7aa', text: '#92400e', border: '#fdba74' };
+                } else if (value === 'T') {
+                  return { bg: '#e9d5ff', text: '#6b21a8', border: '#d8b4fe' };
+                } else if (value === 'G') {
+                  return { bg: '#dbeafe', text: '#1e3a8a', border: '#93c5fd' };
+                } else if (value === 'Bench') {
+                  return { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
+                } else if (value === 'IR') {
+                  return { bg: '#fce7f3', text: '#831843', border: '#fbcfe8' };
+                }
+                return { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
+              }
               
-              button.appendChild(badge);
+              // LEFT: Slot they're coming from
+              const slotDisplay = getSlotDisplay(option.slot_assignment);
+              const slotBadge = document.createElement('span');
+              slotBadge.className = 'inline-block px-1.5 py-0.5 rounded font-semibold border text-xs min-w-fit';
+              const slotColors = getColors(slotDisplay);
+              slotBadge.style.backgroundColor = slotColors.bg;
+              slotBadge.style.color = slotColors.text;
+              slotBadge.style.borderColor = slotColors.border;
+              slotBadge.style.borderStyle = 'solid';
+              slotBadge.style.borderWidth = '1px';
+              slotBadge.textContent = slotDisplay;
+              button.appendChild(slotBadge);
               
+              // MIDDLE: Player name
               const nameSpan = document.createElement('span');
               nameSpan.textContent = option.player_name;
               button.appendChild(nameSpan);
+              
+              // RIGHT: Player's actual position
+              const posDisplay = option.player_position || 'N/A';
+              const posBadge = document.createElement('span');
+              posBadge.className = 'inline-block px-1.5 py-0.5 rounded font-semibold border text-xs min-w-fit ml-auto';
+              const posColors = getColors(posDisplay);
+              posBadge.style.backgroundColor = posColors.bg;
+              posBadge.style.color = posColors.text;
+              posBadge.style.borderColor = posColors.border;
+              posBadge.style.borderStyle = 'solid';
+              posBadge.style.borderWidth = '1px';
+              posBadge.textContent = posDisplay;
+              button.appendChild(posBadge);
               
               button.onclick = () => submitPositionMove(playerId, option.player_id, false);
               menu.appendChild(button);
