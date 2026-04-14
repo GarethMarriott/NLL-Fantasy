@@ -574,6 +574,18 @@
         <button onclick="closePlayerModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
       </div>
       
+      <!-- Tabs -->
+      <div class="border-b border-gray-200 bg-gray-50">
+        <div class="flex gap-8 px-6">
+          <button onclick="switchPlayerTab('stats')" id="statsTab" class="py-3 px-2 border-b-2 border-blue-600 text-blue-600 font-semibold cursor-pointer">
+            Stats & Schedule
+          </button>
+          <button onclick="switchPlayerTab('transactions')" id="transactionsTab" class="py-3 px-2 border-b-2 border-transparent text-gray-600 font-semibold cursor-pointer hover:text-gray-800">
+            Transactions
+          </button>
+        </div>
+      </div>
+      
       <div class="p-6">
         <!-- NLL Team & Schedule Section (Prominent for mobile) -->
         <div class="mb-6 pb-6 border-b border-gray-300">
@@ -638,9 +650,17 @@
         </div>
         
         <!-- Stats & Schedule Section -->
-        <div id="statsSection">
+        <div id="statsTabContent">
           <h3 class="text-lg font-semibold mb-4">Stats & Schedule</h3>
           <div id="weekStatsContainer" class="space-y-4 max-h-96 overflow-y-auto">
+            <!-- Will be populated by JavaScript -->
+          </div>
+        </div>
+        
+        <!-- Transactions Section -->
+        <div id="transactionsTabContent" class="hidden">
+          <h3 class="text-lg font-semibold mb-4">Transaction History</h3>
+          <div id="transactionsContainer" class="space-y-3 max-h-96 overflow-y-auto">
             <!-- Will be populated by JavaScript -->
           </div>
         </div>
@@ -781,6 +801,42 @@
             container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';
           }
           
+          // Populate transaction history
+          const transContainer = document.getElementById('transactionsContainer');
+          if (data.transactions && data.transactions.length > 0) {
+            transContainer.innerHTML = '';
+            data.transactions.forEach(trans => {
+              const transDiv = document.createElement('div');
+              transDiv.className = 'border-l-4 pl-3 py-2';
+              
+              // Color code by transaction type
+              let borderColor = 'border-blue-500';  // Default
+              let typeColor = 'text-blue-700';
+              if (trans.transaction_type === 'injured_reserve') {
+                borderColor = 'border-red-500';
+                typeColor = 'text-red-700';
+              } else if (trans.transaction_type === 'activated') {
+                borderColor = 'border-green-500';
+                typeColor = 'text-green-700';
+              }
+              
+              transDiv.classList.add(borderColor);
+              const transHTML = `
+                <div class="flex justify-between items-start gap-2">
+                  <div>
+                    <div class="font-semibold text-sm">${trans.transaction_date}</div>
+                    <div class="font-bold ${typeColor}">${trans.transaction_type_display}</div>
+                    <div class="text-sm text-gray-600 mt-1">${trans.details}</div>
+                  </div>
+                </div>
+              `;
+              transDiv.innerHTML = transHTML;
+              transContainer.appendChild(transDiv);
+            });
+          } else {
+            transContainer.innerHTML = '<p class="text-gray-500 text-sm">No transactions found</p>';
+          }
+          
           // Show modal
           document.getElementById('playerModal').classList.remove('hidden');
           document.getElementById('playerModal').classList.add('flex');
@@ -789,6 +845,29 @@
           console.error('Error:', error);
           alert('Failed to load player details');
         });
+    }
+
+    function switchPlayerTab(tabName) {
+      // Hide all content
+      document.getElementById('statsTabContent').classList.add('hidden');
+      document.getElementById('transactionsTabContent').classList.add('hidden');
+      
+      // Remove active styling from all tabs
+      document.getElementById('statsTab').classList.remove('border-blue-600', 'text-blue-600');
+      document.getElementById('statsTab').classList.add('border-transparent', 'text-gray-600');
+      document.getElementById('transactionsTab').classList.remove('border-blue-600', 'text-blue-600');
+      document.getElementById('transactionsTab').classList.add('border-transparent', 'text-gray-600');
+      
+      // Show selected content and activate tab
+      if (tabName === 'stats') {
+        document.getElementById('statsTabContent').classList.remove('hidden');
+        document.getElementById('statsTab').classList.remove('border-transparent', 'text-gray-600');
+        document.getElementById('statsTab').classList.add('border-blue-600', 'text-blue-600');
+      } else if (tabName === 'transactions') {
+        document.getElementById('transactionsTabContent').classList.remove('hidden');
+        document.getElementById('transactionsTab').classList.remove('border-transparent', 'text-gray-600');
+        document.getElementById('transactionsTab').classList.add('border-blue-600', 'text-blue-600');
+      }
     }
 
     function closePlayerModal(event) {

@@ -2678,6 +2678,23 @@ def player_detail_modal(request, player_id):
             }
             week_stats.append(agg_stat)
     
+    # Get transaction history for this player
+    from web.models import NLLTransaction
+    transactions = NLLTransaction.objects.filter(
+        player_name=f"{player.first_name} {player.last_name}"
+    ).order_by('-transaction_date')[:20]  # Get last 20 transactions
+    
+    transactions_list = []
+    for trans in transactions:
+        transactions_list.append({
+            'transaction_date': trans.transaction_date.strftime('%B %d, %Y'),
+            'transaction_type': trans.transaction_type,
+            'transaction_type_display': trans.get_transaction_type_display(),
+            'details': trans.details,
+            'from_team': trans.from_team or '-',
+            'to_team': trans.to_team or '-',
+        })
+    
     # Build response data
     data = {
         'player': {
@@ -2693,7 +2710,8 @@ def player_detail_modal(request, player_id):
             'birthdate': player.birthdate.strftime('%B %d, %Y') if player.birthdate else 'Unknown',
             'is_rookie': player.is_rookie,
         },
-        'week_stats': week_stats
+        'week_stats': week_stats,
+        'transactions': transactions_list
     }
     
     return JsonResponse(data)
