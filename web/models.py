@@ -559,19 +559,33 @@ class Player(models.Model):
     def is_on_injured_reserve(self):
         """
         Check if player is currently on injured reserve.
-        A player is on IR if their most recent IR transaction is not followed by:
-        activation, signing, trade, or release.
+        Only checks transactions from the current NLL season (starts late November).
+        A player is on IR if their most recent IR transaction (in current season) 
+        is not followed by: activation, signing, trade, or release.
         """
+        from datetime import date
         full_name = f"{self.first_name} {self.last_name}"
         
         # Import at function level to avoid circular import issues
         from django.apps import apps
         NLLTransaction = apps.get_model('web', 'NLLTransaction')
+        Week = apps.get_model('web', 'Week')
         
-        # Get the most recent IR transaction
+        # Get the current/most recent season
+        current_week = Week.objects.order_by('-season', '-week_number').first()
+        if not current_week:
+            return False
+        
+        current_season = current_week.season
+        # NLL season starts in late November of the previous year
+        # For example, 2026 season starts November 2025
+        season_start_date = date(current_season - 1, 11, 1)
+        
+        # Get the most recent IR transaction from current season onwards
         most_recent_ir = NLLTransaction.objects.filter(
             player_name=full_name,
-            transaction_type='injured_reserve'
+            transaction_type='injured_reserve',
+            transaction_date__gte=season_start_date
         ).order_by('-transaction_date', '-scraped_at').first()
         
         if not most_recent_ir:
@@ -581,7 +595,8 @@ class Player(models.Model):
         # (activated, signed, traded, released)
         transactions_after_ir = NLLTransaction.objects.filter(
             player_name=full_name,
-            transaction_date__gt=most_recent_ir.transaction_date
+            transaction_date__gt=most_recent_ir.transaction_date,
+            transaction_date__gte=season_start_date
         ).order_by('-transaction_date', '-scraped_at').first()
         
         # If there are transactions after IR, player is no longer on IR
@@ -592,7 +607,8 @@ class Player(models.Model):
         if not transactions_after_ir:
             transactions_same_date = NLLTransaction.objects.filter(
                 player_name=full_name,
-                transaction_date=most_recent_ir.transaction_date
+                transaction_date=most_recent_ir.transaction_date,
+                transaction_date__gte=season_start_date
             ).order_by('-scraped_at')
             # If there's a transaction with same date but later scraped_at, player may have left IR
             later_on_same_date = transactions_same_date.filter(scraped_at__gt=most_recent_ir.scraped_at).first()
