@@ -321,11 +321,14 @@ def team_detail(request, team_id):
     # Filter to show only players who were on the roster during the selected week
     from django.db.models import Q
     
+    # CRITICAL: Filter by league since team can have rosters in multiple leagues
     roster = team.roster_entries.select_related('player').prefetch_related(
         'player__game_stats__game__week'
     ).filter(
-        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num),
+        league=league,
         player__active=True
+    ).filter(
+        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
     ).filter(
         Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
     ).order_by("player__updated_at", "player__id")
@@ -420,15 +423,28 @@ def team_detail(request, team_id):
             players_by_position["O"].append(entry)
 
     # Get roster entries with slot assignments for proper ordering
+    # CRITICAL: Must filter by league since team can have rosters in multiple leagues
     roster_with_slots = team.roster_entries.select_related('player').filter(
-        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num),
+        league=league,
         player__active=True
+    ).filter(
+        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
     ).filter(
         Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
     )
     
     # Create a mapping of player_id to slot_assignment
     player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
+    
+    # DEBUG: Check player 67 (Trevor Baptiste)
+    player_67_slots = [entry for entry in roster_with_slots if entry.player_id == 67]
+    if player_67_slots:
+        logger.warning(f"TEAM_DETAIL: Player 67 found in roster_with_slots:")
+        for entry in player_67_slots:
+            logger.warning(f"  - id={entry.id}, slot={entry.slot_assignment}, league={entry.league_id}")
+        logger.warning(f"  - player_to_slot mapping for 67: {player_to_slot.get(67, 'NOT FOUND')}")
+    else:
+        logger.warning(f"TEAM_DETAIL: Player 67 NOT found in roster_with_slots")
     
     # Check if this league uses starter slots (traditional leagues only)
     # Best ball leagues should NEVER use starter slots, even if somehow a player has one assigned
