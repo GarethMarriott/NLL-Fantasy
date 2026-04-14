@@ -125,6 +125,8 @@
     </div>
   </div>
   {% endif %}
+
+  {% if is_commissioner %}
   <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
     <p class="text-sm text-blue-700">
       💡 As commissioner, you can manage the league from the <a href="{% url 'league_settings' league.id %}" class="font-bold hover:underline">league settings</a> page.
