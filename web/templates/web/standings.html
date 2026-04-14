@@ -1,10 +1,160 @@
 {% extends "web/base.html" %}
 {% block title %}Standings — NLL Fantasy{% endblock %}
 {% block content %}
+<style>
+  .standings-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+  }
+  
+  .toggle-btn {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    border: 2px solid #3b82f6;
+    background: white;
+    color: #3b82f6;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .toggle-btn:first-child {
+    border-radius: 0.375rem 0 0 0.375rem;
+  }
+  
+  .toggle-btn:last-child {
+    border-radius: 0 0.375rem 0.375rem 0;
+  }
+  
+  .toggle-btn.active {
+    background: #3b82f6;
+    color: white;
+  }
+  
+  .standings-view {
+    display: none;
+  }
+  
+  .standings-view.active {
+    display: block;
+  }
+  
+  /* Playoff bracket styles */
+  .playoffs-container {
+    overflow-x: auto;
+    padding: 2rem 1rem;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+  }
+  
+  .bracket {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    min-width: max-content;
+  }
+  
+  .bracket-round {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    min-width: 200px;
+  }
+  
+  .bracket-round-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #1e40af;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .matchup {
+    background: white;
+    border: 2px solid #bfdbfe;
+    border-radius: 0.375rem;
+    padding: 0;
+    margin-bottom: 2rem;
+    min-width: 180px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .matchup-team {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e0e7ff;
+    font-size: 0.875rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .matchup-team:last-child {
+    border-bottom: none;
+  }
+  
+  .team-name {
+    font-weight: 500;
+    color: #1f2937;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .team-score {
+    font-weight: 700;
+    color: #3b82f6;
+    margin-left: 0.5rem;
+    min-width: 2rem;
+    text-align: right;
+  }
+  
+  .matchup-team.winner {
+    background: #dcfce7;
+  }
+  
+  .matchup-team.winner .team-name {
+    font-weight: 700;
+    color: #15803d;
+  }
+  
+  .matchup-bye {
+    padding: 0.75rem;
+    text-align: center;
+    color: #9ca3af;
+    font-style: italic;
+  }
+  
+  .final-label {
+    text-align: center;
+    font-weight: 700;
+    color: #dc2626;
+    font-size: 1.125rem;
+    margin-top: 0.5rem;
+  }
+</style>
+
   {% if league_standings %}
     {% for league_data in league_standings %}
       <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50 mb-8">
         <h2 class="mb-3 text-2xl font-semibold leading-tight">{{ league_data.league.name }} Standings</h2>
+        
+        {% if league_data.season_ended %}
+        <div class="standings-toggle">
+          <button class="toggle-btn active" onclick="toggleStandingsView(this, 'regular-{{ league_data.league.id }}')">
+            📊 Regular Season
+          </button>
+          <button class="toggle-btn" onclick="toggleStandingsView(this, 'playoff-{{ league_data.league.id }}')">
+            🏆 Playoff Bracket
+          </button>
+        </div>
+        {% endif %}
+        
+        <div id="regular-{{ league_data.league.id }}" class="standings-view active">
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
             <thead class="rounded-t-lg dark:bg-gray-300">
@@ -63,10 +213,66 @@
             </tbody>
           </table>
         </div>
+        </div>
 
         {% if league_data.season_ended %}
+        <div id="playoff-{{ league_data.league.id }}" class="standings-view">
+          <div class="playoffs-container">
+            <div class="bracket">
+              <!-- Semifinals -->
+              <div class="bracket-round">
+                <div class="bracket-round-title">Semifinals</div>
+                
+                {% if league_data.playoff_bracket.semifinals %}
+                  {% for matchup in league_data.playoff_bracket.semifinals %}
+                    <div class="matchup">
+                      <div class="matchup-team {% if matchup.winner_id == matchup.team1.id %}winner{% endif %}">
+                        <span class="team-name">#{{ matchup.team1_seed }} {{ matchup.team1.name }}</span>
+                        <span class="team-score">{{ matchup.team1_score|floatformat:1 }}</span>
+                      </div>
+                      <div class="matchup-team {% if matchup.winner_id == matchup.team2.id %}winner{% endif %}">
+                        <span class="team-name">#{{ matchup.team2_seed }} {{ matchup.team2.name }}</span>
+                        <span class="team-score">{{ matchup.team2_score|floatformat:1 }}</span>
+                      </div>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="matchup">
+                    <div class="matchup-bye">Playoff bracket will appear once playoffs begin</div>
+                  </div>
+                {% endif %}
+              </div>
+              
+              <!-- Finals -->
+              <div class="bracket-round">
+                <div class="bracket-round-title">Championship</div>
+                
+                {% if league_data.playoff_bracket.final %}
+                  <div class="matchup">
+                    <div class="matchup-team {% if league_data.playoff_bracket.final.winner_id == league_data.playoff_bracket.final.team1.id %}winner{% endif %}">
+                      <span class="team-name">#{{ league_data.playoff_bracket.final.team1_seed }} {{ league_data.playoff_bracket.final.team1.name }}</span>
+                      <span class="team-score">{{ league_data.playoff_bracket.final.team1_score|floatformat:1 }}</span>
+                    </div>
+                    <div class="matchup-team {% if league_data.playoff_bracket.final.winner_id == league_data.playoff_bracket.final.team2.id %}winner{% endif %}">
+                      <span class="team-name">#{{ league_data.playoff_bracket.final.team2_seed }} {{ league_data.playoff_bracket.final.team2.name }}</span>
+                      <span class="team-score">{{ league_data.playoff_bracket.final.team2_score|floatformat:1 }}</span>
+                    </div>
+                  </div>
+                  {% if league_data.playoff_bracket.final.winner_id %}
+                    <div class="final-label">🏆 Championship Winner! 🏆</div>
+                  {% endif %}
+                {% else %}
+                  <div class="matchup">
+                    <div class="matchup-bye">Final will be determined after semifinals</div>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
         <div class="mt-8 p-4 rounded-md bg-blue-50 border border-blue-200">
-          <h3 class="text-lg font-semibold text-blue-900 mb-4">🏆 Regular Season Complete — Playoffs Begin Week {{ league_data.league.get_playoff_start_week }}</h3>
+          <h3 class="text-lg font-semibold text-blue-900 mb-4">🏆 Playoff Teams</h3>
           
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {% for standing in league_data.standings %}
@@ -91,4 +297,29 @@
       <p>No active leagues with standings available.</p>
     </div>
   {% endif %}
+
+<script>
+function toggleStandingsView(button, viewId) {
+  // Get all toggle buttons in the same group
+  const toggleGroup = button.parentElement;
+  const allButtons = toggleGroup.querySelectorAll('.toggle-btn');
+  const leagueContainer = toggleGroup.closest('.container');
+  
+  // Remove active class from all buttons
+  allButtons.forEach(btn => btn.classList.remove('active'));
+  
+  // Add active class to clicked button
+  button.classList.add('active');
+  
+  // Hide all views in the same league container
+  const allViews = leagueContainer.querySelectorAll('.standings-view');
+  allViews.forEach(view => view.classList.remove('active'));
+  
+  // Show the selected view
+  const selectedView = document.getElementById(viewId);
+  if (selectedView) {
+    selectedView.classList.add('active');
+  }
+}
+</script>
 {% endblock %}

@@ -3539,11 +3539,60 @@ def standings(request):
         season_ended = max_week >= regular_season_end_week
         
         playoff_info = {}
+        playoff_bracket = {}
         if season_ended:
             # Mark playoff teams with their seed
             for seed, standing in enumerate(standings_list[:league.playoff_teams], start=1):
                 standing['playoff_seed'] = seed
                 playoff_info[standing['team'].id] = seed
+            
+            # Extract playoff matchups and scores
+            playoff_start_week = regular_season_end_week + 1
+            playoff_end_week = 21  # Finals are typically week 20
+            
+            semifinal_matchups = []
+            final_matchup = None
+            
+            # Get playoff weeks
+            for week_idx in range(playoff_start_week - 1, min(playoff_end_week, len(weeks))):
+                week_matchups = weeks[week_idx]
+                playoff_week_num = week_idx - (playoff_start_week - 2)
+                
+                # Extract playoff matchups (they have 4 elements: ('playoff', week, team1, team2))
+                for matchup in week_matchups:
+                    if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
+                        matchup_week = matchup[1]
+                        team1_id = matchup[2]
+                        team2_id = matchup[3]
+                        
+                        # Get scores for this matchup
+                        team1_score = team_week_total(team1_id, playoff_week_num)
+                        team2_score = team_week_total(team2_id, playoff_week_num)
+                        
+                        # Get team objects from standings
+                        team1_data = next((s for s in standings_list if s['team'].id == team1_id), None)
+                        team2_data = next((s for s in standings_list if s['team'].id == team2_id), None)
+                        
+                        if team1_data and team2_data:
+                            matchup_info = {
+                                'team1': team1_data['team'],
+                                'team1_score': team1_score,
+                                'team1_seed': team1_data.get('playoff_seed', 'N/A'),
+                                'team2': team2_data['team'],
+                                'team2_score': team2_score,
+                                'team2_seed': team2_data.get('playoff_seed', 'N/A'),
+                                'winner_id': team1_id if team1_score > team2_score else team2_id if team2_score > team1_score else None,
+                            }
+                            
+                            if playoff_week_num <= 2:  # Semifinals (weeks 1-2)
+                                semifinal_matchups.append(matchup_info)
+                            elif playoff_week_num == 3:  # Finals (week 3)
+                                final_matchup = matchup_info
+            
+            playoff_bracket = {
+                'semifinals': semifinal_matchups,
+                'final': final_matchup,
+            }
         
         all_league_standings.append({
             'league': league,
@@ -3551,6 +3600,7 @@ def standings(request):
             'season_ended': season_ended,
             'regular_season_end_week': regular_season_end_week,
             'playoff_info': playoff_info,
+            'playoff_bracket': playoff_bracket,
         })
 
     return render(

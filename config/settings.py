@@ -31,9 +31,9 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-kl)ulr+m0roanuqp6e)6=f1h
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1,shamrockfantasy.com,www.shamrockfantasy.com,138.68.228.237', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1,shamrockfantasy.com,www.shamrockfantasy.com,138.68.228.237,gsi.4spotmarketing.com', cast=lambda v: [s.strip() for s in v.split(',')])
 
-CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000,https://shamrockfantasy.com,https://www.shamrockfantasy.com,http://138.68.228.237', cast=lambda v: [s.strip() for s in v.split(',')])
+CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000,https://shamrockfantasy.com,https://www.shamrockfantasy.com,http://138.68.228.237,https://gsi.4spotmarketing.com', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Application definition
 
@@ -195,6 +195,13 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 
+# Memory management: Restart worker after processing ~256MB to prevent memory leaks
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = 256 * 1024  # 256 MB
+
+# Disable worker heartbeat events to reduce Redis traffic and noise in Sentry
+CELERY_WORKER_DISABLE_RATE_LIMITS = False
+CELERY_WORKER_LOG_FORMAT = '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s'
+
 # ===== CACHE CONFIGURATION =====
 CACHES = {
     'default': {
@@ -215,6 +222,34 @@ import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 
+def before_send_sentry(event, hint):
+    """Filter out noise and informational messages from Sentry"""
+    # Ignore Redis heartbeat and other INFO level logs
+    if event.get('level') == 'info':
+        return None  # Don't send info-level events
+    
+    # Ignore specific noisy breadcrumbs
+    breadcrumbs = event.get('breadcrumbs', [])
+    filtered_breadcrumbs = []
+    for crumb in breadcrumbs:
+        message = crumb.get('message', '').lower()
+        # Filter out Redis heartbeat, pipeline operations, and other noise
+        if any(noise in message for noise in [
+            'redis',
+            'celeryev',
+            'worker.heartbeat',
+            'pipeline',
+            'publish',
+            'db.operation'
+        ]):
+            continue
+        filtered_breadcrumbs.append(crumb)
+    
+    if filtered_breadcrumbs:
+        event['breadcrumbs'] = filtered_breadcrumbs
+    
+    return event
+
 SENTRY_DSN = env('SENTRY_DSN', default='')
 if SENTRY_DSN:  # Only enable if DSN is configured
     sentry_sdk.init(
@@ -226,6 +261,13 @@ if SENTRY_DSN:  # Only enable if DSN is configured
         traces_sample_rate=0.1 if not DEBUG else 0,  # No sampling in development
         send_default_pii=False,
         environment=env('ENVIRONMENT', default='development'),
+        before_send=before_send_sentry,
+        ignore_errors=[
+            # Ignore specific error types that are not actionable
+            RuntimeError,  # Generic runtime errors
+        ],
+        # Only capture errors and warnings, not info/debug
+        level='warning',
     )
 
 # ===== DJANGO-SILK PROFILING CONFIGURATION =====
