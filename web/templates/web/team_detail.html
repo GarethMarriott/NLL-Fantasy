@@ -532,8 +532,8 @@
       {% endfor %}
       {% endif %}
 
-      {% if is_traditional and allow_ir_slots and ir_slots_count > 0 %}
-      {# INJURED RESERVE SECTION (Traditional Leagues with IR Enabled) #}
+      {% if allow_ir_slots and ir_slots_count > 0 %}
+      {# INJURED RESERVE SECTION (IR Enabled) #}
       <tr class="bg-red-100 dark:bg-red-400 h-6">
         <td colspan="100" class="p-2 text-center font-bold text-red-900 dark:text-red-950">INJURED RESERVE ({{ ir_slots_count }})</td>
       </tr>

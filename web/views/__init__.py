@@ -524,24 +524,29 @@ def team_detail(request, team_id):
         while len(bench_slots) < num_bench:
             bench_slots.append(None)
 
-    # Create IR slots for traditional leagues with IR enabled
+    # Create IR slots for leagues with IR enabled (traditional and best ball)
     ir_slots = []
     allow_ir_slots = league.allow_ir_slots if hasattr(league, 'allow_ir_slots') else False
     ir_slots_count = league.ir_slots if allow_ir_slots and hasattr(league, 'ir_slots') else 0
     
-    if league.roster_format == 'traditional' and allow_ir_slots and ir_slots_count > 0:
-        # Get remaining players after bench slots (if any)
+    if allow_ir_slots and ir_slots_count > 0:
+        # Get remaining players after starters/bench
         remaining_players = []
         
-        if has_starter_slots:
-            # Get remaining players after bench slots
-            remaining_players.extend(offence_pool[num_offence + num_bench:])
-            remaining_players.extend(defence_pool[num_defence + num_bench:])
-            remaining_players.extend(goalie_pool[num_goalie + num_bench:])
+        if league.roster_format == 'traditional':
+            if has_starter_slots:
+                # Get remaining players after bench slots
+                remaining_players.extend(offence_pool[num_offence + num_bench:])
+                remaining_players.extend(defence_pool[num_defence + num_bench:])
+                remaining_players.extend(goalie_pool[num_goalie + num_bench:])
+            else:
+                # Get players after bench slots
+                remaining_players = bench_players[num_bench:num_bench + ir_slots_count]
         else:
-            # Get players after bench slots
-            all_bench_and_ir = bench_players[:num_bench + ir_slots_count]
-            remaining_players = bench_players[num_bench:num_bench + ir_slots_count]
+            # Best ball: get remaining players after starters (bench slots don't exist in best ball)
+            remaining_players.extend(offence_pool[num_offence:])
+            remaining_players.extend(defence_pool[num_defence:])
+            remaining_players.extend(goalie_pool[num_goalie:])
         
         # Remove None entries and create IR slots
         remaining_players = [p for p in remaining_players if p is not None]
@@ -1361,8 +1366,30 @@ def assign_player(request, team_id):
         
         # Check capacity for target position (excluding current player)
         if target_position:
+            # Check IR slots capacity (works for both traditional and best ball)
+            if target_position == 'IR' or target_slot == 'ir':
+                # Check if IR slots are enabled for this league
+                if not team.league.allow_ir_slots:
+                    error_msg = "IR slots are not enabled for this league."
+                    logger.warning(f"MOVE_TO_EMPTY_SLOT: IR slots not enabled")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                    messages.error(request, error_msg)
+                    return redirect("team_detail", team_id=team.id)
+                
+                # Count players in IR slots
+                ir_count = Roster.objects.filter(
+                    team=team,
+                    league=team.league,
+                    week_dropped__isnull=True,
+                    slot_assignment='ir'
+                ).exclude(player=player).count()
+                max_ir = team.league.ir_slots or 0
+                can_add = ir_count < max_ir
+                current_pos_count = ir_count
+                max_allowed = max_ir
             # For traditional leagues, only count players in starter slots (not bench)
-            if team.league.roster_format == 'traditional':
+            elif team.league.roster_format == 'traditional':
                 if 'starter_o' in target_slot:
                     starter_slots = [f'starter_o{i}' for i in range(1, team.league.roster_forwards + 1)]
                 elif 'starter_d' in target_slot:
@@ -1372,30 +1399,8 @@ def assign_player(request, team_id):
                 else:
                     starter_slots = []
                 
-                # Check IR slots capacity
-                if target_slot == 'ir':
-                    # Check if IR slots are enabled for this league
-                    if not team.league.allow_ir_slots:
-                        error_msg = "IR slots are not enabled for this league."
-                        logger.warning(f"MOVE_TO_EMPTY_SLOT: IR slots not enabled")
-                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                            return JsonResponse({'success': False, 'error': error_msg}, status=400)
-                        messages.error(request, error_msg)
-                        return redirect("team_detail", team_id=team.id)
-                    
-                    # Count players in IR slots
-                    ir_count = Roster.objects.filter(
-                        team=team,
-                        league=team.league,
-                        week_dropped__isnull=True,
-                        slot_assignment='ir'
-                    ).exclude(player=player).count()
-                    max_ir = team.league.ir_slots or 0
-                    can_add = ir_count < max_ir
-                    current_pos_count = ir_count
-                    max_allowed = max_ir
                 # Count players in starter slots for this position
-                elif starter_slots:
+                if starter_slots:
                     starter_count = Roster.objects.filter(
                         team=team,
                         league=team.league,
