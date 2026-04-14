@@ -17,6 +17,7 @@ def league_history(request, league_id):
     """
     Display available historical seasons for a league.
     Shows list of past years with links to view each season's data.
+    Also shows top 10 team and player weekly scores across all seasons.
     """
     league = get_object_or_404(League, id=league_id)
     
@@ -33,11 +34,119 @@ def league_history(request, league_id):
     seasons = [s['season'] for s in available_seasons]
     current_season = league.season
     
+    teams = list(league.teams.all())
+    team_ids = [t.id for t in teams]
+    
+    # Calculate top 10 team weekly scores
+    from collections import defaultdict
+    team_weekly_scores = []
+    week_cache = {}
+    rosters_by_team_season = defaultdict(list)
+    
+    # Build roster cache for all seasons
+    all_rosters = Roster.objects.filter(
+        team__in=teams, league=league, player__active=True
+    ).select_related("player", "team").prefetch_related("player__game_stats__game__week")
+    
+    for roster_entry in all_rosters:
+        key = (roster_entry.team_id, roster_entry.season)
+        rosters_by_team_season[key].append(roster_entry)
+    
+    # Get all weeks for this league across all seasons
+    all_weeks_obj = Week.objects.filter(season__in=seasons).order_by('season', 'week_number')
+    
+    for team in teams:
+        for season in seasons:
+            rosters = rosters_by_team_season.get((team.id, season), [])
+            if not rosters:
+                continue
+            
+            weeks_for_season = Week.objects.filter(season=season, is_playoff=False).order_by('week_number')
+            
+            for week_obj in weeks_for_season:
+                total = 0.0
+                active_players = []
+                
+                # Get players active during this week
+                for roster_entry in rosters:
+                    week_added = roster_entry.week_added or 0
+                    week_dropped = roster_entry.week_dropped or 999
+                    if week_added <= week_obj.week_number < week_dropped:
+                        if league.roster_format == 'traditional':
+                            if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                                active_players.append(roster_entry.player)
+                        else:
+                            active_players.append(roster_entry.player)
+                
+                # Calculate score for this week
+                for p in active_players:
+                    stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+                    pts = calculate_fantasy_points(stat, p, league)
+                    if pts is not None:
+                        total += pts
+                
+                if total > 0 or active_players:  # Only include if there were players or points
+                    team_weekly_scores.append({
+                        'team': team,
+                        'year': season,
+                        'week': week_obj.week_number,
+                        'points': total,
+                    })
+    
+    # Sort and get top 10
+    team_weekly_scores.sort(key=lambda x: -x['points'])
+    top_team_scores = team_weekly_scores[:10]
+    
+    # Calculate top 10 player weekly scores
+    player_weekly_scores = []
+    all_player_stats = PlayerGameStat.objects.filter(
+        player__active=True,
+        game__week__season__in=seasons
+    ).select_related('player', 'game__week').prefetch_related('game')
+    
+    player_rosters_cache = defaultdict(list)
+    for roster_entry in all_rosters:
+        player_rosters_cache[roster_entry.player_id].append(roster_entry)
+    
+    for stat in all_player_stats:
+        player = stat.player
+        week_obj = stat.game.week
+        pts = calculate_fantasy_points(stat, player, league)
+        
+        if pts is not None and pts > 0:
+            # Find which fantasy team this player was on during this week
+            roster_entries = player_rosters_cache.get(player.id, [])
+            fantasy_team = None
+            
+            for roster_entry in roster_entries:
+                if roster_entry.season == week_obj.season:
+                    week_added = roster_entry.week_added or 0
+                    week_dropped = roster_entry.week_dropped or 999
+                    if week_added <= week_obj.week_number < week_dropped:
+                        fantasy_team = roster_entry.team
+                        break
+            
+            if fantasy_team:
+                player_weekly_scores.append({
+                    'player': player,
+                    'nll_team': player.nll_team,
+                    'fantasy_team': fantasy_team,
+                    'year': week_obj.season,
+                    'week': week_obj.week_number,
+                    'points': pts,
+                })
+    
+    # Sort and get top 10
+    player_weekly_scores.sort(key=lambda x: -x['points'])
+    top_player_scores = player_weekly_scores[:10]
+    
     context = {
         'league': league,
         'seasons': seasons,
         'current_season': current_season,
         'is_commissioner': league.commissioner == request.user,
+        'top_team_scores': top_team_scores,
+        'top_player_scores': top_player_scores,
     }
     
     return render(request, 'web/league_history.html', context)
