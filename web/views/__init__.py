@@ -3546,50 +3546,101 @@ def standings(request):
                 standing['playoff_seed'] = seed
                 playoff_info[standing['team'].id] = seed
             
+            # Build a seed-to-team mapping
+            seed_to_team = {}
+            for seed, standing in enumerate(standings_list[:league.playoff_teams], start=1):
+                seed_to_team[seed] = standing['team']
+            
             # Extract playoff matchups and scores
             playoff_start_week = regular_season_end_week + 1
-            playoff_end_week = 21  # Finals are typically week 20
-            
             semifinal_matchups = []
             final_matchup = None
+            playoff_winners = {}  # Track W1, W2, etc for winner references
+            winner_index = 1
             
-            # Get playoff weeks
-            for week_idx in range(playoff_start_week - 1, min(playoff_end_week, len(weeks))):
+            # First pass: Build playoff_winners dict from completed weeks
+            for week_idx in range(playoff_start_week - 1, min(21, len(weeks))):
                 week_matchups = weeks[week_idx]
-                actual_week_num = week_idx + 1  # Convert 0-indexed to 1-indexed week number
+                actual_week_num = week_idx + 1  # Convert 0-indexed to 1-indexed
                 
-                # Extract playoff matchups (they have 4 elements: ('playoff', week, team1, team2))
                 for matchup in week_matchups:
                     if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
-                        matchup_week = matchup[1]
-                        team1_id = matchup[2]
-                        team2_id = matchup[3]
+                        _, seed1, seed2, round_name = matchup
                         
-                        # Get scores for this matchup using actual week number
-                        team1_score = team_week_total(team1_id, actual_week_num)
-                        team2_score = team_week_total(team2_id, actual_week_num)
+                        # Resolve team IDs from seeds or winner references
+                        def resolve_seed(seed):
+                            if isinstance(seed, int):
+                                return seed_to_team.get(seed)
+                            else:
+                                # Winner placeholder like 'W1', 'W2'
+                                return playoff_winners.get(seed)
                         
-                        # Get team objects from standings
-                        team1_data = next((s for s in standings_list if s['team'].id == team1_id), None)
-                        team2_data = next((s for s in standings_list if s['team'].id == team2_id), None)
+                        home_team = resolve_seed(seed1)
+                        away_team = resolve_seed(seed2)
                         
-                        if team1_data and team2_data:
+                        if home_team and away_team:
+                            home_score = team_week_total(home_team.id, actual_week_num)
+                            away_score = team_week_total(away_team.id, actual_week_num)
+                            
+                            # Store winner for future rounds
+                            if home_score > away_score:
+                                playoff_winners[f'W{winner_index}'] = home_team
+                            elif away_score > home_score:
+                                playoff_winners[f'W{winner_index}'] = away_team
+                            winner_index += 1
+            
+            # Second pass: Build bracket display with resolved teams and scores
+            winner_index = 1  # Reset for second pass
+            for week_idx in range(playoff_start_week - 1, min(21, len(weeks))):
+                week_matchups = weeks[week_idx]
+                actual_week_num = week_idx + 1
+                
+                for matchup in week_matchups:
+                    if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
+                        _, seed1, seed2, round_name = matchup
+                        
+                        # Resolve team IDs
+                        def resolve_seed(seed):
+                            if isinstance(seed, int):
+                                return seed_to_team.get(seed)
+                            else:
+                                return playoff_winners.get(seed)
+                        
+                        home_team = resolve_seed(seed1)
+                        away_team = resolve_seed(seed2)
+                        
+                        if home_team and away_team:
+                            home_id = home_team.id
+                            away_id = away_team.id
+                            home_score = team_week_total(home_id, actual_week_num)
+                            away_score = team_week_total(away_id, actual_week_num)
+                            
+                            # Get seeds for display
+                            home_seed = next((s for s in standings_list if s['team'].id == home_id), {}).get('playoff_seed', 'N/A')
+                            away_seed = next((s for s in standings_list if s['team'].id == away_id), {}).get('playoff_seed', 'N/A')
+                            
                             matchup_info = {
-                                'team1': team1_data['team'],
-                                'team1_score': team1_score,
-                                'team1_seed': team1_data.get('playoff_seed', 'N/A'),
-                                'team2': team2_data['team'],
-                                'team2_score': team2_score,
-                                'team2_seed': team2_data.get('playoff_seed', 'N/A'),
-                                'winner_id': team1_id if team1_score > team2_score else team2_id if team2_score > team1_score else None,
+                                'team1': home_team,
+                                'team1_score': home_score,
+                                'team1_seed': home_seed,
+                                'team2': away_team,
+                                'team2_score': away_score,
+                                'team2_seed': away_seed,
+                                'winner_id': home_id if home_score > away_score else away_id if away_score > home_score else None,
                             }
                             
-                            # Categorize by which playoff week this is
-                            playoff_week_offset = actual_week_num - playoff_start_week
-                            if playoff_week_offset <= 1:  # Semifinals (weeks 1-2 of playoffs)
+                            # Categorize by round
+                            if round_name == 'Semifinal':
                                 semifinal_matchups.append(matchup_info)
-                            elif playoff_week_offset == 2:  # Finals (week 3 of playoffs)
+                            elif round_name == 'Championship':
                                 final_matchup = matchup_info
+                            
+                            # Update winner tracker for next round
+                            if home_score > away_score:
+                                playoff_winners[f'W{winner_index}'] = home_team
+                            elif away_score > home_score:
+                                playoff_winners[f'W{winner_index}'] = away_team
+                            winner_index += 1
             
             playoff_bracket = {
                 'semifinals': semifinal_matchups,
