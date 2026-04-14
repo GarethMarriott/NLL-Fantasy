@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% static 'web/css/style.css' %}">
 </head>
 <body class="overflow-x-hidden">
-  <header>
+  <header class="sticky top-0 z-40">
     <nav class="bg-white shadow dark:bg-gray-800">
       <div class="container flex items-center justify-center p-6 mx-auto text-black capitalize dark:text-gray-300">
         <!-- Mobile menu button -->
@@ -48,7 +48,7 @@
   
   <div class="flex relative overflow-x-hidden">
     <!-- Sidebar -->
-    <aside id="sidebar" class="h-screen fixed lg:sticky top-0 inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 lg:z-auto">
+    <aside id="sidebar" class="h-screen fixed lg:sticky top-0 inset-y-0 left-0 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 lg:z-30">
       <div class="h-full p-3 space-y-2 w-60 bg-white dark:bg-gray-50 text-gray-800 dark:text-gray-800 overflow-y-auto">
         {% if selected_league %}
           <div class="px-2 py-2 mb-2 bg-blue-100 rounded text-xs">
