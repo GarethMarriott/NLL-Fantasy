@@ -359,6 +359,7 @@ def league_history_playoffs(request, league_id, year):
     Display historical playoff bracket and results for a specific league season.
     Shows championship winner and bracket progression.
     """
+    from collections import defaultdict
     league = get_object_or_404(League, id=league_id)
     year = int(year)
     
@@ -367,22 +368,274 @@ def league_history_playoffs(request, league_id, year):
     if not user_teams.exists() and league.commissioner != request.user:
         return JsonResponse({'error': 'Not a member of this league'}, status=403)
     
-    # Find the champion for this year
-    # This would need playoff bracket data stored - for now, show champion if available
-    championship_info = {
-        'champion': None,
-        'running_for_year': year,
+    teams = list(league.teams.order_by("name"))
+    if not teams:
+        context = {'league': league, 'year': year, 'championship': {}, 'is_historical': True}
+        return render(request, 'web/league_history_playoffs.html', context)
+    
+    # Get the schedule for this league
+    team_ids = [t.id for t in teams]
+    all_weeks = get_cached_schedule(team_ids, league.playoff_weeks, league.playoff_teams, league.playoff_reseed or "fixed")
+    
+    # Get playoff weeks for the season
+    playoff_weeks = Week.objects.filter(season=year, is_playoff=True).order_by('week_number')
+    if not playoff_weeks.exists():
+        context = {'league': league, 'year': year, 'championship': {}, 'is_historical': True}
+        return render(request, 'web/league_history_playoffs.html', context)
+    
+    playoff_start_week = playoff_weeks.first().week_number
+    
+    # Batch load rosters for this season
+    rosters = list(
+        Roster.objects.filter(team__in=teams, league=league, season=year, player__active=True)
+        .select_related("player", "team")
+        .prefetch_related("player__game_stats__game__week")
+    )
+    
+    # Group rosters by team_id for O(1) lookup
+    rosters_by_team = defaultdict(list)
+    for roster_entry in rosters:
+        rosters_by_team[roster_entry.team_id].append(roster_entry)
+    
+    week_cache = {}
+    
+    def calculate_playoff_week_score(team_id, week_number):
+        """Calculate a team's fantasy points for a specific week"""
+        week_obj = week_cache.get(week_number)
+        if week_obj is None:
+            week_obj = Week.objects.filter(week_number=week_number, season=year).first()
+            week_cache[week_number] = week_obj
+        
+        total = 0.0
+        
+        # Get active players on roster during this week
+        active_players = []
+        team_rosters = rosters_by_team.get(team_id, [])
+        for roster_entry in team_rosters:
+            week_added = roster_entry.week_added or 0
+            week_dropped = roster_entry.week_dropped or 999
+            if week_added <= week_number < week_dropped:
+                if league.roster_format == 'traditional':
+                    if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                        active_players.append(roster_entry.player)
+                else:
+                    active_players.append(roster_entry.player)
+        
+        for p in active_players:
+            stat = None
+            if week_obj:
+                stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+            pts = calculate_fantasy_points(stat, p, league)
+            if pts is not None:
+                total += pts
+        
+        return total
+    
+    # Get standings (seeds) for the season
+    standings_map = {t.id: {'team': t, 'wins': 0, 'losses': 0, 'ties': 0} for t in teams}
+    
+    # Count wins for seeds (calculate from regular season standings)
+    regular_season_weeks = Week.objects.filter(season=year, is_playoff=False)
+    max_regular_week = regular_season_weeks.last().week_number if regular_season_weeks.exists() else 0
+    
+    for idx, games in enumerate(all_weeks[:max_regular_week], start=1):
+        for matchup in games:
+            if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
+                continue
+            
+            team_a_id, team_b_id = matchup
+            if team_a_id not in standings_map or team_b_id not in standings_map:
+                continue
+            
+            home_total = team_week_total_history(team_a_id, idx, rosters_by_team, week_cache, year, league)
+            away_total = team_week_total_history(team_b_id, idx, rosters_by_team, week_cache, year, league)
+            
+            if home_total > away_total:
+                standings_map[team_a_id]['wins'] += 1
+                standings_map[team_b_id]['losses'] += 1
+            elif home_total < away_total:
+                standings_map[team_b_id]['wins'] += 1
+                standings_map[team_a_id]['losses'] += 1
+            else:
+                standings_map[team_a_id]['ties'] += 1
+                standings_map[team_b_id]['ties'] += 1
+    
+    # Sort for playoff seeds
+    standings_list = sorted(
+        standings_map.values(),
+        key=lambda x: (-x['wins'], -x['ties'], -x['team'].id)
+    )
+    
+    # Assign playoff seeds
+    seed_to_team = {}
+    for seed, standing in enumerate(standings_list[:league.playoff_teams], start=1):
+        standing['playoff_seed'] = seed
+        seed_to_team[seed] = standing['team']
+    
+    # Build playoff bracket by processing playoff weeks
+    playoff_winners = {}
+    playoff_losers = {}
+    semifinal_matchups = []
+    third_place_matchup = None
+    final_matchup = None
+    champion = None
+    
+    # First pass: Process completed playoff weeks and track winners/losers
+    winner_index = 1
+    for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
+        week_matchups = all_weeks[week_idx]
+        actual_week_num = week_idx + 1
+        
+        for matchup in week_matchups:
+            if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
+                _, seed1, seed2, round_name = matchup
+                
+                # Resolve team IDs from seeds or winner references
+                def resolve_seed(seed):
+                    if isinstance(seed, int):
+                        return seed_to_team.get(seed)
+                    else:
+                        if seed.startswith('L'):
+                            return playoff_losers.get(seed)
+                        else:
+                            return playoff_winners.get(seed)
+                
+                home_team = resolve_seed(seed1)
+                away_team = resolve_seed(seed2)
+                
+                if home_team and away_team:
+                    home_score = calculate_playoff_week_score(home_team.id, actual_week_num)
+                    away_score = calculate_playoff_week_score(away_team.id, actual_week_num)
+                    
+                    # Store winner and loser for future rounds
+                    if home_score > away_score:
+                        playoff_winners[f'W{winner_index}'] = home_team
+                        playoff_losers[f'L{winner_index}'] = away_team
+                    elif away_score > home_score:
+                        playoff_winners[f'W{winner_index}'] = away_team
+                        playoff_losers[f'L{winner_index}'] = home_team
+                    else:
+                        # Tie - home team wins
+                        playoff_winners[f'W{winner_index}'] = home_team
+                        playoff_losers[f'L{winner_index}'] = away_team
+                    winner_index += 1
+    
+    # Second pass: Build bracket display with resolved teams and scores
+    winner_index = 1
+    for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
+        week_matchups = all_weeks[week_idx]
+        actual_week_num = week_idx + 1
+        
+        for matchup in week_matchups:
+            if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
+                _, seed1, seed2, round_name = matchup
+                
+                # Resolve team IDs - handle W#, L# placeholders
+                def resolve_seed(seed):
+                    if isinstance(seed, int):
+                        return seed_to_team.get(seed)
+                    else:
+                        if seed.startswith('L'):
+                            return playoff_losers.get(seed)
+                        else:
+                            return playoff_winners.get(seed)
+                
+                home_team = resolve_seed(seed1)
+                away_team = resolve_seed(seed2)
+                
+                if home_team and away_team:
+                    home_id = home_team.id
+                    away_id = away_team.id
+                    home_score = calculate_playoff_week_score(home_id, actual_week_num)
+                    away_score = calculate_playoff_week_score(away_id, actual_week_num)
+                    
+                    # Get seeds for display
+                    home_seed = next((s for s in standings_list if s['team'].id == home_id), {}).get('playoff_seed', 'N/A')
+                    away_seed = next((s for s in standings_list if s['team'].id == away_id), {}).get('playoff_seed', 'N/A')
+                    
+                    matchup_info = {
+                        'team1': home_team,
+                        'team1_score': home_score,
+                        'team1_seed': home_seed,
+                        'team2': away_team,
+                        'team2_score': away_score,
+                        'team2_seed': away_seed,
+                        'winner_id': home_id if home_score > away_score else away_id if away_score > home_score else None,
+                    }
+                    
+                    # Categorize by round
+                    if round_name == 'Semifinal':
+                        semifinal_matchups.append(matchup_info)
+                    elif round_name == 'Third Place':
+                        third_place_matchup = matchup_info
+                    elif round_name == 'Championship':
+                        final_matchup = matchup_info
+                        # Track champion
+                        if matchup_info['winner_id']:
+                            champion = next((t for t in teams if t.id == matchup_info['winner_id']), None)
+                    
+                    # Update winner and loser tracker for next round
+                    if home_score > away_score:
+                        playoff_winners[f'W{winner_index}'] = home_team
+                        playoff_losers[f'L{winner_index}'] = away_team
+                    elif away_score > home_score:
+                        playoff_winners[f'W{winner_index}'] = away_team
+                        playoff_losers[f'L{winner_index}'] = home_team
+                    else:
+                        playoff_winners[f'W{winner_index}'] = home_team
+                        playoff_losers[f'L{winner_index}'] = away_team
+                    winner_index += 1
+    
+    playoff_bracket = {
+        'semifinals': semifinal_matchups,
+        'third_place': third_place_matchup,
+        'final': final_matchup,
     }
     
-    # TODO: Implement playoff bracket display from historical data
-    # This would need to store playoff bracket structure and results
+    championship_info = {
+        'champion': champion,
+        'running_for_year': year,
+    }
     
     context = {
         'league': league,
         'year': year,
         'championship': championship_info,
+        'playoff_bracket': playoff_bracket,
         'is_historical': True,
     }
     
     return render(request, 'web/league_history_playoffs.html', context)
+
+
+def team_week_total_history(team_id, week_number, rosters_by_team, week_cache, year, league):
+    """Calculate a team's fantasy points for a specific week in historical context"""
+    week_obj = week_cache.get(week_number)
+    if week_obj is None:
+        week_obj = Week.objects.filter(week_number=week_number, season=year).first()
+        week_cache[week_number] = week_obj
+    
+    total = 0.0
+    
+    active_players = []
+    team_rosters = rosters_by_team.get(team_id, [])
+    for roster_entry in team_rosters:
+        week_added = roster_entry.week_added or 0
+        week_dropped = roster_entry.week_dropped or 999
+        if week_added <= week_number < week_dropped:
+            if league.roster_format == 'traditional':
+                if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                    active_players.append(roster_entry.player)
+            else:
+                active_players.append(roster_entry.player)
+    
+    for p in active_players:
+        stat = None
+        if week_obj:
+            stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+        pts = calculate_fantasy_points(stat, p, league)
+        if pts is not None:
+            total += pts
+    
+    return total
 
