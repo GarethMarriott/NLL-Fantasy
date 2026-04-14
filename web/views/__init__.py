@@ -3377,13 +3377,19 @@ def matchups(request):
                 }
                 week_data["games"].append(game_data)
                 
-                # Track the winner for future playoff rounds
+                # Track the winner AND LOSER for future playoff rounds
                 # Use THIS WEEK'S scores, not cumulative season totals
                 if home_team and away_team:
                     if home_week_total > away_week_total:
                         playoff_winners[f'W{winner_index}'] = home_team
+                        playoff_losers[f'L{winner_index}'] = away_team
                     elif away_week_total > home_week_total:
                         playoff_winners[f'W{winner_index}'] = away_team
+                        playoff_losers[f'L{winner_index}'] = home_team
+                    else:
+                        # Tie - give to home team as winner
+                        playoff_winners[f'W{winner_index}'] = home_team
+                        playoff_losers[f'L{winner_index}'] = away_team
                     # If tied, we don't assign a winner yet - would need tiebreaker logic
                     winner_index += 1
             elif isinstance(game, tuple) and len(game) == 2:
