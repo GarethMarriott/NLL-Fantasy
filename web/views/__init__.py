@@ -549,31 +549,71 @@ def team_detail(request, team_id):
     ir_slots_count = league.ir_slots if allow_ir_slots and hasattr(league, 'ir_slots') else 0
     
     if allow_ir_slots and ir_slots_count > 0:
-        # Get remaining players after starters/bench
-        remaining_players = []
+        # Get IR players directly from database using slot_assignment='ir' 
+        # This is more reliable than trying to derive from remaining position players
+        ir_roster_entries = team.roster_entries.select_related('player').filter(
+            league=league,
+            player__active=True,
+            week_dropped__isnull=True,
+            slot_assignment='ir'
+        ).filter(
+            Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
+        )
         
-        if league.roster_format == 'traditional':
-            if has_starter_slots:
-                # Get remaining players after bench slots
-                remaining_players.extend(offence_pool[num_offence + num_bench:])
-                remaining_players.extend(defence_pool[num_defence + num_bench:])
-                remaining_players.extend(goalie_pool[num_goalie + num_bench:])
-            else:
-                # Get players after bench slots
-                remaining_players = bench_players[num_bench:num_bench + ir_slots_count]
-        else:
-            # Best ball: get remaining players after starters (bench slots don't exist in best ball)
-            remaining_players.extend(offence_pool[num_offence:])
-            remaining_players.extend(defence_pool[num_defence:])
-            remaining_players.extend(goalie_pool[num_goalie:])
-        
-        # Remove None entries and create IR slots
-        remaining_players = [p for p in remaining_players if p is not None]
-        ir_slots = remaining_players[:ir_slots_count]
+        # Build IR slot entries similar to starter slots
+        ir_slots = []
+        for roster_entry in ir_roster_entries[:ir_slots_count]:
+            p = roster_entry.player
+            
+            # Get stats from index instead of filtering/looping
+            all_player_stats = []
+            for week_num in range(1, 19):
+                all_player_stats.extend(stats_by_player_week_num.get((p.id, week_num), []))
+            # Find latest stat (most recent game)
+            latest = max(all_player_stats, key=lambda s: (s.game.date, s.game.id), default=None)
+            
+            # Calculate weekly points for all weeks in the season (including playoffs)
+            weekly_points = []
+            total_points = 0
+            for wk in range(1, max_week_to_calculate + 1):
+                stats_list = stats_by_player_week_num.get((p.id, wk), [])
+                if not stats_list:
+                    weekly_points.append(None)
+                    continue
+                pts_list = [calculate_fantasy_points(st, p, league) for st in stats_list if st is not None]
+                if not pts_list:
+                    weekly_points.append(None)
+                    continue
+                if league.multigame_scoring == "average" and len(pts_list) > 1:
+                    pts = sum(pts_list) / len(pts_list)
+                elif league.multigame_scoring == "highest":
+                    pts = max(pts_list)
+                else:
+                    pts = max(pts_list)
+                weekly_points.append(pts)
+                if pts is not None:
+                    total_points += pts
+            
+            # Get opponent for the selected week
+            opponent = "BYE"
+            if p.nll_team:
+                game = games_by_team_name.get(p.nll_team)
+                if game:
+                    opponent = f"{game.away_team} @ {game.home_team}"
+            
+            entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 21, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
+            ir_slots.append(entry)
         
         # Pad with None to reach desired IR count
         while len(ir_slots) < ir_slots_count:
             ir_slots.append(None)
+        
+        logger.warning(f"TEAM_DETAIL IR_SLOTS: Found {len(ir_slots)} IR players for league_id={league.id}")
+        for i, slot in enumerate(ir_slots):
+            if slot:
+                logger.warning(f"  - IR[{i}]: {slot['player'].last_name}, {slot['player'].first_name}")
+            else:
+                logger.warning(f"  - IR[{i}]: Empty")
 
     # Mark starter status based on slot assignment for all league types
     for slot_group in [offence_slots, defence_slots, goalie_slots]:
