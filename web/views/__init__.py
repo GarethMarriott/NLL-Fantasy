@@ -2655,9 +2655,12 @@ def player_detail_modal(request, player_id):
                 } for game in games]
                 is_bye_week = len(upcoming_games) == 0
             
+            # For past weeks, don't count team games as player games. Only count for upcoming weeks.
+            games_count_for_no_stats = len(upcoming_games) if is_upcoming else 0
+            
             agg_stat = {
                 'week': week_key,
-                'games_count': len(upcoming_games),
+                'games_count': games_count_for_no_stats,
                 'goals': 0,
                 'assists': 0,
                 'loose_balls': 0,

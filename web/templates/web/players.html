@@ -687,12 +687,13 @@
             rookieBadge.classList.add('hidden');
           }
           
-          // Calculate stats summary from week_stats
+          // Calculate stats summary from week_stats (only count weeks where player actually played)
           let totalPoints = 0;
           let gamesPlayed = 0;
           if (data.week_stats && data.week_stats.length > 0) {
             data.week_stats.forEach(week => {
-              if (!week.is_upcoming) {
+              if (!week.is_upcoming && !week.is_no_stats) {
+                // Only count weeks where player has actual stats (played in games)
                 totalPoints += week.fantasy_points || 0;
                 gamesPlayed += week.games_count || 0;
               }
