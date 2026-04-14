@@ -78,13 +78,17 @@ def check_roster_capacity(team, position, exclude_player=None):
     
     # For IR slots in best ball, check IR capacity separately
     if is_best_ball and position == 'IR':
-        ir_count = Roster.objects.filter(
+        query = Roster.objects.filter(
             team=team,
             league=team.league,
             week_dropped__isnull=True,
             slot_assignment='ir'
-        ).exclude(player=exclude_player if exclude_player else None).count()
+        )
         
+        if exclude_player:
+            query = query.exclude(player=exclude_player)
+        
+        ir_count = query.count()
         max_ir = team.league.ir_slots if hasattr(team.league, 'ir_slots') else 0
         return ir_count < max_ir, ir_count, max_ir
     
