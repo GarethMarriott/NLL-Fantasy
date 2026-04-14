@@ -2887,6 +2887,13 @@ def matchups(request):
     # Get selected league from session
     selected_league_id = request.session.get('selected_league_id')
     
+    if not selected_league_id and request.user.is_authenticated:
+        # Auto-select first league user is part of if none selected
+        user_leagues = Team.objects.filter(owner=request.user)
+        if user_leagues.exists():
+            selected_league_id = user_leagues.first().league.id
+            request.session['selected_league_id'] = selected_league_id
+    
     if selected_league_id:
         teams = list(Team.objects.filter(league_id=selected_league_id).order_by("id"))
         # Use the most recent season (not league creation year)
@@ -3410,10 +3417,17 @@ def standings(request):
     # Get selected league from session
     selected_league_id = request.session.get('selected_league_id')
     
+    if not selected_league_id and request.user.is_authenticated:
+        # Auto-select first league user is part of if none selected
+        user_leagues = Team.objects.filter(owner=request.user)
+        if user_leagues.exists():
+            selected_league_id = user_leagues.first().league.id
+            request.session['selected_league_id'] = selected_league_id
+    
     if selected_league_id:
         leagues = League.objects.filter(id=selected_league_id).prefetch_related('teams')
     else:
-        # Get all active leagues
+        # Fallback to all active leagues if user not authenticated or has no leagues
         leagues = League.objects.filter(is_active=True).prefetch_related('teams')
     
     all_league_standings = []
