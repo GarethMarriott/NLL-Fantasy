@@ -899,26 +899,42 @@
               button.type = 'button';
               button.className = 'w-full px-4 py-2 text-left bg-white hover:bg-blue-50 rounded border-b border-gray-200 text-sm flex items-center gap-2';
               
-              // Create position badge with inline styles to ensure rendering
+              // Create position badge with inline styles
               const badge = document.createElement('span');
-              let badgeClass = 'inline-block px-1.5 py-0.5 rounded font-semibold border text-xs min-w-fit';
-              let badgeStyle = '';
+              badge.className = 'inline-block px-1.5 py-0.5 rounded font-semibold border text-xs min-w-fit';
               
-              // Style badge based on position
-              if (option.player_position === 'O') {
-                badgeClass += ' bg-green-100 text-green-800 border-green-300';
-              } else if (option.player_position === 'D') {
-                badgeClass += ' bg-orange-100 text-orange-800 border-orange-300';
-              } else if (option.player_position === 'T') {
-                badgeClass += ' bg-purple-100 text-purple-800 border-purple-300';
-              } else if (option.player_position === 'G') {
-                badgeClass += ' bg-blue-100 text-blue-800 border-blue-300';
+              // Set inline styles for color based on position
+              let bgColor, textColor, borderColor;
+              const pos = option.player_position;
+              
+              if (pos === 'O') {
+                bgColor = '#dcfce7';
+                textColor = '#166534';
+                borderColor = '#86efac';
+              } else if (pos === 'D') {
+                bgColor = '#fed7aa';
+                textColor = '#92400e';
+                borderColor = '#fdba74';
+              } else if (pos === 'T') {
+                bgColor = '#e9d5ff';
+                textColor = '#6b21a8';
+                borderColor = '#d8b4fe';
+              } else if (pos === 'G') {
+                bgColor = '#dbeafe';
+                textColor = '#1e3a8a';
+                borderColor = '#93c5fd';
               } else {
-                badgeClass += ' bg-gray-100 text-gray-800 border-gray-300';
+                bgColor = '#f3f4f6';
+                textColor = '#374151';
+                borderColor = '#d1d5db';
               }
               
-              badge.className = badgeClass;
-              badge.textContent = option.player_position || 'N/A';
+              badge.style.backgroundColor = bgColor;
+              badge.style.color = textColor;
+              badge.style.borderColor = borderColor;
+              badge.style.borderStyle = 'solid';
+              badge.style.borderWidth = '1px';
+              badge.textContent = pos || 'N/A';
               
               button.appendChild(badge);
               
