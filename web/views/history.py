@@ -156,34 +156,30 @@ def league_history_matchups(request, league_id, year):
         games = Game.objects.filter(week=week)
         
         for game in games:
-            home_team = game.home_team
-            away_team = game.away_team
+            home_nll_team = game.home_team  # NLL team name string
+            away_nll_team = game.away_team   # NLL team name string
             
-            # Calculate team scores
+            # Get all game stats for this game and calculate scores by team
+            game_stats = PlayerGameStat.objects.filter(game=game)
+            
             home_score = 0.0
-            home_rosters = Roster.objects.filter(
-                team=home_team, league=league, season=year
-            )
-            for roster in home_rosters:
-                stat = roster.player.game_stats.filter(game__week=week).first()
-                if stat:
-                    home_score += calculate_fantasy_points(stat, roster.player)
-            
             away_score = 0.0
-            away_rosters = Roster.objects.filter(
-                team=away_team, league=league, season=year
-            )
-            for roster in away_rosters:
-                stat = roster.player.game_stats.filter(game__week=week).first()
-                if stat:
-                    away_score += calculate_fantasy_points(stat, roster.player)
+            
+            for stat in game_stats:
+                # Sum points by NLL team
+                points = calculate_fantasy_points(stat, stat.player)
+                
+                if stat.player.nll_team == home_nll_team:
+                    home_score += points
+                elif stat.player.nll_team == away_nll_team:
+                    away_score += points
             
             matchups.append({
-                'home_team': home_team,
-                'away_team': away_team,
+                'home_team': home_nll_team,
+                'away_team': away_nll_team,
                 'home_score': home_score,
                 'away_score': away_score,
-                'winner': home_team if home_score > away_score else (away_team if away_score > home_score else None),
+                'winner': home_nll_team if home_score > away_score else (away_nll_team if away_score > home_score else None),
                 'is_tie': home_score == away_score,
             })
         
