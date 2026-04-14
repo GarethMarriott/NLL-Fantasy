@@ -86,6 +86,9 @@ def scrape_nll_transactions_task():
                                 # Get team info
                                 from_team, to_team = extract_teams_from_text(transaction_text, team_names)
                                 
+                                # Extract player-specific details
+                                player_details = extract_player_details(transaction_text, player_name)
+                                
                                 # Create or get transaction
                                 transaction, created = NLLTransaction.objects.get_or_create(
                                     nll_url=url_unique,
@@ -95,7 +98,7 @@ def scrape_nll_transactions_task():
                                         'transaction_type': transaction_type,
                                         'from_team': from_team,
                                         'to_team': to_team,
-                                        'details': transaction_text[:500],
+                                        'details': player_details,
                                         'scraped_at': datetime.now(),
                                     }
                                 )
@@ -267,6 +270,25 @@ def extract_transaction_type_for_player(text, player_name):
     
     # Fallback to general extraction
     return extract_transaction_type(text)
+
+
+def extract_player_details(text, player_name):
+    """Extract only the sentence relevant to the specific player from full text"""
+    player_lower = player_name.lower()
+    
+    # Split by period to get separate statements
+    statements = text.split('.')
+    
+    # Find the statement(s) containing this player
+    for statement in statements:
+        if player_lower in statement.lower():
+            # Clean up the statement and return it with period
+            cleaned = statement.strip()
+            if cleaned:
+                return cleaned + '.'
+    
+    # Fallback: return first 500 chars if we can't find specific statement
+    return text[:500]
 
 
 def extract_transaction_type(text):
