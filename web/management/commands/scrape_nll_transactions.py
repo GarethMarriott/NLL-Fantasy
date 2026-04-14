@@ -249,44 +249,45 @@ def extract_transaction_type_for_player(text, player_name):
     text_lower = text.lower()
     player_lower = player_name.lower()
     
-    # Find sentences/clauses containing this player
-    # Split by period to get separate statements
-    statements = text.split('.')
+    # Find the player's name in the text and get context around it
+    player_index = text_lower.find(player_lower)
     
-    player_statements = []
-    for statement in statements:
-        if player_lower in statement.lower():
-            player_statements.append(statement.lower())
-    
-    # If we found relevant statements, check ONLY those statements for the transaction type
-    if player_statements:
-        combined_player_text = ' '.join(player_statements)
+    if player_index != -1:
+        # Get a window of text around the player name (200 chars before and after)
+        start = max(0, player_index - 200)
+        end = min(len(text), player_index + len(player_name) + 200)
+        context_text = text_lower[start:end]
         
-        # Check for specific transaction types in the player's own statement
-        # Check for "placed on Active Roster" pattern (activation)
-        if 'placed' in combined_player_text and 'on the active roster' in combined_player_text:
+        # Check for transaction types in the context around the player's name
+        # Prioritize specific patterns with the player name
+        
+        # "signed [player]" or "[player] signed" patterns
+        if 'signed' in context_text:
+            return 'signed'
+        
+        # "placed [player] on the active roster" (activation)
+        if 'placed' in context_text and 'on the active roster' in context_text:
             return 'activated'
-        # Check for "placed on Injured Reserve" pattern
-        elif 'placed' in combined_player_text and ('on the injured reserve' in combined_player_text or 'on injured reserve' in combined_player_text):
+        
+        # "placed [player] on" injured reserve - but only if not also "signed"
+        if 'placed' in context_text and ('on the injured reserve' in context_text or 'on injured reserve' in context_text):
             return 'injured_reserve'
         
-        # Check for other transaction types in the player-specific statement ONLY
-        if 'signed' in combined_player_text:
-            return 'signed'
-        elif 'traded' in combined_player_text:
+        # Other transaction types
+        if 'traded' in context_text:
             return 'traded'
-        elif 'released' in combined_player_text:
+        elif 'released' in context_text:
             return 'released'
-        elif 'waived' in combined_player_text:
+        elif 'waived' in context_text:
             return 'waived'
-        elif 'activated' in combined_player_text or 'recalled' in combined_player_text:
+        elif 'activated' in context_text or 'recalled' in context_text:
             return 'activated'
-        elif 'reassigned' in combined_player_text:
+        elif 'reassigned' in context_text:
             return 'reassigned'
-        elif 'retired' in combined_player_text:
+        elif 'retired' in context_text:
             return 'retired'
     
-    # Only use full text as fallback if we have no player-specific statement
+    # Fallback to general extraction
     return extract_transaction_type(text)
 
 
