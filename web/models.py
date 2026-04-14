@@ -205,6 +205,35 @@ class League(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Offseason/Multi-season fields
+    season = models.PositiveIntegerField(
+        default=2026,
+        help_text="Current season year"
+    )
+    STATUS_CHOICES = [
+        ('active', 'Season in progress'),
+        ('season_complete', 'Season ended, awaiting renewal'),
+        ('renewal_complete', 'League renewed for new season'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text="Current league status"
+    )
+    season_winner = models.ForeignKey(
+        'Team',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='seasons_won',
+        help_text="The team that won the championship"
+    )
+    draft_locked = models.BooleanField(
+        default=False,
+        help_text="Set to True to lock rosters during active draft (redraft leagues only)"
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -375,6 +404,29 @@ class Roster(models.Model):
         null=True,
         blank=True,
         help_text="Week number when this player was dropped from the roster (NULL if still active)"
+    )
+    
+    # Roster locking fields
+    is_locked = models.BooleanField(
+        default=False,
+        help_text="Whether this roster is locked and cannot be modified"
+    )
+    LOCKED_REASON_CHOICES = [
+        ('offseason', 'Offseason - awaiting league renewal'),
+        ('draft_active', 'Draft is currently active'),
+        ('week_active', 'Week is currently active'),
+    ]
+    locked_reason = models.CharField(
+        max_length=20,
+        choices=LOCKED_REASON_CHOICES,
+        default='',
+        help_text="Reason why roster is locked"
+    )
+    
+    # Season tracking for multi-season leagues
+    season = models.PositiveIntegerField(
+        default=2026,
+        help_text="Season year this roster is for"
     )
 
     class Meta:

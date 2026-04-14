@@ -5,7 +5,8 @@ from .views import (
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league, remove_team_from_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
     nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
-    manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500
+    manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500,
+    league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion
 )
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
@@ -58,6 +59,13 @@ urlpatterns = [
     path("leagues/<int:league_id>/select/", select_league, name="select_league"),
     path("teams/<int:team_id>/settings/", team_settings, name="team_settings"),
     path("teams/<int:team_id>/lineup/", manage_lineup, name="manage_lineup"),
+    
+    # Offseason Management
+    path("league/<int:league_id>/offseason/", league_offseason, name="league_offseason"),
+    path("league/<int:league_id>/renew/", offseason_renew_league, name="league_renew"),
+    path("league/<int:league_id>/lock-rosters/", lock_rosters, name="lock_rosters"),
+    path("league/<int:league_id>/finalize-draft/", finalize_draft, name="finalize_draft"),
+    path("league/<int:league_id>/crown-champion/", crown_champion, name="crown_champion"),
     
     # Draft
     path("draft/", draft_room, name="draft_room"),
