@@ -5888,18 +5888,32 @@ def get_available_slots(request, team_id):
                 print(f"  {slot_type} slots: found {roster_in_slots.count()} players")
                 
                 # Add swap options based on player position and current location
-                # Case 1: Player is in a starter slot - can swap with bench players who are eligible
+                # Case 1: Player is in a starter slot - can swap with compatible players in same slot type or bench
                 if slot_type == current_slot_type:
-                    # First add players in same position (original behavior)
+                    # Show other players in this same slot type - but check backwards compatibility
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
-                            response_data['swap_options'].append({
-                                'player_id': roster_entry.player.id,
-                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                                'slot_type': slot_type,
-                                'slot_assignment': roster_entry.slot_assignment
-                            })
-                            print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                            swap_player_pos = roster_entry.player.position
+                            # Check if the player in this slot can move to where the current player came from
+                            # (i.e., back to this same starter slot type)
+                            can_swap = False
+                            if slot_type == 'O' and swap_player_pos in ['O', 'T']:
+                                can_swap = True
+                            elif slot_type == 'D' and swap_player_pos in ['D', 'T']:
+                                can_swap = True
+                            elif slot_type == 'G':
+                                allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+                                if swap_player_pos == 'G' or (swap_player_pos == 'T' and allow_t_in_g):
+                                    can_swap = True
+                            
+                            if can_swap:
+                                response_data['swap_options'].append({
+                                    'player_id': roster_entry.player.id,
+                                    'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                    'slot_type': slot_type,
+                                    'slot_assignment': roster_entry.slot_assignment
+                                })
+                                print(f"    Swap option: {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment} - can fill {slot_type}")
                     
                     # NEW: Also add bench players who are eligible for this position
                     bench_roster = all_active_roster.filter(slot_assignment='bench')
@@ -5925,17 +5939,60 @@ def get_available_slots(request, team_id):
                                 })
                                 print(f"    Swap option (bench): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
                 
-                # Case 2: T players can swap with other T players in any position group
-                elif current_player.position == 'T':
+                # Case 2: T players on bench can swap with players in any eligible position
+                # NEW: Check backwards compatibility - player in slot must be able to move back to bench
+                elif current_player.position == 'T' and current_slot_type is None:
+                    # T player is on bench - can swap with ANY position slot if that player can go to bench
                     for roster_entry in roster_in_slots:
-                        if str(roster_entry.player.id) != str(current_player_id) and roster_entry.player.position == 'T':
+                        if str(roster_entry.player.id) != str(current_player_id):
+                            swap_player_pos = roster_entry.player.position
+                            # All positions can go to bench, so always include
                             response_data['swap_options'].append({
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                                 'slot_type': slot_type,
                                 'slot_assignment': roster_entry.slot_assignment
                             })
-                            print(f"    Swap option (T-T cross-group): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                            print(f"    Swap option (T from bench): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment}")
+                
+                # Case 2b: T players in a starter slot can swap with compatible players in other positions or bench
+                elif current_player.position == 'T' and current_slot_type is not None:
+                    # T player is in a starter slot - can swap with compatible players
+                    for roster_entry in roster_in_slots:
+                        if str(roster_entry.player.id) != str(current_player_id):
+                            swap_player_pos = roster_entry.player.position
+                            # Check if the player in this slot can move to where the T player came from
+                            can_swap = False
+                            if current_slot_type == 'O' and swap_player_pos in ['O', 'T']:
+                                can_swap = True
+                            elif current_slot_type == 'D' and swap_player_pos in ['D', 'T']:
+                                can_swap = True
+                            elif current_slot_type == 'G':
+                                allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+                                if swap_player_pos == 'G' or (swap_player_pos == 'T' and allow_t_in_g):
+                                    can_swap = True
+                            
+                            if can_swap:
+                                response_data['swap_options'].append({
+                                    'player_id': roster_entry.player.id,
+                                    'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                    'slot_type': slot_type,
+                                    'slot_assignment': roster_entry.slot_assignment
+                                })
+                                print(f"    Swap option (T in {current_slot_type}): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment}")
+                    
+                    # Also show compatible bench players as swap options
+                    bench_roster = all_active_roster.filter(slot_assignment='bench')
+                    for roster_entry in bench_roster:
+                        if str(roster_entry.player.id) != str(current_player_id):
+                            # Bench players can always fill the T player's current position
+                            response_data['swap_options'].append({
+                                'player_id': roster_entry.player.id,
+                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'slot_type': 'Bench',
+                                'slot_assignment': roster_entry.slot_assignment
+                            })
+                            print(f"    Swap option (T in {current_slot_type} with bench player): {roster_entry.player.last_name}")
                 
                 # Case 3: Bench players can swap with any starter position
                 elif current_slot_type is None:
