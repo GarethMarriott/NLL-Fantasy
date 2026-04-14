@@ -1562,7 +1562,8 @@ class NLLTransaction(models.Model):
         ('released', 'Released'),
         ('waived', 'Waived'),
         ('reassigned', 'Reassigned'),
-        ('activated', 'Activated'),
+        ('injured_reserve', 'Placed on Injured Reserve'),
+        ('activated', 'Activated/Returned'),
         ('retired', 'Retired'),
         ('other', 'Other'),
     ]

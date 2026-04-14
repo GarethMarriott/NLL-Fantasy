@@ -244,8 +244,13 @@ def extract_transaction_type(text):
     text_lower = text.lower()
     
     # Check for different transaction types in order of specificity
-    if 'injured' in text_lower and ('placed' in text_lower or 'reserve' in text_lower):
-        return 'injured'
+    # Check for ACTIVATION/RETURN first (these are opposite of injured reserve)
+    if any(word in text_lower for word in ['activated', 'recalled', 'returned', 'placed back on active', 'restored to active']):
+        return 'activated'
+    # Then check for INJURED RESERVE placement
+    elif 'injured' in text_lower and ('placed' in text_lower or 'reserve' in text_lower or 'ir' in text_lower):
+        return 'injured_reserve'
+    # Other transaction types
     elif 'released' in text_lower:
         return 'released'
     elif 'traded' in text_lower:
@@ -254,8 +259,6 @@ def extract_transaction_type(text):
         return 'waived'
     elif 'reassigned' in text_lower or ('placed' in text_lower and 'nhl' in text_lower):
         return 'reassigned'
-    elif 'activated' in text_lower or 'recalled' in text_lower:
-        return 'activated'
     elif 'retired' in text_lower:
         return 'retired'
     elif 'signed' in text_lower:
