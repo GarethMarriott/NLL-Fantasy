@@ -20,6 +20,11 @@ app.conf.beat_schedule = {
         'schedule': crontab(day_of_week='tue', hour=16, minute=0),  # Tuesday 9am PT = Tuesday 4pm UTC (PDT; UTC-7 during DST, UTC-8 during standard time)
         # Includes: roster unlock + waiver processing + trade processing + current_week update (all atomic)
     },
+    'auto-complete-seasons-tuesday-8am-PT': {
+        'task': 'web.tasks.auto_complete_seasons',
+        'schedule': crontab(day_of_week='tue', hour=15, minute=0),  # Tuesday 8am PT = Tuesday 3pm UTC
+        # Marks leagues as season_complete on Tuesday after championship week ends, locks rosters for offseason
+    },
     'fetch-stats-friday-night': {
         'task': 'web.tasks.fetch_nll_stats_task',
         'schedule': crontab(day_of_week='fri', hour=6, minute=0),  # Friday 11 PM PT = Saturday 6 AM UTC

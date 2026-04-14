@@ -1025,3 +1025,80 @@ def _calculate_draft_order_from_standings(league, season_year):
     except Exception as e:
         logger.error(f"Error calculating draft order from standings: {str(e)}")
         return None
+
+@shared_task(name='web.tasks.auto_complete_seasons')
+def auto_complete_seasons():
+    """
+    Automatically mark leagues as season_complete on Tuesday after the championship week ends.
+    
+    NLL regular season is weeks 1-20, playoffs are weeks 21-22.
+    Tuesday after week 22 = season is over, mark leagues for offseason.
+    
+    Called via Celery Beat schedule: Every Tuesday at 8 AM PT
+    """
+    from web.models import League, Week
+    from datetime import datetime
+    
+    today = timezone.now()
+    logger.info(f"[AUTO COMPLETE] Running season auto-complete check at {today}")
+    
+    try:
+        # Find the most recent completed championship week (week 21-22 that ended)
+        # Championship weeks are the last playoff weeks
+        latest_week = Week.objects.filter(
+            season=today.year,
+            week_number__gte=21  # Playoff weeks
+        ).order_by('-week_number').first()
+        
+        if not latest_week:
+            logger.info(f"[AUTO COMPLETE] No playoff weeks found for season {today.year}")
+            return "No playoff weeks found"
+        
+        # Check if we're on Tuesday and this week has ended
+        # Week ends on Sunday/Monday, Tuesday is the off day
+        if latest_week.end_date < today.date() and today.weekday() == 1:  # Tuesday = 1
+            logger.info(f"[AUTO COMPLETE] Championship week {latest_week.week_number} has ended (ended: {latest_week.end_date})")
+            
+            # Mark all active leagues for this season as season_complete
+            leagues = League.objects.filter(
+                season=today.year,
+                status='active'  # Only auto-complete active leagues
+            )
+            
+            updated_count = 0
+            for league in leagues:
+                try:
+                    league.status = 'season_complete'
+                    league.save()
+                    
+                    # Lock all rosters for offseason
+                    from web.models import Roster
+                    Roster.objects.filter(
+                        league=league,
+                        season=league.season
+                    ).update(
+                        is_locked=True,
+                        locked_reason='offseason'
+                    )
+                    
+                    logger.info(f"[AUTO COMPLETE] Marked league '{league.name}' as season_complete")
+                    updated_count += 1
+                    
+                    # TODO: Send email to commissioner with renewal link
+                    
+                except Exception as e:
+                    logger.error(f"[AUTO COMPLETE] Error completing league {league.id}: {str(e)}")
+            
+            if updated_count > 0:
+                logger.info(f"[AUTO COMPLETE] Successfully marked {updated_count} leagues as season_complete")
+                return f"Completed {updated_count} leagues"
+            else:
+                logger.info(f"[AUTO COMPLETE] No active leagues to complete")
+                return "No leagues to complete"
+        else:
+            logger.info(f"[AUTO COMPLETE] Championship week not yet ended or not Tuesday (week ends: {latest_week.end_date}, today: {today.date()}, weekday: {today.weekday()})")
+            return "Championship week not ready for completion"
+            
+    except Exception as e:
+        logger.error(f"[AUTO COMPLETE] Error in auto_complete_seasons: {str(e)}")
+        raise
