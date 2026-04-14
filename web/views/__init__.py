@@ -5640,11 +5640,15 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 def get_available_slots(request, team_id):
     """JSON endpoint returning all players and empty slots for a position that can be swapped with"""
     import sys
+    import logging
+    
+    logger = logging.getLogger('django')
     
     try:
         team = get_object_or_404(Team, id=team_id)
         slot_position = request.GET.get('position', 'O')  # O, D, G, or B (slot position)
         current_player_id = int(request.GET.get('current_player_id', 0))
+        logger.warning(f"GET_AVAILABLE_SLOTS: slot_position={slot_position}, current_player_id={current_player_id}")
         
         # Get the league for roster info
         league = team.league
@@ -5859,9 +5863,11 @@ def get_available_slots(request, team_id):
                 else:
                     current_slot_type = None
                 
-                print(f"  Current player in slot: {current_slot}, slot_type: {current_slot_type}")
+                print(f"  Current player in slot: {current_slot}, slot_type: {current_slot_type}", file=sys.stderr)
             else:
                 current_slot_type = None
+                logger.warning(f"GET_AVAILABLE_SLOTS: Player {current_player_id} ({current_player.position}) is on BENCH - current_slot_type={current_slot_type}")
+
             
             # For each position the player can move to, find swap and empty slot options
             for slot_type in ['O', 'D', 'G']:
@@ -5951,6 +5957,7 @@ def get_available_slots(request, team_id):
                 # Case 2: T players on bench can swap with players in any eligible position
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {roster_in_slots.count()} players")
                     print(f"    Case 2: T player on bench - showing {slot_type} slot players", file=sys.stderr)
                     # T player is on bench - can swap with players in starter slots (not bench)
                     for roster_entry in roster_in_slots:
@@ -6006,6 +6013,7 @@ def get_available_slots(request, team_id):
                 
                 # Case 3: Bench players (non-T) can swap with any starter position
                 elif current_slot_type is None and current_player.position != 'T':
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 3 (non-T bench) - {slot_type} slot, found {roster_in_slots.count()} players")
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
                             response_data['swap_options'].append({
@@ -6101,6 +6109,7 @@ def get_available_slots(request, team_id):
         
         print(f"DEBUG: Returning response_data: {response_data}", file=sys.stderr)
         print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options, empty_slot_options={response_data.get('empty_slot_options', {})}", file=sys.stderr)
+        logger.warning(f"GET_AVAILABLE_SLOTS: Response has {len(response_data['swap_options'])} swap_options, empty_slot_options keys={list(response_data.get('empty_slot_options', {}).keys())}")
         return JsonResponse(response_data)
     
     except Exception as e:
