@@ -266,8 +266,6 @@ if SENTRY_DSN:  # Only enable if DSN is configured
             # Ignore specific error types that are not actionable
             RuntimeError,  # Generic runtime errors
         ],
-        # Only capture errors and warnings, not info/debug
-        level='warning',
     )
 
 # ===== DJANGO-SILK PROFILING CONFIGURATION =====
