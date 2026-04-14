@@ -5,7 +5,7 @@ from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, 
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse_lazy
 
