@@ -5794,6 +5794,7 @@ def get_available_slots(request, team_id):
                     response_data['swap_options'].append({
                         'player_id': roster_entry.player.id,
                         'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                        'player_position': roster_entry.player.position,
                         'slot_type': roster_entry.player.position,
                         'slot_assignment': roster_entry.slot_assignment
                     })
@@ -5807,6 +5808,7 @@ def get_available_slots(request, team_id):
                         response_data['swap_options'].append({
                             'player_id': roster_entry.player.id,
                             'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                            'player_position': roster_entry.player.position,
                             'slot_type': 'ANY',
                             'slot_assignment': roster_entry.slot_assignment
                         })
@@ -6002,6 +6004,7 @@ def get_available_slots(request, team_id):
                                 response_data['swap_options'].append({
                                     'player_id': roster_entry.player.id,
                                     'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                    'player_position': swap_player_pos,
                                     'slot_type': slot_type,
                                     'slot_assignment': roster_entry.slot_assignment
                                 })
@@ -6029,6 +6032,7 @@ def get_available_slots(request, team_id):
                                 response_data['swap_options'].append({
                                     'player_id': roster_entry.player.id,
                                     'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                    'player_position': bench_player_pos,
                                     'slot_type': 'Bench',
                                     'slot_assignment': roster_entry.slot_assignment
                                 })
@@ -6048,6 +6052,7 @@ def get_available_slots(request, team_id):
                             response_data['swap_options'].append({
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'player_position': swap_player_pos,
                                 'slot_type': slot_type,
                                 'slot_assignment': roster_entry.slot_assignment
                             })
@@ -6074,6 +6079,7 @@ def get_available_slots(request, team_id):
                                 response_data['swap_options'].append({
                                     'player_id': roster_entry.player.id,
                                     'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                    'player_position': swap_player_pos,
                                     'slot_type': slot_type,
                                     'slot_assignment': roster_entry.slot_assignment
                                 })
@@ -6087,6 +6093,7 @@ def get_available_slots(request, team_id):
                             response_data['swap_options'].append({
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'player_position': roster_entry.player.position,
                                 'slot_type': 'Bench',
                                 'slot_assignment': roster_entry.slot_assignment
                             })
@@ -6100,6 +6107,7 @@ def get_available_slots(request, team_id):
                             response_data['swap_options'].append({
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'player_position': roster_entry.player.position,
                                 'slot_type': slot_type,
                                 'slot_assignment': roster_entry.slot_assignment
                             })
@@ -6114,6 +6122,7 @@ def get_available_slots(request, team_id):
                             response_data['swap_options'].append({
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'player_position': roster_entry.player.position,
                                 'slot_type': 'Bench',
                                 'slot_assignment': roster_entry.slot_assignment
                             })
@@ -6125,6 +6134,7 @@ def get_available_slots(request, team_id):
                             response_data['swap_options'].append({
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'player_position': roster_entry.player.position,
                                 'slot_type': slot_type,
                                 'slot_assignment': roster_entry.slot_assignment
                             })
