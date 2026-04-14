@@ -258,17 +258,35 @@ def extract_transaction_type_for_player(text, player_name):
         if player_lower in statement.lower():
             player_statements.append(statement.lower())
     
-    # If we found relevant statements, check them
+    # If we found relevant statements, check ONLY those statements for the transaction type
     if player_statements:
-        for statement in player_statements:
-            # Check for "placed on Active Roster" pattern (activation)
-            if 'placed' in statement and 'on the active roster' in statement:
-                return 'activated'
-            # Check for "placed on Injured Reserve" pattern
-            elif 'placed' in statement and ('on the injured reserve' in statement or 'on injured reserve' in statement):
-                return 'injured_reserve'
+        combined_player_text = ' '.join(player_statements)
+        
+        # Check for specific transaction types in the player's own statement
+        # Check for "placed on Active Roster" pattern (activation)
+        if 'placed' in combined_player_text and 'on the active roster' in combined_player_text:
+            return 'activated'
+        # Check for "placed on Injured Reserve" pattern
+        elif 'placed' in combined_player_text and ('on the injured reserve' in combined_player_text or 'on injured reserve' in combined_player_text):
+            return 'injured_reserve'
+        
+        # Check for other transaction types in the player-specific statement ONLY
+        if 'signed' in combined_player_text:
+            return 'signed'
+        elif 'traded' in combined_player_text:
+            return 'traded'
+        elif 'released' in combined_player_text:
+            return 'released'
+        elif 'waived' in combined_player_text:
+            return 'waived'
+        elif 'activated' in combined_player_text or 'recalled' in combined_player_text:
+            return 'activated'
+        elif 'reassigned' in combined_player_text:
+            return 'reassigned'
+        elif 'retired' in combined_player_text:
+            return 'retired'
     
-    # Fallback to general extraction
+    # Only use full text as fallback if we have no player-specific statement
     return extract_transaction_type(text)
 
 
