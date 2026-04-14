@@ -5921,11 +5921,7 @@ def get_available_slots(request, team_id):
             # Add IR slots support for best ball if enabled
             if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
                 if current_player.is_on_injured_reserve:
-                    # Player already on IR can move out
-                    response_data['empty_slot_options']['IR'] = ['IR']
-                    print(f"DEBUG best ball: IR player can move out of IR", file=sys.stderr)
-                else:
-                    # Player not on IR - IR option will be available but backend will validate eligibility
+                    # Player WITH IR badge can move to IR if there's space
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
                     max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
@@ -5933,6 +5929,9 @@ def get_available_slots(request, team_id):
                         print(f"DEBUG best ball: IR slots available: {ir_count}/{max_ir}", file=sys.stderr)
                     else:
                         print(f"DEBUG best ball: IR slots full: {ir_count}/{max_ir}", file=sys.stderr)
+                else:
+                    # Player WITHOUT IR badge cannot move to IR
+                    print(f"DEBUG best ball: Player {current_player.last_name} does not have IR badge - cannot move to IR", file=sys.stderr)
         else:
             # For traditional leagues, find starter slots
             # Improved logic:
@@ -6189,10 +6188,7 @@ def get_available_slots(request, team_id):
             if current_slot_type != 'IR' and hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
                 # Check if current player has IR designation (is on injured reserve)
                 if current_player.is_on_injured_reserve:
-                    # Player already on IR can move out - but they're not in case 4, so this shouldn't happen
-                    pass
-                else:
-                    # Player not on IR can move into IR if there's space
+                    # Player WITH IR badge can move into IR if there's space
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
                     max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
@@ -6200,6 +6196,9 @@ def get_available_slots(request, team_id):
                         print(f"  IR slots available: {ir_count}/{max_ir}")
                     else:
                         print(f"  IR slots full: {ir_count}/{max_ir}")
+                else:
+                    # Player WITHOUT IR badge cannot move into IR
+                    print(f"  Player {current_player.last_name} does not have IR badge - cannot move to IR")
         
         print(f"DEBUG: Returning response_data: {response_data}", file=sys.stderr)
         print(f"DEBUG: Returning {len(response_data['swap_options'])} swap options, empty_slot_options={response_data.get('empty_slot_options', {})}", file=sys.stderr)
