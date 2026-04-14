@@ -375,6 +375,10 @@ def team_detail(request, team_id):
     for roster_entry in roster:
         p = roster_entry.player
         
+        # SKIP IR players - they're handled separately in IR slots section
+        if roster_entry.slot_assignment == 'ir':
+            continue
+        
         # OPTIMIZATION: Get stats from index instead of filtering/looping
         game_stats = stats_by_player_week_num.get((p.id, 0), [])  # Placeholder for all stats
         # For latest stat, we need all stats regardless of week, so collect them
