@@ -12,15 +12,49 @@ def check_roster_capacity(team, position, exclude_player=None):
     """
     Check if a team has room to add a player to a specific position.
     
+    For traditional leagues: Enforces per-position limits (O, D, G slots)
+    For best ball leagues: Only enforces total roster size (no position limits)
+    
     Args:
         team: Team object
-        position: Position to check ('O', 'D', 'G')
+        position: Position to check ('O', 'D', 'G', 'IR')
         exclude_player: Optional player to exclude from count (for swaps)
     
     Returns:
         Tuple of (can_add: bool, current_count: int, max_allowed: int)
     """
-    # Count active players in this position (excluding IR entries since they don't take up position slots)
+    is_best_ball = team.league.roster_format == 'bestball'
+    
+    # For best ball, only check total roster size (not position-specific)
+    if is_best_ball and position != 'IR':
+        # Count all active players excluding IR
+        query = Roster.objects.filter(
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True
+        ).exclude(slot_assignment='ir')
+        
+        if exclude_player:
+            query = query.exclude(player=exclude_player)
+        
+        total_count = query.count()
+        max_roster = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
+        
+        return total_count < max_roster, total_count, max_roster
+    
+    # For IR slots in best ball, check IR capacity separately
+    if is_best_ball and position == 'IR':
+        ir_count = Roster.objects.filter(
+            team=team,
+            league=team.league,
+            week_dropped__isnull=True,
+            slot_assignment='ir'
+        ).exclude(player=exclude_player if exclude_player else None).count()
+        
+        max_ir = team.league.ir_slots if hasattr(team.league, 'ir_slots') else 0
+        return ir_count < max_ir, ir_count, max_ir
+    
+    # For traditional leagues, enforce position-based capacity
     query = Roster.objects.filter(
         team=team,
         league=team.league,

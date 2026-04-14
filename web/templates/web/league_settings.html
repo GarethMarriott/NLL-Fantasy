@@ -153,6 +153,15 @@
             {% endif %}
           </div>
 
+          {% if form.instance.roster_format == 'bestball' %}
+          <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p class="text-xs text-amber-800">
+              <span class="font-semibold">Best Ball Flexibility:</span> Teams can distribute roster spots freely across positions (no per-position limits). 
+              Scoring uses top 3 Forwards, top 3 Defense, and top 1 Goalie automatically.
+            </p>
+          </div>
+          {% endif %}
+
           <!-- Injured Reserve Slots Section -->
           <div class="mt-6 pt-4 border-t border-gray-300">
             <h3 class="text-lg font-semibold mb-4 text-gray-800">Injured Reserve Slots</h3>
