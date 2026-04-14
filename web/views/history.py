@@ -9,6 +9,7 @@ from django.views.decorators.cache import cache_page
 from web.models import League, Team, Roster, Week, Game, PlayerGameStat
 from web.scoring import calculate_fantasy_points
 from web.cache_utils import get_standings_cache_key
+from web.views import get_cached_schedule  # Import schedule generation
 
 
 @login_required
@@ -143,10 +144,11 @@ def league_history_standings(request, league_id, year):
 @login_required
 def league_history_matchups(request, league_id, year):
     """
-    Display historical matchups for a specific league season.
-    Read-only view of past matchups and scores.
-    Optimized with batch queries and minimal database hits.
+    Display historical Fantasy team matchups for a specific league season.
+    Shows Fantasy teams vs Fantasy teams with weekly scores following league settings.
     """
+    from collections import defaultdict
+    
     league = get_object_or_404(League, id=league_id)
     year = int(year)
     
@@ -155,67 +157,149 @@ def league_history_matchups(request, league_id, year):
     if not user_teams.exists() and league.commissioner != request.user:
         return JsonResponse({'error': 'Not a member of this league'}, status=403)
     
-    # Batch load all weeks, games, and stats for the season in minimal queries
-    weeks_qs = Week.objects.filter(season=year).order_by('week_number')
+    # Get all Fantasy teams in the league
+    teams = list(Team.objects.filter(league=league).order_by('id'))
+    if not teams:
+        context = {
+            'league': league,
+            'year': year,
+            'matchups_by_week': [],
+            'is_historical': True,
+        }
+        return render(request, 'web/league_history_matchups.html', context)
     
-    # Prefetch games and stats for all weeks at once
-    games_prefetch = Prefetch(
-        'games',
-        Game.objects.select_related('week')
-    )
-    weeks_with_games = weeks_qs.prefetch_related(games_prefetch)
+    team_ids = [t.id for t in teams]
+    id_to_team = {t.id: t for t in teams}
     
-    # Batch load all player game stats for the entire season
-    season_stats = PlayerGameStat.objects.filter(
-        game__week__season=year
-    ).select_related('player', 'game').values_list('game_id', 'player__nll_team', 'player_id', 'id')
+    # Get the schedule for this season
+    playoff_weeks = getattr(league, 'playoff_weeks', 2)
+    playoff_teams = getattr(league, 'playoff_teams', 4)
+    playoff_reseed = getattr(league, 'playoff_reseed', 'fixed')
+    all_weeks_schedule = get_cached_schedule(team_ids, playoff_weeks, playoff_teams, playoff_reseed)
     
-    # Build efficient lookup: game_id -> {nll_team -> total_score}
-    stats_by_game = {}
-    for game_id, nll_team, player_id, stat_id in season_stats:
-        if game_id not in stats_by_game:
-            stats_by_game[game_id] = {}
-        if nll_team not in stats_by_game[game_id]:
-            stats_by_game[game_id][nll_team] = 0.0
+    # Get all weeks from database for the season
+    weeks_in_season = Week.objects.filter(season=year).order_by('week_number')
+    week_map = {w.week_number: w for w in weeks_in_season}
     
-    # Now fetch full stats objects only for calculation (still efficient bulk fetch)
-    stat_objects = PlayerGameStat.objects.filter(
-        game__week__season=year
-    ).select_related('player')
+    # Batch load all rosters for the season with stats
+    all_rosters = Roster.objects.filter(
+        team__in=teams, season=year
+    ).select_related('player').prefetch_related('player__game_stats__game__week')
     
-    # Calculate scores and update lookup
-    for stat in stat_objects:
-        if stat.game_id in stats_by_game:
-            points = calculate_fantasy_points(stat, stat.player)
-            stats_by_game[stat.game_id][stat.player.nll_team] = stats_by_game[stat.game_id].get(stat.player.nll_team, 0.0) + points
+    rosters_by_team = defaultdict(list)
+    for roster_entry in all_rosters:
+        rosters_by_team[roster_entry.team_id].append(roster_entry)
     
-    # Build matchups_by_week
+    # Helper to calculate team score for a specific week
+    def get_team_week_score(team_id, week_number):
+        """Calculate a Fantasy team's score for a specific week, respecting league settings"""
+        week_obj = week_map.get(week_number)
+        if not week_obj:
+            return 0.0
+        
+        team_rosters = rosters_by_team.get(team_id, [])
+        player_scores = []
+        
+        for roster_entry in team_rosters:
+            # Check if player was on roster during this week
+            week_added = roster_entry.week_added or 0
+            week_dropped = roster_entry.week_dropped or 999
+            if week_added <= week_number < week_dropped:
+                player = roster_entry.player
+                
+                # Get stats for this week
+                game_stats = [s for s in player.game_stats.all() if s.game.week_id == week_obj.id]
+                if game_stats:
+                    # Calculate fantasy points for each game
+                    pts_list = [calculate_fantasy_points(st, player, league) for st in game_stats if st]
+                    if pts_list:
+                        # Apply league's multigame_scoring setting (best_ball)
+                        multigame_setting = getattr(league, 'multigame_scoring', 'highest')
+                        if multigame_setting == "average" and len(pts_list) > 1:
+                            fpts = sum(pts_list) / len(pts_list)
+                        else:  # Default to highest
+                            fpts = max(pts_list)
+                        
+                        player_scores.append((player, fpts))
+        
+        # Apply league format (traditional vs best_ball)
+        league_format = getattr(league, 'roster_format', 'best_ball')
+        
+        if league_format == 'traditional':
+            # For traditional: only count assigned starters
+            slot_assignments = {r.player_id: r.slot_assignment for r in team_rosters}
+            
+            num_starter_o = getattr(league, 'roster_forwards', 6) or 6
+            num_starter_d = getattr(league, 'roster_defense', 6) or 6
+            num_starter_g = getattr(league, 'roster_goalies', 2) or 2
+            
+            starters_o = [s for s in player_scores if slot_assignments.get(s[0].id, '').startswith('starter_o')][:num_starter_o]
+            starters_d = [s for s in player_scores if slot_assignments.get(s[0].id, '').startswith('starter_d')][:num_starter_d]
+            starters_g = [s for s in player_scores if slot_assignments.get(s[0].id, '').startswith('starter_g')][:num_starter_g]
+            
+            total = sum(s[1] for s in starters_o + starters_d + starters_g if s[1])
+        else:
+            # For best_ball: top 3 O, top 3 D, top 1 G
+            players_by_side = defaultdict(list)
+            for player, points in player_scores:
+                side = getattr(player, 'assigned_side', None) or (
+                    'D' if getattr(player, 'position', None) == 'D' else 'O'
+                )
+                if getattr(player, 'position', None) == 'G':
+                    side = 'G'
+                players_by_side[side].append(points)
+            
+            off_scores = sorted(players_by_side.get('O', []), reverse=True)[:3]
+            def_scores = sorted(players_by_side.get('D', []), reverse=True)[:3]
+            goal_scores = sorted(players_by_side.get('G', []), reverse=True)[:1]
+            
+            total = sum(off_scores) + sum(def_scores) + sum(goal_scores)
+        
+        return total
+    
+    # Build matchups by week from the schedule
     matchups_by_week = []
     
-    for week in weeks_with_games:
+    for week_num, games_in_week in enumerate(all_weeks_schedule, start=1):
+        if not games_in_week:
+            continue
+        
         matchups = []
         
-        for game in week.games.all():
-            home_nll_team = game.home_team
-            away_nll_team = game.away_team
+        for game in games_in_week:
+            # Handle playoff tuples like ('playoff', seed1, seed2, ...)
+            if isinstance(game, tuple) and game[0] == 'playoff':
+                # Skip playoff formatting for now, just use team IDs
+                if len(game) < 3:
+                    continue
+                home_team_id = game[1]
+                away_team_id = game[2]
+            else:
+                home_team_id, away_team_id = game
             
-            # Get pre-calculated scores
-            game_teams_scores = stats_by_game.get(game.id, {})
-            home_score = game_teams_scores.get(home_nll_team, 0.0)
-            away_score = game_teams_scores.get(away_nll_team, 0.0)
+            # Calculate scores
+            home_score = get_team_week_score(home_team_id, week_num)
+            away_score = get_team_week_score(away_team_id, week_num)
             
-            matchups.append({
-                'home_team': home_nll_team,
-                'away_team': away_nll_team,
-                'home_score': home_score,
-                'away_score': away_score,
-                'winner': home_nll_team if home_score > away_score else (away_nll_team if away_score > home_score else None),
-                'is_tie': home_score == away_score,
-            })
+            home_team_obj = id_to_team.get(home_team_id)
+            away_team_obj = id_to_team.get(away_team_id)
+            
+            if home_team_obj and away_team_obj:
+                matchups.append({
+                    'home_team': home_team_obj,
+                    'away_team': away_team_obj,
+                    'home_score': home_score,
+                    'away_score': away_score,
+                    'winner': home_team_obj if home_score > away_score else (
+                        away_team_obj if away_score > home_score else None
+                    ),
+                    'is_tie': home_score == away_score,
+                })
         
         if matchups:
+            week_obj = week_map.get(week_num)
             matchups_by_week.append({
-                'week': week,
+                'week': week_obj or type('obj', (), {'week_number': week_num})(),
                 'matchups': matchups,
             })
     
