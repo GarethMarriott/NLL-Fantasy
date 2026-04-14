@@ -68,12 +68,14 @@ def scrape_nll_transactions_task():
                             continue
                         
                         team_names = extract_team_names(transaction_text)
-                        transaction_type = extract_transaction_type(transaction_text)
                         
                         # Save each transaction
                         for player_name in player_names:
                             if not player_name:
                                 continue
+                            
+                            # Extract transaction type specific to this player
+                            transaction_type = extract_transaction_type_for_player(transaction_text, player_name)
                             
                             # Create unique URL for this transaction
                             url_unique = f"https://www.nll.com/news/transactions/#{transaction_date}_{player_name.replace(' ', '_')}"
@@ -237,6 +239,34 @@ def extract_teams_from_text(transaction_text, team_list):
             to_team = team_list[-1] if team_list else to_team
     
     return from_team, to_team
+
+
+def extract_transaction_type_for_player(text, player_name):
+    """Extract transaction type specific to a player from the full text"""
+    text_lower = text.lower()
+    player_lower = player_name.lower()
+    
+    # Find sentences/clauses containing this player
+    # Split by period to get separate statements
+    statements = text.split('.')
+    
+    player_statements = []
+    for statement in statements:
+        if player_lower in statement.lower():
+            player_statements.append(statement.lower())
+    
+    # If we found relevant statements, check them
+    if player_statements:
+        for statement in player_statements:
+            # Check for "placed on Active Roster" pattern (activation)
+            if 'placed' in statement and 'on the active roster' in statement:
+                return 'activated'
+            # Check for "placed on Injured Reserve" pattern
+            elif 'placed' in statement and ('on the injured reserve' in statement or 'on injured reserve' in statement):
+                return 'injured_reserve'
+    
+    # Fallback to general extraction
+    return extract_transaction_type(text)
 
 
 def extract_transaction_type(text):
