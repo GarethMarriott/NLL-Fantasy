@@ -1441,7 +1441,8 @@ def assign_player(request, team_id):
             # If player is a Transition player, update assigned_side based on target slot
             if player.position == 'T':
                 # Check if transition player is being moved to goalie slot
-                if 'starter_g' in target_slot and not team.league.allow_transition_in_goalies:
+                allow_t_in_g = team.league.allow_transition_in_goalies if hasattr(team.league, 'allow_transition_in_goalies') else False
+                if 'starter_g' in target_slot and not allow_t_in_g:
                     error_msg = f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league."
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1468,7 +1469,8 @@ def assign_player(request, team_id):
                 # For position moves (O, D, G), update assigned_side but not slot_assignment
                 if player.position == 'T':
                     # Check if transition player is being moved to goalie slot
-                    if target_slot == 'G' and not team.league.allow_transition_in_goalies:
+                    allow_t_in_g = team.league.allow_transition_in_goalies if hasattr(team.league, 'allow_transition_in_goalies') else False
+                    if target_slot == 'G' and not allow_t_in_g:
                         error_msg = f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league."
                         logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -5663,7 +5665,8 @@ def get_available_slots(request, team_id):
             can_move_to.add('D')
         if player_position in ['G', 'T']:
             # For T players, check if league allows T in G slots
-            if player_position == 'G' or league.allow_transition_in_goalies:
+            allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+            if player_position == 'G' or allow_t_in_g:
                 can_move_to.add('G')
         
         # Build the response with sections for each slot type
@@ -5761,7 +5764,8 @@ def get_available_slots(request, team_id):
                     if d_count < league.roster_defense:
                         response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
                         print(f"    Added D slot option", file=sys.stderr)
-                    if g_count < league.roster_goalies and league.allow_transition_in_goalies:
+                    allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+                    if g_count < league.roster_goalies and allow_t_in_g:
                         response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
                         print(f"    Added G slot option", file=sys.stderr)
                     elif g_count < league.roster_goalies:
@@ -5787,9 +5791,10 @@ def get_available_slots(request, team_id):
                     # T players can move to O, D, or G - but check if league allows T in G slots
                     response_data['empty_slot_options']['O'] = ['O']
                     response_data['empty_slot_options']['D'] = ['D']
-                    if league.allow_transition_in_goalies:
+                    allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+                    if allow_t_in_g:
                         response_data['empty_slot_options']['G'] = ['G']
-                    print(f"    Added O, D slot options for T player, G={'included' if league.allow_transition_in_goalies else 'excluded'}", file=sys.stderr)
+                    print(f"    Added O, D slot options for T player, G={'included' if allow_t_in_g else 'excluded'}", file=sys.stderr)
                 elif player_position == 'O':
                     # O players can stay in O position
                     response_data['empty_slot_options']['O'] = ['O']
@@ -5894,12 +5899,13 @@ def get_available_slots(request, team_id):
                         if str(roster_entry.player.id) != str(current_player_id):
                             # Check if bench player can fill this position
                             bench_player_pos = roster_entry.player.position
+                            allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
                             can_fill_slot = False
                             if slot_type == 'O' and bench_player_pos in ['O', 'T']:
                                 can_fill_slot = True
                             elif slot_type == 'D' and bench_player_pos in ['D', 'T']:
                                 can_fill_slot = True
-                            elif slot_type == 'G' and (bench_player_pos == 'G' or (bench_player_pos == 'T' and league.allow_transition_in_goalies)):
+                            elif slot_type == 'G' and (bench_player_pos == 'G' or (bench_player_pos == 'T' and allow_t_in_g)):
                                 can_fill_slot = True
                             
                             if can_fill_slot:
