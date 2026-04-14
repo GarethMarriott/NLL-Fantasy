@@ -5789,55 +5789,43 @@ def get_available_slots(request, team_id):
         
         if is_best_ball:
             print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}, is_dynasty={is_dynasty}", file=sys.stderr)
-            # For best ball leagues, list players that can be swapped based on position compatibility
-            # T players can ONLY swap with other T players
-            # O players can swap with O and T players
-            # D players can swap with D and T players  
-            # G players can swap with G and T players
-            eligible_positions = set()
+            # For best ball leagues, ONLY Transition (T) players can be swapped
+            # All other position players (O, D, G) are locked and cannot be moved
+            # This is because all roster players score in best ball, regardless of position
+            
             if player_position == 'T':
-                # T players only swap with T players
-                eligible_positions.add('T')
-            elif player_position == 'O':
-                # O players can swap with O and T players
-                eligible_positions.add('O')
-                eligible_positions.add('T')
-            elif player_position == 'D':
-                # D players can swap with D and T players
-                eligible_positions.add('D')
-                eligible_positions.add('T')
-            elif player_position == 'G':
-                # G players can swap with G and T players
-                eligible_positions.add('G')
-                eligible_positions.add('T')
-            
-            for roster_entry in all_active_roster:
-                if str(roster_entry.player.id) != str(current_player_id) and roster_entry.player.position in eligible_positions:
-                    response_data['swap_options'].append({
-                        'player_id': roster_entry.player.id,
-                        'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                        'player_position': roster_entry.player.position,
-                        'slot_type': roster_entry.player.position,
-                        'slot_assignment': roster_entry.slot_assignment
-                    })
-            
-            # NEW: For best ball, allow IR players to be included in swap options
-            # Players on IR can swap with any eligible player or move to bench
-            if current_player.is_on_injured_reserve:
-                # IR player can swap positions with other players
+                # T players can only swap with other T players
+                print(f"DEBUG: T player - listing other T players for swap", file=sys.stderr)
                 for roster_entry in all_active_roster:
-                    if str(roster_entry.player.id) != str(current_player_id):
+                    if str(roster_entry.player.id) != str(current_player_id) and roster_entry.player.position == 'T':
                         response_data['swap_options'].append({
                             'player_id': roster_entry.player.id,
                             'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                             'player_position': roster_entry.player.position,
-                            'slot_type': 'ANY',
+                            'slot_type': roster_entry.player.position,
                             'slot_assignment': roster_entry.slot_assignment
                         })
+            else:
+                # Regular position players (O, D, G) cannot swap in best ball
+                print(f"DEBUG: Non-T player ({player_position}) - no swap options available in best ball", file=sys.stderr)
+                response_data['swap_options'] = []
             
-            # For best ball, also show "empty slot" options for eligible positions
-            # Only apply capacity limits for dynasty leagues - redraft leagues don't have position restrictions
-            if is_dynasty:
+            # NEW: For best ball, IR players (if T) can also appear as swap options for other T players
+            # But non-T players cannot move even if they're on IR
+            if current_player.is_on_injured_reserve and current_player.position == 'T':
+                # IR T player can still swap with other T players
+                print(f"DEBUG: IR T player - including in swap options for other T players", file=sys.stderr)
+            elif current_player.is_on_injured_reserve:
+                # IR non-T player cannot swap (locked to their position)
+                print(f"DEBUG: IR {player_position} player - cannot swap in best ball", file=sys.stderr)
+            
+            # For best ball, only T players can change position assignments
+            # Non-T players are locked to their position
+            if player_position != 'T':
+                # Non-T players have no empty slot position options
+                response_data['empty_slot_options'] = {}
+                print(f"DEBUG best ball ({player_position} player): no position slot options", file=sys.stderr)
+            elif is_dynasty:
                 # Count players currently assigned to each position (excluding the current player)
                 # Need to count both base position (O, D, G) AND T players assigned to that position
                 # Capacity: 3 for O, 3 for D, 1 for G
@@ -5859,64 +5847,34 @@ def get_available_slots(request, team_id):
                 ).count()
                 
                 
-                print(f"DEBUG best ball (dynasty): player_position={player_position}, o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
+                print(f"DEBUG best ball (dynasty): T player, o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
                 
-                if player_position == 'T':
-                    # T players can move to O, D, or G positions - show options only if there are empty slots
-                    # But first check if league allows T in G slots
-                    roster_forwards = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
-                    roster_defense = league.roster_defense if hasattr(league, 'roster_defense') else 6
-                    roster_goalies = league.roster_goalies if hasattr(league, 'roster_goalies') else 2
-                    print(f"  T player: checking O({o_count}<{roster_forwards}), D({d_count}<{roster_defense}), G({g_count}<{roster_goalies})", file=sys.stderr)
-                    if o_count < roster_forwards:
-                        response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
-                        print(f"    Added O slot option", file=sys.stderr)
-                    if d_count < roster_defense:
-                        response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
-                        print(f"    Added D slot option", file=sys.stderr)
-                    allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
-                    if g_count < roster_goalies and allow_t_in_g:
-                        response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
-                        print(f"    Added G slot option", file=sys.stderr)
-                    elif g_count < roster_goalies:
-                        print(f"    G slot would be available but T players not allowed in G slots", file=sys.stderr)
-                elif player_position == 'O':
-                    # O players can stay in O position if there's an empty slot
-                    roster_forwards = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
-                    if o_count < roster_forwards:
-                        response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
-                elif player_position == 'D':
-                    # D players can stay in D position if there's an empty slot
-                    roster_defense = league.roster_defense if hasattr(league, 'roster_defense') else 6
-                    if d_count < roster_defense:
-                        response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
-                elif player_position == 'G':
-                    # G players can stay in G position if there's an empty slot
-                    roster_goalies = league.roster_goalies if hasattr(league, 'roster_goalies') else 2
-                    if g_count < roster_goalies:
-                        response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
-            else:
-                # For redraft best ball leagues, show all position moves without capacity restrictions
-                # Redraft leagues don't enforce position-based roster limits
-                # (3-3-1 is only for scoring, not roster capacity)
-                print(f"DEBUG best ball (redraft): allowing all position moves", file=sys.stderr)
-                if player_position == 'T':
-                    # T players can move to O, D, or G - but check if league allows T in G slots
+                # T players can move to O, D, or G positions - show options only if there are empty slots
+                roster_forwards = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
+                roster_defense = league.roster_defense if hasattr(league, 'roster_defense') else 6
+                roster_goalies = league.roster_goalies if hasattr(league, 'roster_goalies') else 2
+                print(f"  T player: checking O({o_count}<{roster_forwards}), D({d_count}<{roster_defense}), G({g_count}<{roster_goalies})", file=sys.stderr)
+                if o_count < roster_forwards:
                     response_data['empty_slot_options']['O'] = ['O']
+                    print(f"    Added O slot option", file=sys.stderr)
+                if d_count < roster_defense:
                     response_data['empty_slot_options']['D'] = ['D']
-                    allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
-                    if allow_t_in_g:
-                        response_data['empty_slot_options']['G'] = ['G']
-                    print(f"    Added O, D slot options for T player, G={'included' if allow_t_in_g else 'excluded'}", file=sys.stderr)
-                elif player_position == 'O':
-                    # O players can stay in O position
-                    response_data['empty_slot_options']['O'] = ['O']
-                elif player_position == 'D':
-                    # D players can stay in D position
-                    response_data['empty_slot_options']['D'] = ['D']
-                elif player_position == 'G':
-                    # G players can stay in G position
+                    print(f"    Added D slot option", file=sys.stderr)
+                allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+                if g_count < roster_goalies and allow_t_in_g:
                     response_data['empty_slot_options']['G'] = ['G']
+                    print(f"    Added G slot option", file=sys.stderr)
+                elif g_count < roster_goalies:
+                    print(f"    G slot would be available but T players not allowed in G slots", file=sys.stderr)
+            else:
+                # For redraft best ball leagues, T players can move between positions (no capacity restrictions)
+                print(f"DEBUG best ball (redraft): T player - allowing all position moves", file=sys.stderr)
+                response_data['empty_slot_options']['O'] = ['O']
+                response_data['empty_slot_options']['D'] = ['D']
+                allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
+                if allow_t_in_g:
+                    response_data['empty_slot_options']['G'] = ['G']
+                print(f"    Added O, D slot options for T player, G={'included' if allow_t_in_g else 'excluded'}", file=sys.stderr)
             
             # Add IR slots support for best ball if enabled
             if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
