@@ -5708,8 +5708,7 @@ def get_available_slots(request, team_id):
                         'player_id': roster_entry.player.id,
                         'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                         'slot_type': roster_entry.player.position,
-                        'slot_assignment': roster_entry.slot_assignment,
-                        'player_position': roster_entry.player.position
+                        'slot_assignment': roster_entry.slot_assignment
                     })
             
             # NEW: For best ball, allow IR players to be included in swap options
@@ -5722,8 +5721,7 @@ def get_available_slots(request, team_id):
                             'player_id': roster_entry.player.id,
                             'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                             'slot_type': 'ANY',
-                            'slot_assignment': roster_entry.slot_assignment,
-                            'player_position': roster_entry.player.position
+                            'slot_assignment': roster_entry.slot_assignment
                         })
             
             # For best ball, also show "empty slot" options for eligible positions
@@ -5885,8 +5883,7 @@ def get_available_slots(request, team_id):
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                                 'slot_type': slot_type,
-                                'slot_assignment': roster_entry.slot_assignment,
-                                'player_position': roster_entry.player.position
+                                'slot_assignment': roster_entry.slot_assignment
                             })
                             print(f"    Swap option: {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
                     
@@ -5909,25 +5906,11 @@ def get_available_slots(request, team_id):
                                     'player_id': roster_entry.player.id,
                                     'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                                     'slot_type': 'Bench',
-                                    'slot_assignment': roster_entry.slot_assignment,
-                                    'player_position': roster_entry.player.position
+                                    'slot_assignment': roster_entry.slot_assignment
                                 })
                                 print(f"    Swap option (bench): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
                 
-                # Case 2: Bench players can swap with any starter position
-                elif current_slot_type is None:
-                    for roster_entry in roster_in_slots:
-                        if str(roster_entry.player.id) != str(current_player_id):
-                            response_data['swap_options'].append({
-                                'player_id': roster_entry.player.id,
-                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                                'slot_type': slot_type,
-                                'slot_assignment': roster_entry.slot_assignment,
-                                'player_position': roster_entry.player.position
-                            })
-                            print(f"    Swap option (from bench): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
-                
-                # Case 3: T players can swap with other T players in any position group
+                # Case 2: T players can swap with other T players in any position group
                 elif current_player.position == 'T':
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id) and roster_entry.player.position == 'T':
@@ -5935,10 +5918,21 @@ def get_available_slots(request, team_id):
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                                 'slot_type': slot_type,
-                                'slot_assignment': roster_entry.slot_assignment,
-                                'player_position': roster_entry.player.position
+                                'slot_assignment': roster_entry.slot_assignment
                             })
                             print(f"    Swap option (T-T cross-group): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                
+                # Case 3: Bench players can swap with any starter position
+                elif current_slot_type is None:
+                    for roster_entry in roster_in_slots:
+                        if str(roster_entry.player.id) != str(current_player_id):
+                            response_data['swap_options'].append({
+                                'player_id': roster_entry.player.id,
+                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
+                                'slot_type': slot_type,
+                                'slot_assignment': roster_entry.slot_assignment
+                            })
+                            print(f"    Swap option (from bench): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
                 
                 # Case 4: IR players can swap with any bench or started slot player
                 elif current_slot_type == 'IR':
@@ -5950,8 +5944,7 @@ def get_available_slots(request, team_id):
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                                 'slot_type': 'Bench',
-                                'slot_assignment': roster_entry.slot_assignment,
-                                'player_position': roster_entry.player.position
+                                'slot_assignment': roster_entry.slot_assignment
                             })
                             print(f"    Swap option (from IR to bench): {roster_entry.player.last_name}")
                     
@@ -5962,8 +5955,7 @@ def get_available_slots(request, team_id):
                                 'player_id': roster_entry.player.id,
                                 'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
                                 'slot_type': slot_type,
-                                'slot_assignment': roster_entry.slot_assignment,
-                                'player_position': roster_entry.player.position
+                                'slot_assignment': roster_entry.slot_assignment
                             })
                             print(f"    Swap option (from IR to starter): {roster_entry.player.last_name}")
                 else:
