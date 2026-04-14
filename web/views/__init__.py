@@ -3642,11 +3642,13 @@ def standings(request):
             # Extract playoff matchups and scores
             playoff_start_week = regular_season_end_week + 1
             semifinal_matchups = []
+            third_place_matchup = None
             final_matchup = None
             playoff_winners = {}  # Track W1, W2, etc for winner references
+            playoff_losers = {}   # Track L1, L2, etc for loser references
             winner_index = 1
             
-            # First pass: Build playoff_winners dict from completed weeks
+            # First pass: Build playoff_winners and playoff_losers dict from completed weeks
             for week_idx in range(playoff_start_week - 1, min(21, len(weeks))):
                 week_matchups = weeks[week_idx]
                 actual_week_num = week_idx + 1  # Convert 0-indexed to 1-indexed
@@ -3660,8 +3662,11 @@ def standings(request):
                             if isinstance(seed, int):
                                 return seed_to_team.get(seed)
                             else:
-                                # Winner placeholder like 'W1', 'W2'
-                                return playoff_winners.get(seed)
+                                # Winner or loser placeholder like 'W1', 'W2', 'L1', 'L2'
+                                if seed.startswith('L'):
+                                    return playoff_losers.get(seed)
+                                else:
+                                    return playoff_winners.get(seed)
                         
                         home_team = resolve_seed(seed1)
                         away_team = resolve_seed(seed2)
@@ -3670,11 +3675,17 @@ def standings(request):
                             home_score = calculate_playoff_week_score(home_team.id, actual_week_num)
                             away_score = calculate_playoff_week_score(away_team.id, actual_week_num)
                             
-                            # Store winner for future rounds
+                            # Store winner and loser for future rounds
                             if home_score > away_score:
                                 playoff_winners[f'W{winner_index}'] = home_team
+                                playoff_losers[f'L{winner_index}'] = away_team
                             elif away_score > home_score:
                                 playoff_winners[f'W{winner_index}'] = away_team
+                                playoff_losers[f'L{winner_index}'] = home_team
+                            else:
+                                # Tie - home team wins
+                                playoff_winners[f'W{winner_index}'] = home_team
+                                playoff_losers[f'L{winner_index}'] = away_team
                             winner_index += 1
             
             # Second pass: Build bracket display with resolved teams and scores
@@ -3687,12 +3698,15 @@ def standings(request):
                     if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
                         _, seed1, seed2, round_name = matchup
                         
-                        # Resolve team IDs
+                        # Resolve team IDs - handle W#, L# placeholders
                         def resolve_seed(seed):
                             if isinstance(seed, int):
                                 return seed_to_team.get(seed)
                             else:
-                                return playoff_winners.get(seed)
+                                if seed.startswith('L'):
+                                    return playoff_losers.get(seed)
+                                else:
+                                    return playoff_winners.get(seed)
                         
                         home_team = resolve_seed(seed1)
                         away_team = resolve_seed(seed2)
@@ -3720,18 +3734,27 @@ def standings(request):
                             # Categorize by round
                             if round_name == 'Semifinal':
                                 semifinal_matchups.append(matchup_info)
+                            elif round_name == 'Third Place':
+                                third_place_matchup = matchup_info
                             elif round_name == 'Championship':
                                 final_matchup = matchup_info
                             
-                            # Update winner tracker for next round
+                            # Update winner and loser tracker for next round
                             if home_score > away_score:
                                 playoff_winners[f'W{winner_index}'] = home_team
+                                playoff_losers[f'L{winner_index}'] = away_team
                             elif away_score > home_score:
                                 playoff_winners[f'W{winner_index}'] = away_team
+                                playoff_losers[f'L{winner_index}'] = home_team
+                            else:
+                                # Tie
+                                playoff_winners[f'W{winner_index}'] = home_team
+                                playoff_losers[f'L{winner_index}'] = away_team
                             winner_index += 1
             
             playoff_bracket = {
                 'semifinals': semifinal_matchups,
+                'third_place': third_place_matchup,
                 'final': final_matchup,
             }
         

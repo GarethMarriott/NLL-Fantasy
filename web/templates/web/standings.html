@@ -267,6 +267,31 @@
                   </div>
                 {% endif %}
               </div>
+
+              <!-- Third Place Game -->
+              <div class="bracket-round">
+                <div class="bracket-round-title">Third Place</div>
+                
+                {% if league_data.playoff_bracket.third_place %}
+                  <div class="matchup">
+                    <div class="matchup-team {% if league_data.playoff_bracket.third_place.winner_id == league_data.playoff_bracket.third_place.team1.id %}winner{% endif %}">
+                      <span class="team-name">#{{ league_data.playoff_bracket.third_place.team1_seed }} {{ league_data.playoff_bracket.third_place.team1.name }}</span>
+                      <span class="team-score">{{ league_data.playoff_bracket.third_place.team1_score|floatformat:1 }}</span>
+                    </div>
+                    <div class="matchup-team {% if league_data.playoff_bracket.third_place.winner_id == league_data.playoff_bracket.third_place.team2.id %}winner{% endif %}">
+                      <span class="team-name">#{{ league_data.playoff_bracket.third_place.team2_seed }} {{ league_data.playoff_bracket.third_place.team2.name }}</span>
+                      <span class="team-score">{{ league_data.playoff_bracket.third_place.team2_score|floatformat:1 }}</span>
+                    </div>
+                  </div>
+                  {% if league_data.playoff_bracket.third_place.winner_id %}
+                    <div class="final-label">🥉 Third Place Winner! 🥉</div>
+                  {% endif %}
+                {% else %}
+                  <div class="matchup">
+                    <div class="matchup-bye">Third place game will be determined after semifinals</div>
+                  </div>
+                {% endif %}
+              </div>
             </div>
           </div>
         </div>
