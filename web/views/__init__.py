@@ -5656,6 +5656,8 @@ def get_available_slots(request, team_id):
         current_player = Player.objects.get(id=current_player_id)
         player_position = current_player.position  # O, D, T, or G
         
+        print(f"DEBUG: get_available_slots - current_player_id={current_player_id}, player_position={player_position}", file=sys.stderr)
+        
         # Determine which positions this player can move to
         # O and T players can move to O slots
         # D and T players can move to D slots
@@ -5868,9 +5870,10 @@ def get_available_slots(request, team_id):
                 
                 # Skip showing the same slot type the player is currently in
                 if slot_type == current_slot_type:
-                    print(f"  Skipping {slot_type} slots (player is already in {current_slot_type})")
+                    print(f"  Skipping {slot_type} slots (player is already in {current_slot_type})", file=sys.stderr)
                     continue
                 
+                print(f"  Processing {slot_type} slots - current_player.position={current_player.position}, current_slot_type={current_slot_type}", file=sys.stderr)
                 # Determine slot designations for this type using league configuration
                 if slot_type == 'O':
                     num_slots = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
@@ -5890,11 +5893,12 @@ def get_available_slots(request, team_id):
                     slot_assignment__in=slot_designations
                 ).order_by('slot_assignment')
                 
-                print(f"  {slot_type} slots: found {roster_in_slots.count()} players")
+                print(f"  {slot_type} slots: found {roster_in_slots.count()} players", file=sys.stderr)
                 
                 # Add swap options based on player position and current location
                 # Case 1: Player is in a starter slot - can swap with compatible players in same slot type or bench
                 if slot_type == current_slot_type:
+                    print(f"    Case 1: Same slot type (starter to starter)", file=sys.stderr)
                     # Show other players in this same slot type - but check backwards compatibility
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
@@ -5947,6 +5951,7 @@ def get_available_slots(request, team_id):
                 # Case 2: T players on bench can swap with players in any eligible position
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
+                    print(f"    Case 2: T player on bench - showing {slot_type} slot players", file=sys.stderr)
                     # T player is on bench - can swap with players in starter slots (not bench)
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
