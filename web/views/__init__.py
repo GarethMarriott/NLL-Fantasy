@@ -3648,9 +3648,10 @@ def standings(request):
             playoff_losers = {}   # Track L1, L2, etc for loser references
             winner_index = 1
             
-            # First pass: Build playoff_winners and playoff_losers dict from completed weeks
-            for week_idx in range(playoff_start_week - 1, min(21, len(weeks))):
-                week_matchups = weeks[week_idx]
+            # First pass: Build playoff_winners and playoff_losers dict from all playoff weeks
+            # Use all_weeks (full schedule) instead of weeks (truncated) so we can see week 20 playoff structure
+            for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
+                week_matchups = all_weeks[week_idx]
                 actual_week_num = week_idx + 1  # Convert 0-indexed to 1-indexed
                 
                 for matchup in week_matchups:
@@ -3689,9 +3690,10 @@ def standings(request):
                             winner_index += 1
             
             # Second pass: Build bracket display with resolved teams and scores
+            # Use all_weeks (full schedule) to include week 20 games
             winner_index = 1  # Reset for second pass
-            for week_idx in range(playoff_start_week - 1, min(21, len(weeks))):
-                week_matchups = weeks[week_idx]
+            for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
+                week_matchups = all_weeks[week_idx]
                 actual_week_num = week_idx + 1
                 
                 for matchup in week_matchups:
