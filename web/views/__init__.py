@@ -1371,7 +1371,8 @@ def assign_player(request, team_id):
             # Check IR slots capacity (works for both traditional and best ball)
             if target_position == 'IR' or target_slot == 'ir':
                 # Check if IR slots are enabled for this league
-                if not team.league.allow_ir_slots:
+                allow_ir_slots = team.league.allow_ir_slots if hasattr(team.league, 'allow_ir_slots') else False
+                if not allow_ir_slots:
                     error_msg = "IR slots are not enabled for this league."
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: IR slots not enabled")
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1386,7 +1387,7 @@ def assign_player(request, team_id):
                     week_dropped__isnull=True,
                     slot_assignment='ir'
                 ).exclude(player=player).count()
-                max_ir = team.league.ir_slots or 0
+                max_ir = team.league.ir_slots if hasattr(team.league, 'ir_slots') else 0
                 can_add = ir_count < max_ir
                 current_pos_count = ir_count
                 max_allowed = max_ir
