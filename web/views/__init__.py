@@ -5883,7 +5883,7 @@ def get_available_slots(request, team_id):
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
                     max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
-                        response_data['empty_slot_options']['IR'] = ['IR']
+                        response_data['empty_slot_options']['IR'] = ['ir']
                         print(f"DEBUG best ball: IR slots available: {ir_count}/{max_ir}", file=sys.stderr)
                     else:
                         print(f"DEBUG best ball: IR slots full: {ir_count}/{max_ir}", file=sys.stderr)
