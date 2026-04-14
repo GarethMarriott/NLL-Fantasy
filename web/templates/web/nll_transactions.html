@@ -101,7 +101,7 @@
           </td>
           <td class="px-4 py-3 text-sm">
             {% if transaction.details %}
-              <button onclick="openDetailsModal('{{ transaction.id }}', {{ transaction.details|escapejs }})" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">
+              <button onclick="openDetailsModal('{{ transaction.id }}', '{{ transaction.details|escapejs }}')" class="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer">
                 View Details
               </button>
             {% else %}
