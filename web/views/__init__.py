@@ -5947,7 +5947,7 @@ def get_available_slots(request, team_id):
                 # Case 2: T players on bench can swap with players in any eligible position
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
-                    # T player is on bench - can swap with ANY position slot if that player can go to bench
+                    # T player is on bench - can swap with players in starter slots (not bench)
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
                             swap_player_pos = roster_entry.player.position
@@ -5999,8 +5999,8 @@ def get_available_slots(request, team_id):
                             })
                             print(f"    Swap option (T in {current_slot_type} with bench player): {roster_entry.player.last_name}")
                 
-                # Case 3: Bench players can swap with any starter position
-                elif current_slot_type is None:
+                # Case 3: Bench players (non-T) can swap with any starter position
+                elif current_slot_type is None and current_player.position != 'T':
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
                             response_data['swap_options'].append({
