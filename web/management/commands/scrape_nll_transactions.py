@@ -117,33 +117,84 @@ def scrape_nll_transactions_task():
 
 
 def extract_player_names(transaction_text):
-    """Extract player names from transaction text"""
+    """Extract player names from transaction text with robust validation"""
     names = []
     
     # Patterns that capture everything between action and next keyword
     patterns = [
         r'placed\s+(.+?)\s+on\s+(?:the|their)',  # "placed X on the..."
         r'released\s+(.+?)\s+from\s+', # "released X from..."
-        r'traded\s+(.+?)\s+(?:to|with)',  # "traded X to..."
-        r'signed\s+(.+?)(?:\s+on|\s+by|,|\.)',  # "signed X on/by/..."
+        r'traded\s+(.+?)\s+(?:to|for|with)',  # "traded X to/for/with..."
+        r'signed\s+(.+?)(?:\s+(?:on|to|by|to a)|,|\.)',  # "signed X on/to/by..."
+        r'waived\s+(.+?)\s+(?:by|on)',  # "waived X by/on..."
+        r'(?:have\s+)?(?:reassigned|activated|recalled|released)\s+(.+?)\s+(?:from|to)',  # reassigned/activated
     ]
     
     for pattern in patterns:
-        matches = re.findall(pattern, transaction_text)
+        matches = re.findall(pattern, transaction_text, re.IGNORECASE)
         for match in matches:
             # Split by " and " to handle multiple names
             parts = match.split(' and ')
             for part in parts:
-                name = part.strip()
-                # Clean up any extra spaces and remove articles
-                name = re.sub(r'\s+', ' ', name)
-                # Filter out common non-name words
-                if name and len(name) > 2:
-                    if not any(word in name.lower() for word in ['the', 'roster', 'list', 'team']):
-                        if name not in names:
-                            names.append(name)
+                name = clean_and_validate_name(part)
+                if name and name not in names:
+                    names.append(name)
     
     return names
+
+
+def clean_and_validate_name(name_str):
+    """Clean and validate a potential player name"""
+    # Strip whitespace
+    name = name_str.strip()
+    
+    # Remove "Practice Player" prefix and similar identifiers
+    name = re.sub(r'^practice\s+player\s+', '', name, flags=re.IGNORECASE)
+    name = re.sub(r'^injured\s+', '', name, flags=re.IGNORECASE)
+    name = re.sub(r'^draft\s+list\s+', '', name, flags=re.IGNORECASE)
+    
+    # Clean up extra spaces
+    name = re.sub(r'\s+', ' ', name).strip()
+    
+    # Filter out common non-name keywords/phrases
+    exclude_words = [
+        'the', 'a', 'on', 'to', 'from', 'roster', 'list', 'team', 'by',
+        'agreement', 'year', 'rights', 'waiver', 'wire', 'draft', 'injured',
+        'coach', 'staff', 'assignable', 'player', 'assign', 'one', 'two',
+        'three', 'contract', 'claim', 'trade', 'reassign', 'activate', 'recall'
+    ]
+    
+    name_lower = name.lower()
+    if name_lower in exclude_words or any(name_lower == word for word in exclude_words):
+        return None
+    
+    # Must have at least 2 parts (first and last name)
+    parts = name.split()
+    if len(parts) < 2:
+        return None
+    
+    # Each part should start with uppercase or be a single letter
+    for part in parts:
+        if not part or not part[0].isupper():
+            return None
+    
+    # Must be reasonable length (not too short, not too long)
+    if len(name) < 4 or len(name) > 50:
+        return None
+    
+    # Reject if contains numbers (invalid name)
+    if any(char.isdigit() for char in name):
+        return None
+    
+    # Reject if contains special characters (except hyphens and apostrophes which are valid in names)
+    if not re.match(r"^[a-zA-Z\s\-\']+$", name):
+        return None
+    
+    # Reject if it looks like a sentence fragment (too many words)
+    if len(parts) > 4:
+        return None
+    
+    return name
 
 
 def extract_team_names(transaction_text):
@@ -189,19 +240,26 @@ def extract_teams_from_text(transaction_text, team_list):
 
 
 def extract_transaction_type(text):
-    """Extract transaction type from text"""
+    """Extract transaction type from text with more robust pattern matching"""
     text_lower = text.lower()
     
-    if 'placed' in text_lower and 'injured' in text_lower:
+    # Check for different transaction types in order of specificity
+    if 'injured' in text_lower and ('placed' in text_lower or 'reserve' in text_lower):
         return 'injured'
-    elif 'placed' in text_lower:
-        return 'reassigned'
     elif 'released' in text_lower:
         return 'released'
-    elif 'signed' in text_lower:
-        return 'signed'
     elif 'traded' in text_lower:
         return 'traded'
+    elif 'waived' in text_lower:
+        return 'waived'
+    elif 'reassigned' in text_lower or ('placed' in text_lower and 'nhl' in text_lower):
+        return 'reassigned'
+    elif 'activated' in text_lower or 'recalled' in text_lower:
+        return 'activated'
+    elif 'retired' in text_lower:
+        return 'retired'
+    elif 'signed' in text_lower:
+        return 'signed'
     else:
         return 'other'
 
