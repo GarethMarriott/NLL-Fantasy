@@ -619,6 +619,18 @@ def team_detail(request, team_id):
                 logger.warning(f"  - IR[{i}]: {slot['player'].last_name}, {slot['player'].first_name}")
             else:
                 logger.warning(f"  - IR[{i}]: Empty")
+    
+    # Check for ineligible IR players (on IR roster but no longer have IR badge)
+    ineligible_ir_players = []
+    if allow_ir_slots and ir_slots_count > 0:
+        for ir_slot in ir_slots:
+            if ir_slot and ir_slot['player']:
+                # Refresh player object to get latest is_on_injured_reserve state
+                player = ir_slot['player']
+                if not player.is_on_injured_reserve:
+                    # Player lost IR badge (got reinstated)
+                    logger.warning(f"INELIGIBLE_IR: {player.last_name}, {player.first_name} (id={player.id}) no longer has IR badge")
+                    ineligible_ir_players.append(player)
 
     # Mark starter status based on slot assignment for all league types
     for slot_group in [offence_slots, defence_slots, goalie_slots]:
@@ -828,6 +840,7 @@ def team_detail(request, team_id):
             "ir_slots": ir_slots,
             "allow_ir_slots": allow_ir_slots,
             "ir_slots_count": ir_slots_count,
+            "ineligible_ir_players": ineligible_ir_players,
             "week_range": [selected_week_num],  # Only show selected week
             "selected_week": selected_week_num,
             "selected_week_obj": selected_week_obj,
@@ -1435,6 +1448,15 @@ def assign_player(request, team_id):
                 if not allow_ir_slots:
                     error_msg = "IR slots are not enabled for this league."
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: IR slots not enabled")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                    messages.error(request, error_msg)
+                    return redirect("team_detail", team_id=team.id)
+                
+                # Check if player is eligible for IR (must have IR badge)
+                if not player.is_on_injured_reserve:
+                    error_msg = f"{player.last_name} does not have an IR badge and cannot be placed in an IR slot."
+                    logger.warning(f"MOVE_TO_EMPTY_SLOT: Player {player.last_name} not IR eligible")
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return JsonResponse({'success': False, 'error': error_msg}, status=400)
                     messages.error(request, error_msg)
@@ -5903,7 +5925,7 @@ def get_available_slots(request, team_id):
                     response_data['empty_slot_options']['IR'] = ['IR']
                     print(f"DEBUG best ball: IR player can move out of IR", file=sys.stderr)
                 else:
-                    # Player not on IR can move into IR if there's space
+                    # Player not on IR - IR option will be available but backend will validate eligibility
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
                     max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
