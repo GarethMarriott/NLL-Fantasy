@@ -3355,17 +3355,15 @@ def matchups(request):
                 week_data["games"].append(game_data)
                 
                 # Track the winner for future playoff rounds
-                # Both teams must be present and scores must be different to have a winner
+                # Use THIS WEEK'S scores, not cumulative season totals
                 if home_team and away_team:
-                    home_total = team_totals.get(home_team.id, 0)
-                    away_total = team_totals.get(away_team.id, 0)
-                    if home_total > away_total:
+                    if home_week_total > away_week_total:
                         playoff_winners[f'W{winner_index}'] = home_team
-                    elif away_total > home_total:
+                    elif away_week_total > home_week_total:
                         playoff_winners[f'W{winner_index}'] = away_team
                     # If tied, we don't assign a winner yet - would need tiebreaker logic
                     winner_index += 1
-            else:
+            elif isinstance(game, tuple) and len(game) == 2:
                 # Regular season matchup (a, b) tuple
                 a, b = game
                 game_data = {
@@ -5600,3 +5598,14 @@ def get_available_slots(request, team_id):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# Error Handlers
+def handle_404(request, exception=None):
+    """Handle 404 errors gracefully"""
+    return render(request, '404.html', status=404)
+
+
+def handle_500(request):
+    """Handle 500 errors gracefully"""
+    return render(request, '500.html', status=500)
