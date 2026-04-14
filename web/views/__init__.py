@@ -1117,18 +1117,21 @@ def assign_player(request, team_id):
             # Check position-specific capacity
             # For traditional leagues, only count players in starter slots (not bench)
             if team.league.roster_format == 'traditional':
+                roster_forwards = team.league.roster_forwards if hasattr(team.league, 'roster_forwards') else 6
+                roster_defense = team.league.roster_defense if hasattr(team.league, 'roster_defense') else 6
+                roster_goalies = team.league.roster_goalies if hasattr(team.league, 'roster_goalies') else 2
                 slot_map_starter = {
-                    'O': f"starter_o[1-{team.league.roster_forwards}]",
-                    'D': f"starter_d[1-{team.league.roster_defense}]",
+                    'O': f"starter_o[1-{roster_forwards}]",
+                    'D': f"starter_d[1-{roster_defense}]",
                     'G': 'starter_g'
                 }
                 # Build slot list for this position
                 if slot_group == 'O':
-                    starter_slots = [f'starter_o{i}' for i in range(1, team.league.roster_forwards + 1)]
+                    starter_slots = [f'starter_o{i}' for i in range(1, roster_forwards + 1)]
                 elif slot_group == 'D':
-                    starter_slots = [f'starter_d{i}' for i in range(1, team.league.roster_defense + 1)]
+                    starter_slots = [f'starter_d{i}' for i in range(1, roster_defense + 1)]
                 elif slot_group == 'G':
-                    starter_slots = [f'starter_g{i}' for i in range(1, team.league.roster_goalies + 1)]
+                    starter_slots = [f'starter_g{i}' for i in range(1, roster_goalies + 1)]
                 else:
                     starter_slots = []
                 
@@ -1394,11 +1397,14 @@ def assign_player(request, team_id):
             # For traditional leagues, only count players in starter slots (not bench)
             elif team.league.roster_format == 'traditional':
                 if 'starter_o' in target_slot:
-                    starter_slots = [f'starter_o{i}' for i in range(1, team.league.roster_forwards + 1)]
+                    roster_forwards = team.league.roster_forwards if hasattr(team.league, 'roster_forwards') else 6
+                    starter_slots = [f'starter_o{i}' for i in range(1, roster_forwards + 1)]
                 elif 'starter_d' in target_slot:
-                    starter_slots = [f'starter_d{i}' for i in range(1, team.league.roster_defense + 1)]
+                    roster_defense = team.league.roster_defense if hasattr(team.league, 'roster_defense') else 6
+                    starter_slots = [f'starter_d{i}' for i in range(1, roster_defense + 1)]
                 elif 'starter_g' in target_slot:
-                    starter_slots = [f'starter_g{i}' for i in range(1, team.league.roster_goalies + 1)]
+                    roster_goalies = team.league.roster_goalies if hasattr(team.league, 'roster_goalies') else 2
+                    starter_slots = [f'starter_g{i}' for i in range(1, roster_goalies + 1)]
                 else:
                     starter_slots = []
                 
@@ -5757,30 +5763,36 @@ def get_available_slots(request, team_id):
                 if player_position == 'T':
                     # T players can move to O, D, or G positions - show options only if there are empty slots
                     # But first check if league allows T in G slots
-                    print(f"  T player: checking O({o_count}<{league.roster_forwards}), D({d_count}<{league.roster_defense}), G({g_count}<{league.roster_goalies})", file=sys.stderr)
-                    if o_count < league.roster_forwards:
+                    roster_forwards = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
+                    roster_defense = league.roster_defense if hasattr(league, 'roster_defense') else 6
+                    roster_goalies = league.roster_goalies if hasattr(league, 'roster_goalies') else 2
+                    print(f"  T player: checking O({o_count}<{roster_forwards}), D({d_count}<{roster_defense}), G({g_count}<{roster_goalies})", file=sys.stderr)
+                    if o_count < roster_forwards:
                         response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
                         print(f"    Added O slot option", file=sys.stderr)
-                    if d_count < league.roster_defense:
+                    if d_count < roster_defense:
                         response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
                         print(f"    Added D slot option", file=sys.stderr)
                     allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
-                    if g_count < league.roster_goalies and allow_t_in_g:
+                    if g_count < roster_goalies and allow_t_in_g:
                         response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
                         print(f"    Added G slot option", file=sys.stderr)
-                    elif g_count < league.roster_goalies:
+                    elif g_count < roster_goalies:
                         print(f"    G slot would be available but T players not allowed in G slots", file=sys.stderr)
                 elif player_position == 'O':
                     # O players can stay in O position if there's an empty slot
-                    if o_count < league.roster_forwards:
+                    roster_forwards = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
+                    if o_count < roster_forwards:
                         response_data['empty_slot_options']['O'] = ['O']  # Empty slot exists
                 elif player_position == 'D':
                     # D players can stay in D position if there's an empty slot
-                    if d_count < league.roster_defense:
+                    roster_defense = league.roster_defense if hasattr(league, 'roster_defense') else 6
+                    if d_count < roster_defense:
                         response_data['empty_slot_options']['D'] = ['D']  # Empty slot exists
                 elif player_position == 'G':
                     # G players can stay in G position if there's an empty slot
-                    if g_count < league.roster_goalies:
+                    roster_goalies = league.roster_goalies if hasattr(league, 'roster_goalies') else 2
+                    if g_count < roster_goalies:
                         response_data['empty_slot_options']['G'] = ['G']  # Empty slot exists
             else:
                 # For redraft best ball leagues, show all position moves without capacity restrictions
@@ -5860,15 +5872,15 @@ def get_available_slots(request, team_id):
                 
                 # Determine slot designations for this type using league configuration
                 if slot_type == 'O':
-                    num_slots = league.roster_forwards
+                    num_slots = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
                     slot_designations = [f'starter_o{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_o'
                 elif slot_type == 'D':
-                    num_slots = league.roster_defense
+                    num_slots = league.roster_defense if hasattr(league, 'roster_defense') else 6
                     slot_designations = [f'starter_d{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_d'
                 else:  # G
-                    num_slots = league.roster_goalies
+                    num_slots = league.roster_goalies if hasattr(league, 'roster_goalies') else 2
                     slot_designations = [f'starter_g{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_g'
                 
