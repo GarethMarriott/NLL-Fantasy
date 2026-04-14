@@ -5956,11 +5956,6 @@ def get_available_slots(request, team_id):
                 if slot_type not in can_move_to:
                     continue
                 
-                # Skip showing the same slot type the player is currently in
-                if slot_type == current_slot_type:
-                    print(f"  Skipping {slot_type} slots (player is already in {current_slot_type})", file=sys.stderr)
-                    continue
-                
                 print(f"  Processing {slot_type} slots - current_player.position={current_player.position}, current_slot_type={current_slot_type}", file=sys.stderr)
                 # Determine slot designations for this type using league configuration
                 if slot_type == 'O':
@@ -6014,6 +6009,8 @@ def get_available_slots(request, team_id):
                     
                     # NEW: Also add bench players who are eligible for this position
                     bench_roster = all_active_roster.filter(slot_assignment='bench')
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 1 - Looking for {slot_type} bench players, found {bench_roster.count()} total bench players")
+                    print(f"    Case 1: Found {bench_roster.count()} bench players total", file=sys.stderr)
                     for roster_entry in bench_roster:
                         if str(roster_entry.player.id) != str(current_player_id):
                             # Check if bench player can fill this position
@@ -6027,6 +6024,7 @@ def get_available_slots(request, team_id):
                             elif slot_type == 'G' and (bench_player_pos == 'G' or (bench_player_pos == 'T' and allow_t_in_g)):
                                 can_fill_slot = True
                             
+                            logger.warning(f"  Bench player {roster_entry.player.last_name} ({bench_player_pos}) - can_fill_slot({slot_type})={can_fill_slot}")
                             if can_fill_slot:
                                 response_data['swap_options'].append({
                                     'player_id': roster_entry.player.id,
@@ -6035,6 +6033,7 @@ def get_available_slots(request, team_id):
                                     'slot_assignment': roster_entry.slot_assignment
                                 })
                                 print(f"    Swap option (bench): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
+                                logger.warning(f"  ✓ Added {roster_entry.player.last_name} as bench swap option")
                 
                 # Case 2: T players on bench can swap with players in any eligible position
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
