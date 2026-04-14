@@ -582,7 +582,13 @@ class Player(models.Model):
         Only checks transactions from the current NLL season (starts late November).
         A player is on IR if their most recent IR transaction (in current season) 
         is not followed by: activation, signing, trade, or release.
+        
+        Result is cached to avoid N+1 query problems.
         """
+        # Check cache first
+        if hasattr(self, '_is_on_ir_cache'):
+            return self._is_on_ir_cache
+        
         from datetime import date, timedelta
         full_name = f"{self.first_name} {self.last_name}"
         
@@ -594,6 +600,7 @@ class Player(models.Model):
         # Get the current/most recent season
         current_week = Week.objects.order_by('-season', '-week_number').first()
         if not current_week:
+            self._is_on_ir_cache = False
             return False
         
         current_season = current_week.season
@@ -614,6 +621,7 @@ class Player(models.Model):
         ).order_by('-transaction_date', '-scraped_at').first()
         
         if not most_recent_ir:
+            self._is_on_ir_cache = False
             return False
         
         # Check if there's any transaction after this IR that would end the IR status
@@ -627,6 +635,7 @@ class Player(models.Model):
         
         # If there are transactions after IR, player is no longer on IR
         if transactions_after_ir:
+            self._is_on_ir_cache = False
             return False
         
         # If same date, need to check by scraped_at order too
@@ -640,8 +649,10 @@ class Player(models.Model):
             # If there's a transaction with same date but later scraped_at, player may have left IR
             later_on_same_date = transactions_same_date.filter(scraped_at__gt=most_recent_ir.scraped_at).first()
             if later_on_same_date:
+                self._is_on_ir_cache = False
                 return False
         
+        self._is_on_ir_cache = True
         return True
 
 
