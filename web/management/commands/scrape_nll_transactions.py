@@ -5,14 +5,13 @@ import requests
 from django.core.management.base import BaseCommand
 from bs4 import BeautifulSoup
 import re
-import json
 from datetime import datetime
 from web.models import NLLTransaction
 
 
 def scrape_nll_transactions_task():
     """
-    Scrape NLL transactions from nll.com
+    Scrape NLL transactions from nll.com using BeautifulSoup
     Returns tuple of (count_saved, scraped_html)
     """
     try:
@@ -31,86 +30,75 @@ def scrape_nll_transactions_task():
         soup = BeautifulSoup(html_content, 'html.parser')
         
         transactions_saved = 0
+        seen_urls = set()
         
-        # Extract transaction articles from the page
-        # Find all article/post elements
-        articles = soup.find_all(['article', 'div'], class_=lambda x: x and any(c in str(x) for c in ['post', 'article', 'entry']))
+        # Find all h3 tags (dates)
+        h3_tags = soup.find_all('h3')
         
-        if not articles:
-            # Try finding by tag name
-            articles = soup.find_all('article')
-        
-        for article in articles:
+        for h3 in h3_tags:
             try:
-                # Extract title/headline
-                title_elem = article.find(['h1', 'h2', 'h3', '.entry-title', '.post-title'])
-                if not title_elem:
-                    title_elem = article.find(['h1', 'h2', 'h3'])
+                # Get the date from h3
+                date_text = h3.get_text(strip=True)
+                transaction_date = parse_date(date_text)
                 
-                if not title_elem:
-                    continue
+                # Find the next p tags after this h3 (transaction details)
+                next_elem = h3.find_next_sibling()
                 
-                title = title_elem.get_text(strip=True)
-                
-                # Skip if not transaction-related
-                if 'transaction' not in title.lower():
-                    continue
-                
-                # Extract date
-                date_elem = article.find(['time', '.entry-date', '.post-date', 'span'], class_=lambda x: x and 'date' in str(x).lower())
-                if date_elem:
-                    date_text = date_elem.get_text(strip=True)
-                    transaction_date = parse_date(date_text)
-                else:
-                    transaction_date = datetime.now().date()
-                
-                # Extract content/details
-                content_elem = article.find(['div', 'p'], class_=lambda x: x and any(c in str(x) for c in ['content', 'entry-content', 'post-content']))
-                if not content_elem:
-                    content_elem = article.find(['div'])
-                
-                if content_elem:
-                    content = content_elem.get_text(strip=True)
-                else:
-                    content = title
-                
-                # Extract transaction details from content
-                transaction_type = extract_transaction_type(title, content)
-                player_name = extract_player_name(title, content)
-                from_team, to_team = extract_teams(content)
-                
-                # Only save if we found a player name
-                if player_name:
-                    # Check if already exists
-                    article_url = article.find('a')
-                    if article_url and article_url.get('href'):
-                        nll_url = article_url['href']
-                        if not nll_url.startswith('http'):
-                            nll_url = 'https://www.nll.com' + nll_url
-                    else:
-                        nll_url = 'https://www.nll.com/news/transactions/'
+                while next_elem and next_elem.name == 'p':
+                    # Each p tag contains multiple transactions separated by <br>
+                    # Split content by <br> to get individual transactions
+                    paragraph_html = str(next_elem)
+                    br_parts = next_elem.decode_contents().split('<br/>')
                     
-                    # Create or update transaction
-                    transaction, created = NLLTransaction.objects.update_or_create(
-                        nll_url=nll_url,
-                        player_name=player_name,
-                        transaction_date=transaction_date,
-                        defaults={
-                            'transaction_type': transaction_type,
-                            'from_team': from_team,
-                            'to_team': to_team,
-                            'details': content[:500],
-                            'scraped_at': datetime.now(),
-                        }
-                    )
+                    for part in br_parts:
+                        # Clean up the transaction text
+                        transaction_text = BeautifulSoup(part, 'html.parser').get_text(strip=True)
+                        
+                        if not transaction_text or len(transaction_text) < 10:
+                            continue
+                        
+                        # Parse transaction details
+                        player_names = extract_player_names(transaction_text)
+                        team_names = extract_team_names(transaction_text)
+                        transaction_type = extract_transaction_type(transaction_text)
+                        
+                        # Save each transaction
+                        for player_name in player_names:
+                            if not player_name:
+                                continue
+                            
+                            # Create unique URL for this transaction
+                            url_unique = f"https://www.nll.com/news/transactions/#{transaction_date}_{player_name.replace(' ', '_')}"
+                            
+                            if url_unique not in seen_urls:
+                                seen_urls.add(url_unique)
+                                
+                                # Get team info
+                                from_team, to_team = extract_teams_from_text(transaction_text, team_names)
+                                
+                                # Create or get transaction
+                                transaction, created = NLLTransaction.objects.get_or_create(
+                                    nll_url=url_unique,
+                                    player_name=player_name,
+                                    transaction_date=transaction_date,
+                                    defaults={
+                                        'transaction_type': transaction_type,
+                                        'from_team': from_team,
+                                        'to_team': to_team,
+                                        'details': transaction_text[:500],
+                                        'scraped_at': datetime.now(),
+                                    }
+                                )
+                                
+                                if created:
+                                    transactions_saved += 1
                     
-                    if created:
-                        transactions_saved += 1
+                    next_elem = next_elem.find_next_sibling()
             
             except Exception as e:
                 continue
         
-        # Save HTML for inspection/debugging
+        # Save HTML for inspection
         with open('transactions_page.html', 'w', encoding='utf-8') as f:
             f.write(html_content)
         
@@ -120,74 +108,94 @@ def scrape_nll_transactions_task():
         raise Exception(f'Error during scraping: {str(e)}')
 
 
-def extract_transaction_type(title, content):
-    """Extract transaction type from title and content"""
-    text = (title + ' ' + content).lower()
+def extract_player_names(transaction_text):
+    """Extract player names from transaction text"""
+    names = []
     
-    type_mapping = {
-        'signed': 'signed',
-        'trading': 'traded',
-        'traded': 'traded',
-        'released': 'released',
-        'waived': 'waived',
-        'reassigned': 'reassigned',
-        'activated': 'activated',
-        'retir': 'retired',
-    }
-    
-    for keyword, ttype in type_mapping.items():
-        if keyword in text:
-            return ttype
-    
-    return 'other'
-
-
-def extract_player_name(title, content):
-    """Extract player name from title or content"""
-    # Try to find player name pattern: Capitalized Word Capitalized Word
+    # Patterns that capture everything between action and next keyword
     patterns = [
-        r'([A-Z][a-z]+\s+[A-Z][a-z]+)',  # First Last
-        r'([A-Z][a-z]+)\s+([A-Z])\.?\s+([A-Z][a-z]+)',  # First M. Last
+        r'placed\s+(.+?)\s+on\s+(?:the|their)',  # "placed X on the..."
+        r'released\s+(.+?)\s+from\s+', # "released X from..."
+        r'traded\s+(.+?)\s+(?:to|with)',  # "traded X to..."
+        r'signed\s+(.+?)(?:\s+on|\s+by|,|\.)',  # "signed X on/by/..."
     ]
     
-    # Check title first
     for pattern in patterns:
-        match = re.search(pattern, title)
-        if match:
-            return match.group(0).strip()
+        matches = re.findall(pattern, transaction_text)
+        for match in matches:
+            # Split by " and " to handle multiple names
+            parts = match.split(' and ')
+            for part in parts:
+                name = part.strip()
+                # Clean up any extra spaces and remove articles
+                name = re.sub(r'\s+', ' ', name)
+                # Filter out common non-name words
+                if name and len(name) > 2:
+                    if not any(word in name.lower() for word in ['the', 'roster', 'list', 'team']):
+                        if name not in names:
+                            names.append(name)
     
-    # Then check content
-    for pattern in patterns:
-        match = re.search(pattern, content)
-        if match:
-            return match.group(0).strip()
-    
-    return None
+    return names
 
 
-def extract_teams(content):
-    """Extract team names from content"""
-    # Common NLL team abbreviations and names
+def extract_team_names(transaction_text):
+    """Extract team names from transaction text"""
+    # Common NLL team names
     nll_teams = [
-        'Buffalo', 'Georgia', 'Las Vegas', 'New York', 'San Diego', 'Toronto',
-        'Colorado', 'Albany', 'Bandits', 'Swarm', 'Knights', 'Riptide', 'Seals',
-        'Rock', 'Panjas', 'Stealth', 'Mammoth', 'Roughnecks', 'Wings', 'Wings',
-        'Blast', 'Faceoff',
+        'Buffalo Bandits', 'Georgia Swarm', 'Las Vegas Desert Dogs', 'New York Knights',
+        'San Diego Seals', 'Toronto Rock', 'Colorado Mammoth', 'Albany FireWolves',
+        'Ottawa Titans', 'Calgary Roughnecks', 'Rochester Knighthawks',
     ]
     
+    found_teams = []
+    for team in nll_teams:
+        if team in transaction_text:
+            found_teams.append(team)
+    
+    return found_teams
+
+
+def extract_teams_from_text(transaction_text, team_list):
+    """Extract from_team and to_team based on context"""
     from_team = ''
     to_team = ''
     
-    # Simple heuristic: look for team names
-    for team in nll_teams:
-        if team in content:
-            # First occurrence is usually the original team
-            if not from_team:
-                from_team = team
-            elif not to_team and team != from_team:
-                to_team = team
+    if not team_list:
+        return from_team, to_team
+    
+    # First team mentioned is usually the source team
+    if team_list:
+        from_team = team_list[0]
+    
+    # Second team mentioned is usually the destination
+    if len(team_list) > 1:
+        to_team = team_list[1]
+    
+    # Handle "to" or "from" keywords
+    if ' to ' in transaction_text and len(team_list) > 1:
+        parts = transaction_text.split(' to ')
+        if len(parts) >= 2:
+            to_team = team_list[-1] if team_list else to_team
     
     return from_team, to_team
+
+
+def extract_transaction_type(text):
+    """Extract transaction type from text"""
+    text_lower = text.lower()
+    
+    if 'placed' in text_lower and 'injured' in text_lower:
+        return 'injured'
+    elif 'placed' in text_lower:
+        return 'reassigned'
+    elif 'released' in text_lower:
+        return 'released'
+    elif 'signed' in text_lower:
+        return 'signed'
+    elif 'traded' in text_lower:
+        return 'traded'
+    else:
+        return 'other'
 
 
 def parse_date(date_str):
@@ -196,25 +204,21 @@ def parse_date(date_str):
         if not date_str:
             return datetime.now().date()
         
-        # Clean up the date string
-        date_str = date_str.strip()
-        
         # Try common formats
         formats = [
-            '%B %d, %Y',      # December 19, 2025
-            '%b %d, %Y',      # Dec 19, 2025
-            '%m/%d/%Y',       # 12/19/2025
-            '%m-%d-%Y',       # 12-19-2025
-            '%Y-%m-%d',       # 2025-12-19
+            '%B %d, %Y',      # April 11, 2026
+            '%b %d, %Y',      # Apr 11, 2026
+            '%m/%d/%Y',
+            '%m-%d-%Y',
+            '%Y-%m-%d',
         ]
         
         for fmt in formats:
             try:
-                return datetime.strptime(date_str, fmt).date()
+                return datetime.strptime(date_str.strip(), fmt).date()
             except ValueError:
                 continue
         
-        # Fallback: use today's date
         return datetime.now().date()
     
     except Exception:
