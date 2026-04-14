@@ -870,7 +870,6 @@ def assign_player(request, team_id):
     if not request.user.is_authenticated:
         error_msg = "You must be logged in to make roster changes."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=401)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
@@ -883,7 +882,6 @@ def assign_player(request, team_id):
     if not team_owner:
         error_msg = "You don't have permission to modify this team."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=403)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
@@ -898,7 +896,6 @@ def assign_player(request, team_id):
     if not player_id:
         error_msg = "No player specified."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
@@ -908,14 +905,12 @@ def assign_player(request, team_id):
     except Player.DoesNotExist:
         error_msg = "Player not found."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=404)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     except (ValueError, TypeError):
         error_msg = "Invalid player ID."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
@@ -962,7 +957,6 @@ def assign_player(request, team_id):
     if rosters_are_locked and not use_waivers and action != "drop":
         error_msg = "Roster Moves not Allowed While Rosters are Locked"
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
@@ -971,7 +965,6 @@ def assign_player(request, team_id):
         # No unlocked weeks available and no waivers enabled
         error_msg = "All weeks are currently locked. No roster changes allowed."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.http import JsonResponse
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
@@ -1519,7 +1512,6 @@ def assign_player(request, team_id):
 
     # Return JSON response for AJAX requests, or redirect for regular page requests
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        from django.http import JsonResponse
         return JsonResponse({
             'success': True,
             'message': 'Roster updated successfully',
@@ -2637,7 +2629,6 @@ def get_cached_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_rese
 
 def player_detail_modal(request, player_id):
     """AJAX endpoint to get player details for modal popup"""
-    from django.http import JsonResponse
     
     try:
         player = Player.objects.get(id=player_id)
@@ -5648,7 +5639,6 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 def get_available_slots(request, team_id):
     """JSON endpoint returning all players and empty slots for a position that can be swapped with"""
-    from django.http import JsonResponse
     import sys
     
     try:
