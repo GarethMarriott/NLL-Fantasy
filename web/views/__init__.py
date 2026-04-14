@@ -5842,12 +5842,19 @@ def get_available_slots(request, team_id):
             # - If player has IR designation: IR slots also appear as option
             
             # First, determine what slot the moving player is currently in
-            player_roster = Roster.objects.filter(
+            player_roster_all = Roster.objects.filter(
                 player=current_player,
                 team=team,
                 league=league,
                 week_dropped__isnull=True
-            ).first()
+            )
+            logger.warning(f"GET_AVAILABLE_SLOTS: player_id={current_player_id}, found {player_roster_all.count()} active roster entries")
+            for r in player_roster_all:
+                logger.warning(f"  - Roster: slot={r.slot_assignment}, id={r.id}")
+            
+            player_roster = player_roster_all.first()
+            
+            logger.warning(f"GET_AVAILABLE_SLOTS: player_id={current_player_id}, roster_entry={player_roster}, slot_assignment={player_roster.slot_assignment if player_roster else 'NO ROSTER FOUND'}")
             
             if player_roster:
                 current_slot = player_roster.slot_assignment
