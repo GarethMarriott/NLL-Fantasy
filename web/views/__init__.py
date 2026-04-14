@@ -3537,7 +3537,6 @@ def standings(request):
         # Playoffs = weeks (21 - playoff_weeks) through 20
         regular_season_end_week = 21 - league.playoff_weeks - 1
         season_ended = max_week >= regular_season_end_week
-        
         playoff_info = {}
         playoff_bracket = {}
         if season_ended:
@@ -3550,6 +3549,59 @@ def standings(request):
             seed_to_team = {}
             for seed, standing in enumerate(standings_list[:league.playoff_teams], start=1):
                 seed_to_team[seed] = standing['team']
+            
+            # Helper function to calculate week-specific scores with proper best-ball logic
+            def calculate_playoff_week_score(team_id, week_number):
+                """Calculate a team's score for a specific week using proper best-ball logic"""
+                week_obj = Week.objects.filter(week_number=week_number, season=league_season).first()
+                if not week_obj:
+                    return 0
+                
+                total = 0
+                is_traditional = league.roster_format == 'traditional' if hasattr(league, 'roster_format') else False
+                
+                # Group players by position and calculate scores
+                players_by_position = {"O": [], "D": [], "G": [], "T": []}
+                team_rosters_list = rosters_by_team.get(team_id, [])
+                
+                for roster_entry in team_rosters_list:
+                    p = roster_entry.player
+                    week_added = roster_entry.week_added or 0
+                    week_dropped = roster_entry.week_dropped or 999
+                    if week_added <= week_number < week_dropped and p.active:
+                        stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+                        pts = calculate_fantasy_points(stat, p, league)
+                        
+                        if pts is not None:
+                            entry = {"player": p, "fantasy_points": pts, "slot_assignment": roster_entry.slot_assignment}
+                            pos = getattr(p, "position", None)
+                            side = getattr(p, "assigned_side", None)
+                            target = side or ("O" if pos == "T" else pos)
+                            if target in players_by_position:
+                                players_by_position[target].append(entry)
+                            else:
+                                players_by_position["O"].append(entry)
+                
+                if is_traditional:
+                    # For traditional: sum all starters
+                    num_starter_offense = league.roster_forwards or 6
+                    num_starter_defense = league.roster_defense or 6
+                    num_starter_goalie = league.roster_goalies or 2
+                    
+                    starter_offense = [e for e in players_by_position["O"] if e["slot_assignment"] and e["slot_assignment"].startswith('starter_o')][:num_starter_offense]
+                    starter_defense = [e for e in players_by_position["D"] if e["slot_assignment"] and e["slot_assignment"].startswith('starter_d')][:num_starter_defense]
+                    starter_goalie = [e for e in players_by_position["G"] if e["slot_assignment"] and e["slot_assignment"].startswith('starter_g')][:num_starter_goalie]
+                    
+                    total = sum(e["fantasy_points"] for e in starter_offense + starter_defense + starter_goalie if e["fantasy_points"] is not None)
+                else:
+                    # For best-ball: top 3 offense + top 3 defense + top 1 goalie
+                    offense_scores = sorted([e["fantasy_points"] for e in players_by_position["O"] if e["fantasy_points"] is not None], reverse=True)
+                    defense_scores = sorted([e["fantasy_points"] for e in players_by_position["D"] if e["fantasy_points"] is not None], reverse=True)
+                    goalie_scores = sorted([e["fantasy_points"] for e in players_by_position["G"] if e["fantasy_points"] is not None], reverse=True)
+                    
+                    total = sum(offense_scores[:3]) + sum(defense_scores[:3]) + sum(goalie_scores[:1])
+                
+                return total
             
             # Extract playoff matchups and scores
             playoff_start_week = regular_season_end_week + 1
@@ -3579,8 +3631,8 @@ def standings(request):
                         away_team = resolve_seed(seed2)
                         
                         if home_team and away_team:
-                            home_score = team_week_total(home_team.id, actual_week_num)
-                            away_score = team_week_total(away_team.id, actual_week_num)
+                            home_score = calculate_playoff_week_score(home_team.id, actual_week_num)
+                            away_score = calculate_playoff_week_score(away_team.id, actual_week_num)
                             
                             # Store winner for future rounds
                             if home_score > away_score:
@@ -3612,8 +3664,8 @@ def standings(request):
                         if home_team and away_team:
                             home_id = home_team.id
                             away_id = away_team.id
-                            home_score = team_week_total(home_id, actual_week_num)
-                            away_score = team_week_total(away_id, actual_week_num)
+                            home_score = calculate_playoff_week_score(home_id, actual_week_num)
+                            away_score = calculate_playoff_week_score(away_id, actual_week_num)
                             
                             # Get seeds for display
                             home_seed = next((s for s in standings_list if s['team'].id == home_id), {}).get('playoff_seed', 'N/A')
