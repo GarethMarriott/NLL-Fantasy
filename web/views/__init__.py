@@ -498,10 +498,11 @@ def team_detail(request, team_id):
         num_defence = league.roster_defense or 6
         num_goalie = league.roster_goalies or 2
     else:
-        # Best ball uses fixed counts
-        num_offence = 6
-        num_defence = 6
-        num_goalie = 2
+        # Best ball: dynamically size slots based on actual roster composition
+        # This allows teams to have any distribution (e.g., 7 O, 4 D, 1 G)
+        num_offence = len(players_by_position["O"])
+        num_defence = len(players_by_position["D"])
+        num_goalie = len(players_by_position["G"])
     
     if has_starter_slots:
         # Reorder pools by slot assignment for leagues with starter slots
