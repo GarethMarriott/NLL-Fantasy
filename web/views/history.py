@@ -377,13 +377,9 @@ def league_history_playoffs(request, league_id, year):
     team_ids = [t.id for t in teams]
     all_weeks = get_cached_schedule(team_ids, league.playoff_weeks, league.playoff_teams, league.playoff_reseed or "fixed")
     
-    # Get playoff weeks for the season
-    playoff_weeks = Week.objects.filter(season=year, is_playoff=True).order_by('week_number')
-    if not playoff_weeks.exists():
-        context = {'league': league, 'year': year, 'championship': {}, 'is_historical': True}
-        return render(request, 'web/league_history_playoffs.html', context)
-    
-    playoff_start_week = playoff_weeks.first().week_number
+    # Determine playoff start week from schedule structure (first playoff matchup)
+    # Regular season = 18 weeks, playoffs start at week 19
+    playoff_start_week = 19
     
     # Batch load rosters for this season
     rosters = list(
@@ -431,17 +427,14 @@ def league_history_playoffs(request, league_id, year):
         
         return total
     
-    # Get standings (seeds) for the season
+    # Get standings (seeds) for the season from regular season only
     standings_map = {t.id: {'team': t, 'wins': 0, 'losses': 0, 'ties': 0} for t in teams}
     
-    # Count wins for seeds (calculate from regular season standings)
-    regular_season_weeks = Week.objects.filter(season=year, is_playoff=False)
-    max_regular_week = regular_season_weeks.last().week_number if regular_season_weeks.exists() else 0
-    
-    for idx, games in enumerate(all_weeks[:max_regular_week], start=1):
+    # Process regular season only (weeks 1-18)
+    for idx, games in enumerate(all_weeks[:18], start=1):
         for matchup in games:
             if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
-                continue
+                continue  # Skip playoff matchups
             
             team_a_id, team_b_id = matchup
             if team_a_id not in standings_map or team_b_id not in standings_map:
@@ -472,7 +465,7 @@ def league_history_playoffs(request, league_id, year):
         standing['playoff_seed'] = seed
         seed_to_team[seed] = standing['team']
     
-    # Build playoff bracket by processing playoff weeks
+    # Build playoff bracket by processing playoff weeks from schedule
     playoff_winners = {}
     playoff_losers = {}
     semifinal_matchups = []
@@ -480,7 +473,7 @@ def league_history_playoffs(request, league_id, year):
     final_matchup = None
     champion = None
     
-    # First pass: Process completed playoff weeks and track winners/losers
+    # First pass: Process playoff weeks and track winners/losers
     winner_index = 1
     for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
         week_matchups = all_weeks[week_idx]
