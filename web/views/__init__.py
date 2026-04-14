@@ -3556,7 +3556,7 @@ def standings(request):
             # Get playoff weeks
             for week_idx in range(playoff_start_week - 1, min(playoff_end_week, len(weeks))):
                 week_matchups = weeks[week_idx]
-                playoff_week_num = week_idx - (playoff_start_week - 2)
+                actual_week_num = week_idx + 1  # Convert 0-indexed to 1-indexed week number
                 
                 # Extract playoff matchups (they have 4 elements: ('playoff', week, team1, team2))
                 for matchup in week_matchups:
@@ -3565,9 +3565,9 @@ def standings(request):
                         team1_id = matchup[2]
                         team2_id = matchup[3]
                         
-                        # Get scores for this matchup
-                        team1_score = team_week_total(team1_id, playoff_week_num)
-                        team2_score = team_week_total(team2_id, playoff_week_num)
+                        # Get scores for this matchup using actual week number
+                        team1_score = team_week_total(team1_id, actual_week_num)
+                        team2_score = team_week_total(team2_id, actual_week_num)
                         
                         # Get team objects from standings
                         team1_data = next((s for s in standings_list if s['team'].id == team1_id), None)
@@ -3584,9 +3584,11 @@ def standings(request):
                                 'winner_id': team1_id if team1_score > team2_score else team2_id if team2_score > team1_score else None,
                             }
                             
-                            if playoff_week_num <= 2:  # Semifinals (weeks 1-2)
+                            # Categorize by which playoff week this is
+                            playoff_week_offset = actual_week_num - playoff_start_week
+                            if playoff_week_offset <= 1:  # Semifinals (weeks 1-2 of playoffs)
                                 semifinal_matchups.append(matchup_info)
-                            elif playoff_week_num == 3:  # Finals (week 3)
+                            elif playoff_week_offset == 2:  # Finals (week 3 of playoffs)
                                 final_matchup = matchup_info
             
             playoff_bracket = {
