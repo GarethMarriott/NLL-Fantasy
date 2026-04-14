@@ -364,15 +364,17 @@ class Team(models.Model):
     def is_over_roster_limit(self):
         """
         Check if this team is over the roster size limit.
-        Returns the count of current roster players and whether they're over limit.
+        IR slots are bonus slots and do NOT count against roster limit.
+        Returns the count of current roster players (excluding IR) and whether they're over limit.
         """
         if not self.league:
             return 0, False
         
+        # Count all active roster entries EXCEPT IR slots (IR is bonus capacity)
         current_count = Roster.objects.filter(
             team=self,
             week_dropped__isnull=True
-        ).count()
+        ).exclude(slot_assignment='ir').count()
         
         roster_limit = self.league.roster_size if hasattr(self.league, 'roster_size') else 14
         return current_count, current_count > roster_limit

@@ -535,11 +535,12 @@ def team_detail(request, team_id):
             bench_players.extend(defence_pool)
             bench_players.extend(goalie_pool)
         
-        # Remove None entries and create bench slots
+        # Remove None entries - keep ALL bench players, don't cap at num_bench
+        # This allows bench to grow dynamically if players are moved there
         bench_players = [p for p in bench_players if p is not None]
-        bench_slots = bench_players[:num_bench]
+        bench_slots = bench_players  # Show ALL bench players, not just first num_bench
         
-        # Pad with None to reach desired bench count
+        # Pad with None to reach minimum bench count, but preserve all actual players
         while len(bench_slots) < num_bench:
             bench_slots.append(None)
 
@@ -1140,12 +1141,12 @@ def assign_player(request, team_id):
         return redirect("players")
     
     if action == "add":
-        # Check roster size limit (total players)
+        # Check roster size limit (total players, excluding IR which is bonus)
         current_roster_count = Roster.objects.filter(
             team=team,
             league=team.league,
             week_dropped__isnull=True
-        ).count()
+        ).exclude(slot_assignment='ir').count()
         
         roster_max = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
         
@@ -5288,12 +5289,12 @@ def make_draft_pick(request, draft_id):
             else:
                 # Add rookie draft picks to main roster (taxi squad disabled)
                 for pick in all_picks:
-                    # Check total roster capacity
+                    # Check total roster capacity (excluding IR which is bonus)
                     current_roster_count = Roster.objects.filter(
                         team=pick.team,
                         league=draft.league,
                         week_dropped__isnull=True
-                    ).count()
+                    ).exclude(slot_assignment='ir').count()
                     
                     if current_roster_count >= draft.league.roster_size:
                         post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} roster would exceed capacity")
@@ -5325,12 +5326,12 @@ def make_draft_pick(request, draft_id):
             # Add regular draft picks to main roster
             all_picks = DraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
             for pick in all_picks:
-                # Check total roster capacity
+                # Check total roster capacity (excluding IR which is bonus)
                 current_roster_count = Roster.objects.filter(
                     team=pick.team,
                     league=draft.league,
                     week_dropped__isnull=True
-                ).count()
+                ).exclude(slot_assignment='ir').count()
                 
                 if current_roster_count >= draft.league.roster_size:
                     post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} roster would exceed capacity")
