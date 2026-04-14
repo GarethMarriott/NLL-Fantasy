@@ -2709,6 +2709,7 @@ def player_detail_modal(request, player_id):
             'draft_year': player.draft_year or 'Unknown',
             'birthdate': player.birthdate.strftime('%B %d, %Y') if player.birthdate else 'Unknown',
             'is_rookie': player.is_rookie,
+            'is_on_ir': player.is_on_injured_reserve(),
         },
         'week_stats': week_stats,
         'transactions': transactions_list

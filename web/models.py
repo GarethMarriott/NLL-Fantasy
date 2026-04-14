@@ -555,6 +555,21 @@ class Player(models.Model):
         middle = f" {self.middle_name[0]}." if self.middle_name else ""
         num = f" #{self.number}" if self.number is not None else ""
         return f"{self.last_name}, {self.first_name}{middle}{num}"
+    
+    def is_on_injured_reserve(self):
+        """Check if player's most recent transaction is injured reserve placement"""
+        full_name = f"{self.first_name} {self.last_name}"
+        
+        # Import at function level to avoid circular import issues
+        from django.apps import apps
+        NLLTransaction = apps.get_model('web', 'NLLTransaction')
+        
+        # Get the most recent transaction for this player
+        most_recent = NLLTransaction.objects.filter(
+            player_name=full_name
+        ).order_by('-transaction_date', '-scraped_at').first()
+        
+        return most_recent and most_recent.transaction_type == 'injured_reserve'
 
 
 class Week(models.Model):
