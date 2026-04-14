@@ -5866,6 +5866,11 @@ def get_available_slots(request, team_id):
                 if slot_type not in can_move_to:
                     continue
                 
+                # Skip showing the same slot type the player is currently in
+                if slot_type == current_slot_type:
+                    print(f"  Skipping {slot_type} slots (player is already in {current_slot_type})")
+                    continue
+                
                 # Determine slot designations for this type using league configuration
                 if slot_type == 'O':
                     num_slots = league.roster_forwards if hasattr(league, 'roster_forwards') else 6
@@ -6061,9 +6066,12 @@ def get_available_slots(request, team_id):
                 
                 response_data['empty_slot_options'][slot_type] = empty_slots
             
-            # Bench can always be a move destination
-            bench_roster_count = all_active_roster.filter(slot_assignment='bench').count()
-            response_data['empty_slot_options']['Bench'] = ['bench']
+            # Bench can be a move destination, but not if player is already on bench
+            if current_slot_type is not None:  # Player is not on bench
+                bench_roster_count = all_active_roster.filter(slot_assignment='bench').count()
+                response_data['empty_slot_options']['Bench'] = ['bench']
+            else:
+                print(f"  Skipping bench (player is already on bench)")
             
             # Add IR slots if enabled and player can move to IR
             if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
