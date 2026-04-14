@@ -47,8 +47,8 @@ def league_history(request, league_id):
 def league_history_standings(request, league_id, year):
     """
     Display historical standings for a specific league season.
-    Read-only view of past standings.
-    Optimized with batch queries and caching.
+    Read-only view of past standings using league matchup schedule.
+    Calculates standings by comparing fantasy team scores in their matchups.
     """
     league = get_object_or_404(League, id=league_id)
     year = int(year)
@@ -58,78 +58,118 @@ def league_history_standings(request, league_id, year):
     if not user_teams.exists() and league.commissioner != request.user:
         return JsonResponse({'error': 'Not a member of this league'}, status=403)
     
-    # Batch load all games for the season efficiently
-    weeks_for_season = Week.objects.filter(season=year, is_playoff=False).values_list('id', flat=True)
-    games_for_season = Game.objects.filter(week_id__in=weeks_for_season).select_related('week')
+    teams = list(league.teams.order_by("name"))
+    if not teams:
+        context = {'league': league, 'year': year, 'standings': [], 'is_historical': True}
+        return render(request, 'web/league_history_standings.html', context)
     
-    # Batch load all player game stats for the season with related data
-    all_stats = PlayerGameStat.objects.filter(
-        game__week__season=year
-    ).select_related('player', 'game__week').prefetch_related('game')
+    # Get the schedule for this league
+    team_ids = [t.id for t in teams]
+    all_weeks = get_cached_schedule(team_ids, league.playoff_weeks, league.playoff_teams, league.playoff_reseed or "fixed")
     
-    # Build a fast lookup for matchup results and scores by game
-    game_scores = {}
-    for stat in all_stats:
-        game_id = stat.game_id
-        if game_id not in game_scores:
-            game_scores[game_id] = {
-                stat.player.nll_team: 0.0
-            }
-        elif stat.player.nll_team not in game_scores[game_id]:
-            game_scores[game_id][stat.player.nll_team] = 0.0
-        
-        points = calculate_fantasy_points(stat, stat.player)
-        game_scores[game_id][stat.player.nll_team] += points
+    # Batch load rosters for this season
+    rosters = list(
+        Roster.objects.filter(team__in=teams, league=league, season=year, player__active=True)
+        .select_related("player", "team")
+        .prefetch_related("player__game_stats__game__week")
+    )
     
-    # Now build standings
-    teams = Team.objects.filter(league=league).order_by('name')
-    standings = []
+    # Group rosters by team_id for O(1) lookup
+    from collections import defaultdict
+    rosters_by_team = defaultdict(list)
+    for roster_entry in rosters:
+        rosters_by_team[roster_entry.team_id].append(roster_entry)
     
-    for team in teams:
-        wins, losses, ties = 0, 0, 0
-        total_points = 0.0
+    week_cache = {}
+    standings_map = {
+        t.id: {
+            "team": t,
+            "wins": 0,
+            "losses": 0,
+            "ties": 0,
+            "total_points": 0.0,
+            "points_against": 0.0,
+            "games": 0,
+        }
+        for t in teams
+    }
+    
+    def team_week_total(team_id, week_number):
+        """Calculate a team's fantasy points for a specific week"""
+        week_obj = week_cache.get(week_number)
+        if week_obj is None:
+            # Get week from the specific season
+            week_obj = Week.objects.filter(week_number=week_number, season=year).first()
+            week_cache[week_number] = week_obj
         
-        # Check which NLL team this fantasy team is associated with
-        team_nll_name = None
-        team_players = Roster.objects.filter(team=team, season=year).select_related('player')
-        if team_players.exists():
-            team_nll_name = team_players.first().player.nll_team
+        total = 0.0
         
-        if not team_nll_name:
-            # If no players, skip
-            continue
+        # Get active players on roster during this week
+        active_players = []
+        team_rosters = rosters_by_team.get(team_id, [])
+        for roster_entry in team_rosters:
+            # Check if player was active during this week
+            week_added = roster_entry.week_added or 0
+            week_dropped = roster_entry.week_dropped or 999
+            if week_added <= week_number < week_dropped:
+                # For traditional leagues, only count starters
+                if league.roster_format == 'traditional':
+                    if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
+                        active_players.append(roster_entry.player)
+                else:
+                    # For best ball, count all players
+                    active_players.append(roster_entry.player)
         
-        # Score this team against all games they competed in
-        for game_id, scores_by_team in game_scores.items():
-            if team_nll_name not in scores_by_team:
+        for p in active_players:
+            stat = None
+            if week_obj:
+                stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
+            pts = calculate_fantasy_points(stat, p, league)
+            if pts is not None:
+                total += pts
+        
+        return total
+    
+    # Only process regular season weeks (skip playoff weeks)
+    regular_season_weeks = Week.objects.filter(season=year, is_playoff=False).order_by('week_number')
+    max_week = regular_season_weeks.last().week_number if regular_season_weeks.exists() else 0
+    
+    # Go through schedule and calculate matchups
+    for idx, games in enumerate(all_weeks[:max_week], start=1):
+        for matchup in games:
+            # Skip playoff matchups
+            if isinstance(matchup, tuple) and len(matchup) == 4 and matchup[0] == 'playoff':
                 continue
             
-            team_score = scores_by_team[team_nll_name]
-            total_points += team_score
+            team_a_id, team_b_id = matchup
             
-            # Find opponent and their score
-            teams_in_game = set(scores_by_team.keys())
-            if len(teams_in_game) == 2:
-                opponent_name = [t for t in teams_in_game if t != team_nll_name][0]
-                opponent_score = scores_by_team[opponent_name]
-                
-                if team_score > opponent_score:
-                    wins += 1
-                elif team_score < opponent_score:
-                    losses += 1
-                else:
-                    ties += 1
-        
-        standings.append({
-            'team': team,
-            'wins': wins,
-            'losses': losses,
-            'ties': ties,
-            'points': total_points,
-        })
+            # Only count matchups between teams in this league
+            if team_a_id not in standings_map or team_b_id not in standings_map:
+                continue
+            
+            home_total = team_week_total(team_a_id, idx)
+            away_total = team_week_total(team_b_id, idx)
+            
+            standings_map[team_a_id]["total_points"] += home_total
+            standings_map[team_b_id]["total_points"] += away_total
+            standings_map[team_a_id]["points_against"] += away_total
+            standings_map[team_b_id]["points_against"] += home_total
+            standings_map[team_a_id]["games"] += 1
+            standings_map[team_b_id]["games"] += 1
+            
+            if home_total > away_total:
+                standings_map[team_a_id]["wins"] += 1
+                standings_map[team_b_id]["losses"] += 1
+            elif home_total < away_total:
+                standings_map[team_b_id]["wins"] += 1
+                standings_map[team_a_id]["losses"] += 1
+            else:
+                standings_map[team_a_id]["ties"] += 1
+                standings_map[team_b_id]["ties"] += 1
     
-    # Sort standings
-    standings.sort(key=lambda x: (-x['wins'], -x['points']))
+    # Build final standings list
+    standings = list(standings_map.values())
+    standings.sort(key=lambda r: (-r["wins"], -r["ties"], -r["total_points"], r["team"].name))
     
     context = {
         'league': league,

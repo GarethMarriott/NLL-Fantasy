@@ -27,6 +27,7 @@
           <th class="px-4 py-3 text-center">L</th>
           <th class="px-4 py-3 text-center">T</th>
           <th class="px-4 py-3 text-right">Points</th>
+          <th class="px-4 py-3 text-right">Points Against</th>
         </tr>
       </thead>
       <tbody>
@@ -40,7 +41,8 @@
           <td class="px-4 py-3 text-center font-semibold text-green-600">{{ entry.wins }}</td>
           <td class="px-4 py-3 text-center font-semibold text-red-600">{{ entry.losses }}</td>
           <td class="px-4 py-3 text-center font-semibold text-gray-600">{{ entry.ties }}</td>
-          <td class="px-4 py-3 text-right font-bold">{{ entry.points|floatformat:1 }}</td>
+          <td class="px-4 py-3 text-right font-bold">{{ entry.total_points|floatformat:1 }}</td>
+          <td class="px-4 py-3 text-right text-gray-600">{{ entry.points_against|floatformat:1 }}</td>
         </tr>
         {% endfor %}
       </tbody>
