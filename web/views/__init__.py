@@ -6135,32 +6135,11 @@ def get_available_slots(request, team_id):
                             })
                             print(f"    Swap option (from bench): {roster_entry.player.last_name} in {roster_entry.slot_assignment}")
                 
-                # Case 4: IR players can swap with any bench or started slot player
+                # Case 4: IR players can only move to empty bench slots (no swaps)
                 elif current_slot_type == 'IR':
-                    # Show bench players
-                    bench_roster = all_active_roster.filter(slot_assignment='bench')
-                    for roster_entry in bench_roster:
-                        if str(roster_entry.player.id) != str(current_player_id):
-                            response_data['swap_options'].append({
-                                'player_id': roster_entry.player.id,
-                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                                'player_position': roster_entry.player.position,
-                                'slot_type': 'Bench',
-                                'slot_assignment': roster_entry.slot_assignment
-                            })
-                            print(f"    Swap option (from IR to bench): {roster_entry.player.last_name}")
-                    
-                    # Show starter players in any position
-                    for roster_entry in roster_in_slots:
-                        if str(roster_entry.player.id) != str(current_player_id):
-                            response_data['swap_options'].append({
-                                'player_id': roster_entry.player.id,
-                                'player_name': f"{roster_entry.player.last_name}, {roster_entry.player.first_name}",
-                                'player_position': roster_entry.player.position,
-                                'slot_type': slot_type,
-                                'slot_assignment': roster_entry.slot_assignment
-                            })
-                            print(f"    Swap option (from IR to starter): {roster_entry.player.last_name}")
+                    # IR players cannot swap with other players
+                    # They can only move to empty bench slots
+                    print(f"    Case 4: IR player - can only move to empty bench slots, no swaps allowed")
                 else:
                     print(f"  Skipping {slot_type} slots for swap options (current player in {current_slot_type})")
                 
@@ -6193,23 +6172,25 @@ def get_available_slots(request, team_id):
                 response_data['empty_slot_options'][slot_type] = empty_slots
             
             # Bench can be a move destination, but not if player is already on bench
-            if current_slot_type is not None:  # Player is not on bench
+            # For IR players, ONLY bench is available (no swap options, no starter slots)
+            if current_slot_type == 'IR':
+                # IR players can only move to empty bench slots
+                response_data['empty_slot_options'] = {}  # Clear all position slot options
+                response_data['empty_slot_options']['Bench'] = ['bench']
+                print(f"  IR player: only bench available")
+            elif current_slot_type is not None:  # Player is not on bench
                 bench_roster_count = all_active_roster.filter(slot_assignment='bench').count()
                 response_data['empty_slot_options']['Bench'] = ['bench']
             else:
                 print(f"  Skipping bench (player is already on bench)")
             
             # Add IR slots if enabled and player can move to IR
-            if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
+            # Only for non-IR players (IR players already on IR don't need this option)
+            if current_slot_type != 'IR' and hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
                 # Check if current player has IR designation (is on injured reserve)
                 if current_player.is_on_injured_reserve:
-                    # Player already on IR can move out
-                    ir_count = all_active_roster.filter(
-                        slot_assignment='ir'
-                    ).exclude(player=current_player).count()
-                    # Always add IR as an option for players already on IR (can stay or move)
-                    response_data['empty_slot_options']['IR'] = ['ir']
-                    print(f"  IR player can move out of IR slots (currently {ir_count} other players in IR)")
+                    # Player already on IR can move out - but they're not in case 4, so this shouldn't happen
+                    pass
                 else:
                     # Player not on IR can move into IR if there's space
                     ir_count = all_active_roster.filter(slot_assignment='ir').count()
