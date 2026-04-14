@@ -87,6 +87,9 @@ def check_roster_capacity(team, position, exclude_player=None):
         total_count = query.count()
         max_roster = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
         
+        import sys
+        print(f"DEBUG check_roster_capacity: team={team.name}, position={position}, total_count={total_count}, max_roster={max_roster}, result={total_count < max_roster}", file=sys.stderr)
+        
         return total_count < max_roster, total_count, max_roster
     
     # For IR slots in best ball, check IR capacity separately
@@ -1205,6 +1208,9 @@ def assign_player(request, team_id):
         ).exclude(slot_assignment='ir').count()
         
         roster_max = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
+        
+        import sys
+        print(f"DEBUG: team={team.name}, current_roster_count={current_roster_count}, roster_max={roster_max}, is_bestball={team.league.roster_format=='bestball'}", file=sys.stderr)
         
         if current_roster_count >= roster_max:
             messages.error(request, f"Roster is full. Maximum {roster_max} players allowed per team.")
