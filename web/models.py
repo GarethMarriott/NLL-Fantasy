@@ -203,6 +203,17 @@ class League(models.Model):
         help_text="The default week displayed to users (updated every Tuesday 9am PT)"
     )
     
+    # Injured Reserve Slots
+    allow_ir_slots = models.BooleanField(
+        default=False,
+        help_text="Enable Injured Reserve roster slots for this league"
+    )
+    ir_slots = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
+        help_text="Number of Injured Reserve roster slots (0-5, only applies if allow_ir_slots is enabled)"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -245,9 +256,16 @@ class League(models.Model):
             # Include taxi squad size for dynasty traditional leagues
             if self.league_type == 'dynasty':
                 size += self.taxi_squad_size
+            # Include IR slots if enabled
+            if self.allow_ir_slots:
+                size += self.ir_slots
             return size
         # For best ball, use the manually set roster_size
-        return self.roster_size
+        # For best ball, also include IR slots if enabled
+        roster_size = self.roster_size
+        if self.allow_ir_slots:
+            roster_size += self.ir_slots
+        return roster_size
 
     def save(self, *args, **kwargs):
         # For traditional leagues, automatically calculate roster_size

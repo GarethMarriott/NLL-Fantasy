@@ -90,6 +90,7 @@ class LeagueSettingsForm(forms.ModelForm):
         fields = [
             'name', 'description', 'max_teams', 'is_public',
             'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'use_taxi_squad', 'taxi_squad_size',
+            'allow_ir_slots', 'ir_slots',
             'use_future_rookie_picks',
             'playoff_teams', 'playoff_reseed', 'use_waivers', 'allow_transition_in_goalies',
             'multigame_scoring',
@@ -144,6 +145,15 @@ class LeagueSettingsForm(forms.ModelForm):
             'scoring_goalie_goals_against': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_goalie_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
+            'allow_ir_slots': forms.CheckboxInput(attrs={'class': 'rounded'}),
+            'ir_slots': forms.Select(choices=[
+                (0, '0 slots (disabled)'),
+                (1, '1 slot'),
+                (2, '2 slots'),
+                (3, '3 slots'),
+                (4, '4 slots'),
+                (5, '5 slots'),
+            ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
 
         }
         help_texts = {
@@ -151,6 +161,8 @@ class LeagueSettingsForm(forms.ModelForm):
             'use_taxi_squad': "Enable taxi squad for rookies (Dynasty leagues only).",
             'taxi_squad_size': "Number of taxi squad slots for rookies (only used if taxi squad is enabled).",
             'use_future_rookie_picks': "Enable future rookie picks ownership (Dynasty leagues only) - teams own picks for multiple years and can trade them.",
+            'allow_ir_slots': "Enable Injured Reserve roster slots for this league.",
+            'ir_slots': "Number of Injured Reserve slots each team can use (0-5).",
         }
 
     def __init__(self, *args, **kwargs):
