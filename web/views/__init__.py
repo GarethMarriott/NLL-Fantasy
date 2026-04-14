@@ -1396,13 +1396,24 @@ def assign_player(request, team_id):
                     return redirect("team_detail", team_id=team.id)
                 
                 # Count players in IR slots
-                ir_count = Roster.objects.filter(
+                ir_roster_entries = list(Roster.objects.filter(
                     team=team,
                     league=team.league,
                     week_dropped__isnull=True,
                     slot_assignment='ir'
-                ).exclude(player=player).count()
+                ).exclude(player=player).values('player_id', 'player__last_name', 'player__first_name'))
+                
+                ir_count = len(ir_roster_entries)
                 max_ir = team.league.ir_slots if hasattr(team.league, 'ir_slots') else 0
+                
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: IR Check for {player.last_name}")
+                logger.warning(f"  - Moving player id={player.id} to IR")
+                logger.warning(f"  - Current IR occupants: {ir_count}")
+                for entry in ir_roster_entries:
+                    logger.warning(f"    - {entry['player__first_name']} {entry['player__last_name']} (id={entry['player_id']})")
+                logger.warning(f"  - Max IR slots allowed: {max_ir}")
+                logger.warning(f"  - allow_ir_slots={allow_ir_slots}")
+                
                 can_add = ir_count < max_ir
                 current_pos_count = ir_count
                 max_allowed = max_ir
