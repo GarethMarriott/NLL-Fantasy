@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 
 from .models import Player, Week, Game, PlayerGameStat
 from .models import ImportRun
-from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster, WaiverClaim, Draft, DraftPosition, DraftPick, BugReport
+from .models import FantasyTeamOwner, ChatMessage, Team, League, Roster, WaiverClaim, Draft, DraftPosition, DraftPick, BugReport, NLLTransaction
 from .forms import ImportWeeklyStatsForm, ImportTeamsForm
 from .importers import import_weekly_stats_csv, import_teams_csv
 from django.contrib import admin
@@ -395,6 +395,16 @@ class RosterAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('player', 'team', 'league')
+
+
+@admin.register(NLLTransaction, site=admin_site)
+class NLLTransactionAdmin(admin.ModelAdmin):
+    list_display = ("transaction_date", "transaction_type", "player_name", "from_team", "to_team")
+    list_filter = ("transaction_type", "transaction_date")
+    search_fields = ("player_name", "from_team", "to_team")
+    autocomplete_fields = ["player"]
+    ordering = ("-transaction_date",)
+    readonly_fields = ("scraped_at",)
 
 @admin.register(WaiverClaim, site=admin_site)
 class WaiverClaimAdmin(admin.ModelAdmin):

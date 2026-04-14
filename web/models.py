@@ -1553,6 +1553,85 @@ class FutureRookiePick(models.Model):
         return f"{self.year} R{self.round_number}P{self.pick_number} ({self.team.name} - Original: {self.original_owner.name})"
 
 
+class NLLTransaction(models.Model):
+    """Track NLL player transactions (trades, signings, releases, etc.)"""
+    
+    TRANSACTION_TYPE_CHOICES = [
+        ('signed', 'Signed'),
+        ('traded', 'Traded'),
+        ('released', 'Released'),
+        ('waived', 'Waived'),
+        ('reassigned', 'Reassigned'),
+        ('activated', 'Activated'),
+        ('retired', 'Retired'),
+        ('other', 'Other'),
+    ]
+    
+    # Transaction details
+    transaction_date = models.DateField(
+        help_text="Date the transaction occurred"
+    )
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TRANSACTION_TYPE_CHOICES,
+        help_text="Type of transaction"
+    )
+    player_name = models.CharField(
+        max_length=100,
+        help_text="Player name as listed in transaction"
+    )
+    
+    # Teams involved
+    from_team = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Team player left from (for trades/releases)"
+    )
+    to_team = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Team player went to (for signings/trades)"
+    )
+    
+    # Transaction details
+    details = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Additional details about the transaction"
+    )
+    
+    # Optional FK to Player if we can match
+    player = models.ForeignKey(
+        'Player',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions',
+        help_text="Matched player record if available"
+    )
+    
+    # Tracking
+    nll_url = models.URLField(
+        null=True,
+        blank=True,
+        help_text="Link to original NLL news article"
+    )
+    scraped_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-transaction_date']
+        indexes = [
+            models.Index(fields=['-transaction_date']),
+            models.Index(fields=['transaction_type']),
+            models.Index(fields=['player_name']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"{self.transaction_date} - {self.player_name}: {self.get_transaction_type_display()}"
+
+
 class BugReport(models.Model):
     """User-submitted bug reports for tracking and monitoring application issues"""
     

@@ -1,0 +1,162 @@
+{% extends "web/base.html" %}
+{% block title %}NLL Transactions{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+  <div class="mb-6">
+    <a href="{% url 'home' %}" class="text-blue-600 hover:text-blue-800">&larr; Back Home</a>
+  </div>
+
+  <h1 class="text-3xl font-bold mb-2">NLL Transactions</h1>
+  <p class="text-gray-600 mb-6">Track all NLL player transactions</p>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+    <h2 class="text-lg font-bold mb-4">Filters</h2>
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- Transaction Type -->
+      <div>
+        <label for="type" class="block text-sm font-medium text-gray-700 mb-2">Transaction Type</label>
+        <select id="type" name="type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500">
+          <option value="">All Types</option>
+          {% for value, label in transaction_types %}
+            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Team -->
+      <div>
+        <label for="team" class="block text-sm font-medium text-gray-700 mb-2">Team</label>
+        <input type="text" id="team" name="team" value="{{ selected_team }}" placeholder="e.g., 'Toronto'" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500">
+      </div>
+
+      <!-- Player Name -->
+      <div>
+        <label for="player" class="block text-sm font-medium text-gray-700 mb-2">Player Name</label>
+        <input type="text" id="player" name="player" value="{{ selected_player }}" placeholder="Search player..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500">
+      </div>
+
+      <!-- Submit -->
+      <div class="flex items-end">
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-semibold transition">
+          Search
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Results Summary -->
+  <div class="mb-4 text-gray-600">
+    <p>Showing <strong>{{ transactions.paginator.page_size }}</strong> of <strong>{{ total_count }}</strong> transactions</p>
+  </div>
+
+  <!-- Transactions Table -->
+  {% if transactions %}
+  <div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <table class="w-full">
+      <thead class="bg-blue-600 text-white">
+        <tr>
+          <th class="px-4 py-3 text-left">Date</th>
+          <th class="px-4 py-3 text-left">Type</th>
+          <th class="px-4 py-3 text-left">Player</th>
+          <th class="px-4 py-3 text-left">From Team</th>
+          <th class="px-4 py-3 text-left">To Team</th>
+          <th class="px-4 py-3 text-left">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for transaction in transactions %}
+        <tr class="{% cycle 'bg-white' 'bg-gray-50' %} border-b border-gray-200 hover:bg-blue-50 transition">
+          <td class="px-4 py-3 font-semibold">
+            {{ transaction.transaction_date|date:"M d, Y" }}
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-semibold">
+              {{ transaction.get_transaction_type_display }}
+            </span>
+          </td>
+          <td class="px-4 py-3 font-semibold">
+            {% if transaction.player %}
+              <a href="{% url 'player_detail_modal' transaction.player.id %}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                {{ transaction.player_name }}
+              </a>
+            {% else %}
+              {{ transaction.player_name }}
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if transaction.from_team %}
+              <span class="text-gray-700">{{ transaction.from_team }}</span>
+            {% else %}
+              <span class="text-gray-400 italic">-</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if transaction.to_team %}
+              <span class="text-gray-700">{{ transaction.to_team }}</span>
+            {% else %}
+              <span class="text-gray-400 italic">-</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-sm text-gray-600">
+            {% if transaction.details %}
+              {{ transaction.details|truncatewords:20 }}
+            {% else %}
+              <span class="text-gray-400 italic">No details</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if transactions.has_other_pages %}
+  <div class="mt-6 flex justify-center">
+    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+      <!-- Previous -->
+      {% if transactions.has_previous %}
+        <a href="?page=1{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_team %}&team={{ selected_team }}{% endif %}{% if selected_player %}&player={{ selected_player }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+          <span>First</span>
+        </a>
+        <a href="?page={{ transactions.previous_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_team %}&team={{ selected_team }}{% endif %}{% if selected_player %}&player={{ selected_player }}{% endif %}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+          <span>Prev</span>
+        </a>
+      {% endif %}
+
+      <!-- Current page info -->
+      <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+        Page {{ transactions.number }} of {{ transactions.paginator.num_pages }}
+      </span>
+
+      <!-- Next -->
+      {% if transactions.has_next %}
+        <a href="?page={{ transactions.next_page_number }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_team %}&team={{ selected_team }}{% endif %}{% if selected_player %}&player={{ selected_player }}{% endif %}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+          <span>Next</span>
+        </a>
+        <a href="?page={{ transactions.paginator.num_pages }}{% if selected_type %}&type={{ selected_type }}{% endif %}{% if selected_team %}&team={{ selected_team }}{% endif %}{% if selected_player %}&player={{ selected_player }}{% endif %}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+          <span>Last</span>
+        </a>
+      {% endif %}
+    </nav>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <p class="text-yellow-800">No transactions found matching the current filters.</p>
+  </div>
+  {% endif %}
+
+  <!-- Admin Info -->
+  {% if user.is_staff %}
+  <div class="mt-8 bg-green-50 border border-green-200 rounded-lg p-4">
+    <p class="text-sm text-green-700">
+      💡 <strong>Admin:</strong> You can run the scraper with: <code>python manage.py scrape_nll_transactions</code>
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
