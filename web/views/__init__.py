@@ -1363,6 +1363,8 @@ def assign_player(request, team_id):
         else:  # best ball
             if target_slot in ['O', 'D', 'G']:
                 target_position = target_slot
+            elif target_slot == 'ir':
+                target_position = 'IR'
         
         # Check capacity for target position (excluding current player)
         if target_position:
@@ -1454,24 +1456,32 @@ def assign_player(request, team_id):
                     player.assigned_side = 'G'
                 player.save()
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: Updated transition player assigned_side to {player.assigned_side}")
-        # Handle best ball league moves (update assigned_side for position moves)
+        # Handle best ball league moves (update slot_assignment and assigned_side as needed)
         else:
-            if player.position == 'T':
-                # Check if transition player is being moved to goalie slot
-                if target_slot == 'G' and not team.league.allow_transition_in_goalies:
-                    error_msg = f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league."
-                    logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return JsonResponse({'success': False, 'error': error_msg}, status=400)
-                    messages.error(request, error_msg)
-                    return redirect("team_detail", team_id=team.id)
-                
-                if target_slot in ['O', 'D', 'G']:
+            # For best ball, update slot_assignment to handle IR moves
+            if target_slot == 'ir':
+                player_roster.slot_assignment = 'ir'
+                player_roster.save()
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - moved to IR slot")
+            elif target_slot in ['O', 'D', 'G']:
+                # For position moves (O, D, G), update assigned_side but not slot_assignment
+                if player.position == 'T':
+                    # Check if transition player is being moved to goalie slot
+                    if target_slot == 'G' and not team.league.allow_transition_in_goalies:
+                        error_msg = f"Cannot move {player.first_name} {player.last_name} to Goalie slot - Transition (T) players are not allowed in Goalie slots in this league."
+                        logger.warning(f"MOVE_TO_EMPTY_SLOT: Transition player cannot be moved to G slot in this league")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+                        messages.error(request, error_msg)
+                        return redirect("team_detail", team_id=team.id)
+                    
                     logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - updating assigned_side to {target_slot}")
                     player.assigned_side = target_slot
                     player.save()
+                else:
+                    logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - no changes needed for non-T player")
             else:
-                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - no changes needed")
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball league - unknown target_slot {target_slot}")
         
         logger.warning(f"MOVE_TO_EMPTY_SLOT: After save - {player.last_name} now in {player_roster.slot_assignment}")
         
