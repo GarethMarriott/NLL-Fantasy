@@ -557,19 +557,49 @@ class Player(models.Model):
         return f"{self.last_name}, {self.first_name}{middle}{num}"
     
     def is_on_injured_reserve(self):
-        """Check if player's most recent transaction is injured reserve placement"""
+        """
+        Check if player is currently on injured reserve.
+        A player is on IR if their most recent IR transaction is not followed by:
+        activation, signing, trade, or release.
+        """
         full_name = f"{self.first_name} {self.last_name}"
         
         # Import at function level to avoid circular import issues
         from django.apps import apps
         NLLTransaction = apps.get_model('web', 'NLLTransaction')
         
-        # Get the most recent transaction for this player
-        most_recent = NLLTransaction.objects.filter(
-            player_name=full_name
+        # Get the most recent IR transaction
+        most_recent_ir = NLLTransaction.objects.filter(
+            player_name=full_name,
+            transaction_type='injured_reserve'
         ).order_by('-transaction_date', '-scraped_at').first()
         
-        return most_recent and most_recent.transaction_type == 'injured_reserve'
+        if not most_recent_ir:
+            return False
+        
+        # Check if there's any transaction after this IR that would end the IR status
+        # (activated, signed, traded, released)
+        transactions_after_ir = NLLTransaction.objects.filter(
+            player_name=full_name,
+            transaction_date__gt=most_recent_ir.transaction_date
+        ).order_by('-transaction_date', '-scraped_at').first()
+        
+        # If there are transactions after IR, player is no longer on IR
+        if transactions_after_ir:
+            return False
+        
+        # If same date, need to check by scraped_at order too
+        if not transactions_after_ir:
+            transactions_same_date = NLLTransaction.objects.filter(
+                player_name=full_name,
+                transaction_date=most_recent_ir.transaction_date
+            ).order_by('-scraped_at')
+            # If there's a transaction with same date but later scraped_at, player may have left IR
+            later_on_same_date = transactions_same_date.filter(scraped_at__gt=most_recent_ir.scraped_at).first()
+            if later_on_same_date:
+                return False
+        
+        return True
 
 
 class Week(models.Model):
