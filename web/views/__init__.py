@@ -2178,7 +2178,7 @@ def players(request):
         qs = qs.filter(is_rookie=True)
     elif selected_position == "IR":
         # Filter for injured reserve players - will be done in post-processing
-        # since is_on_injured_reserve() is a method, not a database field
+        # since is_on_injured_reserve is a property, not a database field
         pass
     elif selected_position:
         qs = qs.filter(position=selected_position)
@@ -2309,7 +2309,7 @@ def players(request):
 
     # Filter for injured reserve if selected
     if selected_position == "IR":
-        players_with_stats = [item for item in players_with_stats if item["player"].is_on_injured_reserve()]
+        players_with_stats = [item for item in players_with_stats if item["player"].is_on_injured_reserve]
 
     def sort_key(item):
         player = item["player"]
@@ -2782,7 +2782,7 @@ def player_detail_modal(request, player_id):
             'draft_year': player.draft_year or 'Unknown',
             'birthdate': player.birthdate.strftime('%B %d, %Y') if player.birthdate else 'Unknown',
             'is_rookie': player.is_rookie,
-            'is_on_ir': player.is_on_injured_reserve(),
+            'is_on_ir': player.is_on_injured_reserve,
         },
         'week_stats': week_stats,
         'transactions': transactions_list
