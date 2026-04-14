@@ -47,18 +47,26 @@ def scrape_nll_transactions_task():
                 while next_elem and next_elem.name == 'p':
                     # Each p tag contains multiple transactions separated by <br>
                     # Split content by <br> to get individual transactions
-                    paragraph_html = str(next_elem)
-                    br_parts = next_elem.decode_contents().split('<br/>')
+                    br_parts = next_elem.decode_contents().split('<br />')
                     
                     for part in br_parts:
                         # Clean up the transaction text
                         transaction_text = BeautifulSoup(part, 'html.parser').get_text(strip=True)
                         
-                        if not transaction_text or len(transaction_text) < 10:
+                        if not transaction_text or len(transaction_text) < 15:
+                            continue
+                        
+                        # Skip if doesn't look like a transaction
+                        if not any(word in transaction_text.lower() for word in ['have', 'placed', 'released', 'signed', 'traded']):
                             continue
                         
                         # Parse transaction details
                         player_names = extract_player_names(transaction_text)
+                        
+                        # Only process if we found actual player names
+                        if not player_names:
+                            continue
+                        
                         team_names = extract_team_names(transaction_text)
                         transaction_type = extract_transaction_type(transaction_text)
                         
