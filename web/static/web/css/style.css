@@ -79,8 +79,16 @@ h1, h2, h3 { color:#333; }
 @media (min-width: 1024px) {
   #sidebar {
     position: sticky !important;
-    top: 0;
-    height: 100vh;
-    max-height: 100vh;
+    top: 0 !important;
+    bottom: auto !important;
+    right: auto !important;
+    width: 15rem !important; /* w-60 */
+    height: 100vh !important;
+    max-height: 100vh !important;
+    flex-shrink: 0;
+  }
+  
+  #sidebar > div {
+    height: 100% !important;
   }
 }
