@@ -4443,13 +4443,14 @@ def league_list(request):
         other_leagues = other_leagues.filter(is_public=True)
     
     # Separate user's leagues into active, completed, and archived
-    my_active = my_leagues.filter(is_active=True).exclude(status='season_complete')
+    # Active: is_active=True AND not season_complete AND not renewal_complete
+    my_active = my_leagues.filter(is_active=True).exclude(status__in=['season_complete', 'renewal_complete'])
     my_completed = my_leagues.filter(status='season_complete')  # Completed but not yet renewed
-    my_archived = my_leagues.filter(is_active=False)
+    my_archived = my_leagues.filter(is_active=False) | my_leagues.filter(status='renewal_complete')  # Archived or renewed
     
-    my_team_active = my_team_leagues.filter(is_active=True).exclude(status='season_complete')
+    my_team_active = my_team_leagues.filter(is_active=True).exclude(status__in=['season_complete', 'renewal_complete'])
     my_team_completed = my_team_leagues.filter(status='season_complete')
-    my_team_archived = my_team_leagues.filter(is_active=False)
+    my_team_archived = my_team_leagues.filter(is_active=False) | my_team_leagues.filter(status='renewal_complete')
     
     return render(request, "web/league_list.html", {
         "my_active_leagues": my_active,

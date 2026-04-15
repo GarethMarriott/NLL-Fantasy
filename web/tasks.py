@@ -431,7 +431,7 @@ def renew_league(old_league_id, new_season=None):
             except Exception as e:
                 logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
         
-        # Mark old league as offseason (renewal completed)
+        # Mark old league as renewal_complete (renewal completed)
         # Refresh old_league from database to ensure clean state
         from django.db import transaction
         
@@ -441,14 +441,14 @@ def renew_league(old_league_id, new_season=None):
         
         # Use explicit transaction to ensure save is committed
         with transaction.atomic():
-            old_league.status = 'offseason'
+            old_league.status = 'renewal_complete'
             old_league.save()
         
         old_league.refresh_from_db()
         print(f"[RENEW_TASK] After update - old league status: {old_league.status}", file=sys.stderr)
         sys.stderr.flush()
         
-        print(f"[RENEW_TASK] League renewal complete: {old_league.name} → status changed to 'offseason', new league created: {new_league.name} (ID: {new_league.id})", file=sys.stderr)
+        print(f"[RENEW_TASK] League renewal complete: {old_league.name} → status changed to 'renewal_complete', new league created: {new_league.name} (ID: {new_league.id})", file=sys.stderr)
         sys.stderr.flush()
         
         return new_league
