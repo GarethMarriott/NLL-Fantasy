@@ -5991,6 +5991,8 @@ def get_available_slots(request, team_id):
                     slot_designations = [f'starter_g{i}' for i in range(1, num_slots + 1)]
                     slot_prefix = 'starter_g'
                 
+                print(f"  {slot_type}: num_slots={num_slots}, designations={slot_designations}, is_dynasty={is_dynasty}", file=sys.stderr)
+                
                 # Get players currently in these slots
                 roster_in_slots = all_active_roster.filter(
                     slot_assignment__in=slot_designations
@@ -6060,8 +6062,8 @@ def get_available_slots(request, team_id):
                 # Case 2: T players on bench can swap with players in any eligible position
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
-                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {roster_in_slots.count()} players")
-                    print(f"    Case 2: T player on bench - showing {slot_type} slot players", file=sys.stderr)
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {roster_in_slots.count()} players, dynasty={is_dynasty}")
+                    print(f"    Case 2: T player on bench - showing {slot_type} slot players (dynasty={is_dynasty}, count={roster_in_slots.count()})", file=sys.stderr)
                     # T player is on bench - can swap with players in starter slots (not bench)
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
@@ -6074,7 +6076,7 @@ def get_available_slots(request, team_id):
                                 'slot_type': slot_type,
                                 'slot_assignment': roster_entry.slot_assignment
                             })
-                            print(f"    Swap option (T from bench): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment}")
+                            print(f"    Swap option (T from bench): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment} (dynasty={is_dynasty})")
                 
                 # Case 2b: T players in a starter slot can swap with compatible players in other positions or bench
                 elif current_player.position == 'T' and current_slot_type is not None:
