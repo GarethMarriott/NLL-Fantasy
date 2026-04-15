@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.contrib.sessions.models import Session
 from datetime import timedelta
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -432,11 +433,17 @@ def renew_league(old_league_id, new_season=None):
         
         # Mark old league as offseason (renewal completed)
         # Refresh old_league from database to ensure clean state
+        from django.db import transaction
+        
         old_league.refresh_from_db()
         print(f"[RENEW_TASK] Before update - old league status: {old_league.status}", file=sys.stderr)
         sys.stderr.flush()
-        old_league.status = 'offseason'
-        old_league.save()
+        
+        # Use explicit transaction to ensure save is committed
+        with transaction.atomic():
+            old_league.status = 'offseason'
+            old_league.save()
+        
         old_league.refresh_from_db()
         print(f"[RENEW_TASK] After update - old league status: {old_league.status}", file=sys.stderr)
         sys.stderr.flush()
