@@ -80,7 +80,8 @@ h1, h2, h3 { color:#333; }
   #sidebar {
     position: sticky !important;
     top: 0 !important;
-    height: 100vh !important;
-    overflow-y: auto !important;
+    height: auto !important;
+    max-height: 100vh !important;
+    align-self: flex-start !important;
   }
 }
