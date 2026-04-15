@@ -1043,30 +1043,36 @@ def auto_complete_seasons():
     """
     from web.models import League, Week
     from datetime import datetime
+    import pytz
     
-    today = timezone.now()
-    logger.info(f"[AUTO COMPLETE] Running season auto-complete check at {today}")
+    today_utc = timezone.now()
+    logger.info(f"[AUTO COMPLETE] Running season auto-complete check at {today_utc}")
     
     try:
+        # Convert to Pacific time for business logic check
+        pacific = pytz.timezone('US/Pacific')
+        today_pacific = today_utc.astimezone(pacific)
+        today_date_pacific = today_pacific.date()
+        
         # Find the most recent completed week for this season
         # (could be week 20, 21, or later depending on playoff structure)
         latest_week = Week.objects.filter(
-            season=today.year
+            season=today_utc.year
         ).order_by('-week_number').first()
         
         if not latest_week:
-            logger.info(f"[AUTO COMPLETE] No weeks found for season {today.year}")
+            logger.info(f"[AUTO COMPLETE] No weeks found for season {today_utc.year}")
             return "No weeks found"
         
-        # Check if we're on Tuesday and the latest week has ended
+        # Check if we're on Tuesday (Pacific) and the latest week has ended
         # Championship could be week 20, 21, 22, etc - just check the most recent
         # Week ends on Sunday/Monday, Tuesday is the off day
-        if latest_week.end_date < today.date() and today.weekday() == 1:  # Tuesday = 1
-            logger.info(f"[AUTO COMPLETE] Latest week {latest_week.week_number} has ended (ended: {latest_week.end_date})")
+        if latest_week.end_date < today_date_pacific and today_pacific.weekday() == 1:  # Tuesday = 1
+            logger.info(f"[AUTO COMPLETE] Latest week {latest_week.week_number} has ended (ended: {latest_week.end_date}), and today is Tuesday (Pacific)")
             
             # Mark all active leagues for this season as season_complete
             leagues = League.objects.filter(
-                season=today.year,
+                season=today_utc.year,
                 status='active'  # Only auto-complete active leagues
             )
             
