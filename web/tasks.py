@@ -1029,15 +1029,20 @@ def _calculate_draft_order_from_standings(league, season_year):
 @shared_task(name='web.tasks.auto_complete_seasons')
 def auto_complete_seasons():
     """
-    Automatically mark leagues as season_complete on Tuesday after the championship week ends.
+    Automatically mark leagues as season_complete on the Tuesday after their championship week ends.
+    
+    IMPORTANT: This task runs EVERY TUESDAY (per Celery Beat schedule), but each league is only 
+    marked complete ONCE - on the specific Tuesday after its championship week ends. After that,
+    the league status changes from 'active' to 'season_complete', so it won't be reprocessed on 
+    subsequent Tuesday runs.
     
     Works with any championship structure:
-    - NLL 2024: Week 20 championship
-    - NLL 2025: Week 21 championship  
-    - NLL 2026: Week 21 championship
-    - etc.
+    - Year 1: Week 20 championship -> marked complete the Tuesday after week 20 ends
+    - Year 2: Week 21 championship -> marked complete the Tuesday after week 21 ends
+    - All leagues in a season share the same week calendar
     
-    Finds the latest week of the season, checks if it's ended, then marks leagues for offseason.
+    Finds the most recent week that has ended for the season, and if it's Tuesday,
+    marks all still-'active' leagues as season_complete (once per league).
     
     Called via Celery Beat schedule: Every Tuesday at 8 AM PT
     """
@@ -1067,30 +1072,35 @@ def auto_complete_seasons():
             return "No completed weeks found"
         
         # Check if we're on Tuesday (Pacific) and the latest ended week is championship-like
-        # Championship could be week 20, 21, 22, etc - we just marked the most recent week that ended
+        # Championship could be week 20, 21, 22, etc - we just found the most recent week that ended
         if today_pacific.weekday() == 1:  # Tuesday = 1
-            logger.info(f"[AUTO COMPLETE] Latest ended week {latest_ended_week.week_number} (ended: {latest_ended_week.end_date}), and today is Tuesday (Pacific)")
+            logger.info(f"[AUTO COMPLETE] Today is TUESDAY (Pacific). Latest ended week: {latest_ended_week.week_number} (ended: {latest_ended_week.end_date})")
             
             # Mark all active leagues for this season as season_complete
-            leagues = League.objects.filter(
+            # Once marked complete, they won't match status='active' on future Tuesday runs
+            active_leagues = League.objects.filter(
                 season=today_utc.year,
-                status='active'  # Only auto-complete active leagues
+                status='active'  # Only auto-complete active leagues (already-complete ones won't match)
             )
             
             updated_count = 0
-            for league in leagues:
+            for league in active_leagues:
                 try:
                     league.status = 'season_complete'
                     league.save()
-                    logger.info(f"[AUTO COMPLETE] Marked {league.name} as season_complete")
+                    logger.info(f"[AUTO COMPLETE] ✓ Marked {league.name} as season_complete (will not be reprocessed on future Tuesdays)")
                     updated_count += 1
                 except Exception as e:
                     logger.error(f"[AUTO COMPLETE] Error marking {league.name} as complete: {str(e)}")
             
             if updated_count > 0:
-                logger.info(f"[AUTO COMPLETE] Completed {updated_count} leagues")
+                logger.info(f"[AUTO COMPLETE] Successfully completed {updated_count} league(s) for season {today_utc.year}")
+            else:
+                logger.info(f"[AUTO COMPLETE] No active leagues to process (all already marked season_complete or none exist)")
         else:
-            logger.info(f"[AUTO COMPLETE] Season not ready for completion - check conditions")
+            day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            current_day = day_names[today_pacific.weekday()]
+            logger.info(f"[AUTO COMPLETE] Today is {current_day} (not Tuesday) - skipping season completion (latest ended week is {latest_ended_week.week_number})")
         
     except Exception as e:
         logger.error(f"[AUTO COMPLETE] Error in auto_complete_season_task: {str(e)}")
