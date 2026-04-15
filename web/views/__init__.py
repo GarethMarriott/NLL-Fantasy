@@ -5998,6 +5998,11 @@ def get_available_slots(request, team_id):
                     slot_assignment__in=slot_designations
                 ).order_by('slot_assignment')
                 
+                print(f"    Query for {slot_type}: slot_designations={slot_designations}", file=sys.stderr)
+                print(f"    roster_in_slots count: {roster_in_slots.count()}", file=sys.stderr)
+                for re in roster_in_slots:
+                    print(f"      Found {slot_type} player: {re.player.last_name} (id={re.player.id}, pos={re.player.position}) in {re.slot_assignment}", file=sys.stderr)
+                
                 print(f"  {slot_type} slots: found {roster_in_slots.count()} players", file=sys.stderr)
                 
                 # Add swap options based on player position and current location
