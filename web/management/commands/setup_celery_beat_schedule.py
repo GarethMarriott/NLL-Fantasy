@@ -77,6 +77,12 @@ class Command(BaseCommand):
                 'crontab': {'hour': 3, 'minute': 0},  # Daily at 3am
                 'description': 'Archive old leagues daily',
             },
+            {
+                'name': 'auto-complete-seasons-tuesday-morning',
+                'task': 'web.tasks.auto_complete_seasons',
+                'crontab': {'day_of_week': 'tue', 'hour': 15, 'minute': 0},  # Tuesday 3pm UTC = Tuesday 7am PT
+                'description': 'Auto-complete seasons on Tuesday morning after championship week ends',
+            },
         ]
         
         for task_info in tasks:
