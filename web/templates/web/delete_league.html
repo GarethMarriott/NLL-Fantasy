@@ -1,0 +1,74 @@
+{% extends "web/base.html" %}
+
+{% block title %}Delete League - {{ league.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <h1 class="text-4xl font-bold mb-6 text-red-600">Delete League</h1>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-lg {% if message.tags %}bg-{{ message.tags }}-100 text-{{ message.tags }}-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- Warning -->
+    <div class="bg-red-50 dark:bg-red-900 rounded-lg p-6 mb-6 border border-red-200">
+        <h2 class="text-2xl font-bold mb-4 text-red-900 dark:text-red-100">⚠️ Warning</h2>
+        <p class="text-red-800 dark:text-red-200 text-lg mb-4">
+            You are about to permanently delete this league. This action <strong>cannot be undone</strong>.
+        </p>
+        
+        <!-- League Info -->
+        <div class="bg-white dark:bg-gray-800 rounded p-4 mt-4">
+            <p class="text-gray-700 dark:text-gray-300 mb-2">
+                <strong>League Name:</strong> {{ league.name }}
+            </p>
+            <p class="text-gray-700 dark:text-gray-300 mb-2">
+                <strong>Teams:</strong> {{ league.teams.count }}
+            </p>
+            <p class="text-gray-700 dark:text-gray-300">
+                <strong>Commissioner:</strong> {{ league.commissioner.username }}
+            </p>
+        </div>
+        
+        <!-- What Will Be Deleted -->
+        <div class="mt-4 text-red-800 dark:text-red-200">
+            <p class="font-semibold mb-2">The following will be permanently deleted:</p>
+            <ul class="list-disc list-inside space-y-1">
+                <li>All league data and settings</li>
+                <li>All teams and rosters</li>
+                <li>All draft information</li>
+                <li>All trades and waiver claims</li>
+                <li>All chat messages in this league</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Confirmation -->
+    <div class="bg-yellow-50 dark:bg-yellow-900 rounded-lg p-6 mb-6 border border-yellow-200">
+        <p class="text-yellow-900 dark:text-yellow-100 font-semibold">
+            Only the league commissioner can delete the league.
+        </p>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="flex gap-4 justify-center">
+        <a href="{% url 'league_detail' league.id %}" 
+           class="px-6 py-3 bg-gray-400 hover:bg-gray-500 text-white font-semibold rounded-lg transition-colors">
+            Cancel
+        </a>
+        
+        <form method="POST" class="inline">
+            {% csrf_token %}
+            <button type="submit" 
+                    class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                    onclick="return confirm('Are you absolutely sure? This cannot be undone!');">
+                Yes, Permanently Delete
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

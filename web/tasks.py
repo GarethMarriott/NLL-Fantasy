@@ -432,24 +432,26 @@ def renew_league(old_league_id, new_season=None):
                 logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
         
         # Mark old league as renewal_complete (renewal completed)
-        # Refresh old_league from database to ensure clean state
-        from django.db import transaction
-        
-        old_league.refresh_from_db()
-        print(f"[RENEW_TASK] Before update - old league status: {old_league.status}", file=sys.stderr)
-        sys.stderr.flush()
-        
-        # Use explicit transaction to ensure save is committed
-        with transaction.atomic():
+        try:
+            old_league.refresh_from_db()
+            print(f"[RENEW_TASK] Before update - old league status: {old_league.status}", file=sys.stderr)
+            sys.stderr.flush()
+            
+            # Simply update status WITHOUT atomic transaction
             old_league.status = 'renewal_complete'
-            old_league.save()
-        
-        old_league.refresh_from_db()
-        print(f"[RENEW_TASK] After update - old league status: {old_league.status}", file=sys.stderr)
-        sys.stderr.flush()
-        
-        print(f"[RENEW_TASK] League renewal complete: {old_league.name} → status changed to 'renewal_complete', new league created: {new_league.name} (ID: {new_league.id})", file=sys.stderr)
-        sys.stderr.flush()
+            old_league.save(update_fields=['status'])
+            
+            old_league.refresh_from_db()
+            print(f"[RENEW_TASK] After update - old league status: {old_league.status}", file=sys.stderr)
+            sys.stderr.flush()
+            
+            print(f"[RENEW_TASK] League renewal complete: {old_league.name} → status changed to 'renewal_complete', new league created: {new_league.name} (ID: {new_league.id})", file=sys.stderr)
+            sys.stderr.flush()
+        except Exception as status_update_error:
+            print(f"[RENEW_TASK] ERROR updating old league status: {str(status_update_error)}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
         
         return new_league
         

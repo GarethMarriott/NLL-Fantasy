@@ -4649,41 +4649,6 @@ def league_settings(request, league_id):
     })
 
 
-@login_required
-def renew_league(request, league_id):
-    """Renew a completed league for the next season (commissioner only)"""
-    league = get_object_or_404(League, id=league_id)
-    
-    # Only commissioner can renew
-    if league.commissioner != request.user:
-        messages.error(request, "Only the league commissioner can renew the league.")
-        return redirect("league_settings", league_id=league.id)
-    
-    # Can only renew season_complete leagues
-    if league.status != 'season_complete':
-        messages.error(request, "This league cannot be renewed - it's still active.")
-        return redirect("league_settings", league_id=league.id)
-    
-    if request.method == "POST":
-        try:
-            # Update league for next season
-            from datetime import date
-            league.season = date.today().year + 1
-            league.status = 'active'
-            league.draft_locked = False
-            league.save()
-            
-            # For dynasty leagues: rosters stay, players retained
-            # For redraft leagues: this would be handled in the league renewal logic
-            
-            messages.success(request, f"League renewed for season {league.season}!")
-            return redirect("league_detail", league_id=league.id)
-        except Exception as e:
-            messages.error(request, f"Error renewing league: {str(e)}")
-            return redirect("league_settings", league_id=league.id)
-    
-    # GET request - show confirmation
-    return render(request, "web/renew_league.html", {"league": league})
 
 
 @login_required
@@ -4791,6 +4756,28 @@ def renew_league(request, league_id):
         return render(request, "web/renew_league.html", {
             "league": league,
             "next_season": timezone.now().year + 1,
+        })
+
+
+@login_required
+def delete_league(request, league_id):
+    """Delete a league (commissioner only)"""
+    league = get_object_or_404(League, id=league_id)
+    
+    # Only commissioner can delete
+    if league.commissioner != request.user:
+        messages.error(request, "Only the league commissioner can delete the league.")
+        return redirect("league_detail", league_id=league.id)
+    
+    if request.method == "POST":
+        league_name = league.name
+        league.delete()
+        messages.success(request, f"League '{league_name}' has been permanently deleted.")
+        return redirect("home")
+    else:
+        # Show confirmation page for GET request
+        return render(request, "web/delete_league.html", {
+            "league": league,
         })
 
 

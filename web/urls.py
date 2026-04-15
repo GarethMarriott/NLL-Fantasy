@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     home, about, players, player_detail_modal, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
-    register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league, remove_team_from_league,
+    register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league, delete_league, remove_team_from_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
     nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500,
@@ -56,6 +56,7 @@ urlpatterns = [
     path("leagues/<int:league_id>/", league_detail, name="league_detail"),
     path("leagues/<int:league_id>/settings/", league_settings, name="league_settings"),
     path("leagues/<int:league_id>/renew/", renew_league, name="renew_league"),
+    path("leagues/<int:league_id>/delete/", delete_league, name="delete_league"),
     path("leagues/<int:league_id>/teams/<int:team_id>/remove/", remove_team_from_league, name="remove_team_from_league"),
     path("leagues/<int:league_id>/join/", team_create, name="team_create"),
     path("leagues/<int:league_id>/select/", select_league, name="select_league"),
