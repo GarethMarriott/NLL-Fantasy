@@ -95,9 +95,19 @@
                             {{ owner.team.league.name }}
                           </a>
                           {% if selected_league.id == owner.team.league.id %}
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              Active
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              Viewing
                             </span>
+                          {% else %}
+                            {% if owner.team.league.status == 'season_complete' %}
+                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                Awaiting Renewal
+                              </span>
+                            {% else %}
+                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Active
+                              </span>
+                            {% endif %}
                           {% endif %}
                         </div>
                         <a href="{% url 'select_league' owner.team.league.id %}" 
