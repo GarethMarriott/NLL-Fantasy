@@ -293,9 +293,15 @@ def renew_league(old_league_id, new_season=None):
         new_league = renew_league(old_league.id)
     """
     from web.models import League, FantasyTeamOwner, Team, Roster
+    import sys
+    
+    print(f"[RENEW_TASK] Starting renew_league task for league {old_league_id}, new_season={new_season}", file=sys.stderr)
+    sys.stderr.flush()
     
     try:
         old_league = League.objects.get(id=old_league_id)
+        print(f"[RENEW_TASK] Found league: {old_league.name}, current status={old_league.status}", file=sys.stderr)
+        sys.stderr.flush()
         
         if new_season is None:
             new_season = timezone.now().year + 1
@@ -426,19 +432,29 @@ def renew_league(old_league_id, new_season=None):
         
         # Mark old league as offseason (renewal completed)
         # Refresh old_league from database to ensure clean state
-        old_league = League.objects.get(id=old_league.id)
+        old_league.refresh_from_db()
+        print(f"[RENEW_TASK] Before update - old league status: {old_league.status}", file=sys.stderr)
+        sys.stderr.flush()
         old_league.status = 'offseason'
         old_league.save()
+        old_league.refresh_from_db()
+        print(f"[RENEW_TASK] After update - old league status: {old_league.status}", file=sys.stderr)
+        sys.stderr.flush()
         
-        logger.info(f"League renewal complete: {old_league.name} → status changed to 'offseason', new league created: {new_league.name} (ID: {new_league.id})")
+        print(f"[RENEW_TASK] League renewal complete: {old_league.name} → status changed to 'offseason', new league created: {new_league.name} (ID: {new_league.id})", file=sys.stderr)
+        sys.stderr.flush()
         
         return new_league
         
-    except League.DoesNotExist:
-        logger.error(f"League with ID {old_league_id} not found")
+    except League.DoesNotExist as e:
+        print(f"[RENEW_TASK] League with ID {old_league_id} not found", file=sys.stderr)
+        sys.stderr.flush()
         return None
     except Exception as e:
-        logger.error(f"Error renewing league {old_league_id}: {str(e)}")
+        print(f"[RENEW_TASK] Error renewing league {old_league_id}: {str(e)}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
         return None
 
 

@@ -4750,21 +4750,40 @@ def renew_league(request, league_id):
         
         # Renew the league immediately
         from ..tasks import renew_league as renew_league_task
+        import logging
+        import sys
+        logger = logging.getLogger(__name__)
         
-        new_league = renew_league_task(league.id)
-        
-        if new_league:
-            # Clear all messages again after renewal
-            storage = messages.get_messages(request)
-            storage.used = True
+        try:
+            print(f"[RENEWAL] Starting renewal for league {league.id} ({league.name})", file=sys.stderr)
+            sys.stderr.flush()
+            new_league = renew_league_task(league.id)
+            print(f"[RENEWAL] Renewal returned: {new_league}", file=sys.stderr)
+            sys.stderr.flush()
             
-            messages.success(
-                request, 
-                f"League renewed successfully! Your new league for {timezone.now().year + 1} is ready."
-            )
-            return redirect("select_league", league_id=new_league.id)
-        else:
-            messages.error(request, "Failed to renew league. Please try again.")
+            if new_league:
+                # Clear all messages again after renewal
+                storage = messages.get_messages(request)
+                storage.used = True
+                
+                messages.success(
+                    request, 
+                    f"League renewed successfully! Your new league for {timezone.now().year + 1} is ready."
+                )
+                print(f"[RENEWAL] Renewal successful, redirecting to new league {new_league.id}", file=sys.stderr)
+                sys.stderr.flush()
+                return redirect("select_league", league_id=new_league.id)
+            else:
+                print(f"[RENEWAL] renew_league_task returned None for league {league.id}", file=sys.stderr)
+                sys.stderr.flush()
+                messages.error(request, "Failed to renew league. Please try again.")
+                return redirect("league_detail", league_id=league.id)
+        except Exception as e:
+            print(f"[RENEWAL] Exception during renewal: {str(e)}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
+            messages.error(request, f"Failed to renew league: {str(e)}")
             return redirect("league_detail", league_id=league.id)
     else:
         # Show confirmation page for GET request
