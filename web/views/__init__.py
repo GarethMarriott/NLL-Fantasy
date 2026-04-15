@@ -4744,12 +4744,20 @@ def renew_league(request, league_id):
         return redirect("league_detail", league_id=league.id)
     
     if request.method == "POST":
+        # Clear any existing messages before renewal
+        storage = messages.get_messages(request)
+        storage.used = True
+        
         # Renew the league immediately
         from ..tasks import renew_league as renew_league_task
         
         new_league = renew_league_task(league.id)
         
         if new_league:
+            # Clear all messages again after renewal
+            storage = messages.get_messages(request)
+            storage.used = True
+            
             messages.success(
                 request, 
                 f"League renewed successfully! Your new league for {timezone.now().year + 1} is ready."
