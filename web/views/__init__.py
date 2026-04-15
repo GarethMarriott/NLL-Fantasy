@@ -5826,8 +5826,9 @@ def get_available_slots(request, team_id):
             week_dropped__isnull=True
         ).select_related('player')
         
+        logger.warning(f"GET_AVAILABLE_SLOTS START: player_id={current_player_id}, position={player_position}, is_dynasty={is_dynasty}, is_best_ball={is_best_ball}, all_active_roster.count()={all_active_roster.count()}")
+        
         if is_best_ball:
-            print(f"DEBUG: Entering best ball logic for player {current_player_id} with position {player_position}, is_dynasty={is_dynasty}", file=sys.stderr)
             # For best ball leagues, ONLY Transition (T) players can be swapped
             # All other position players (O, D, G) are locked and cannot be moved
             # This is because all roster players score in best ball, regardless of position
@@ -5998,10 +5999,11 @@ def get_available_slots(request, team_id):
                     slot_assignment__in=slot_designations
                 ).order_by('slot_assignment')
                 
-                print(f"    Query for {slot_type}: slot_designations={slot_designations}", file=sys.stderr)
-                print(f"    roster_in_slots count: {roster_in_slots.count()}", file=sys.stderr)
+                logger.warning(f"GET_AVAILABLE_SLOTS Case2: {slot_type} query - designations={slot_designations}, is_dynasty={is_dynasty}")
+                logger.warning(f"  roster_in_slots count: {roster_in_slots.count()}")
+                logger.warning(f"  all_active_roster total: {all_active_roster.count()}")
                 for re in roster_in_slots:
-                    print(f"      Found {slot_type} player: {re.player.last_name} (id={re.player.id}, pos={re.player.position}) in {re.slot_assignment}", file=sys.stderr)
+                    logger.warning(f"    Found {slot_type} player: {re.player.last_name} (id={re.player.id}, pos={re.player.position}) in {re.slot_assignment}")
                 
                 print(f"  {slot_type} slots: found {roster_in_slots.count()} players", file=sys.stderr)
                 
@@ -6068,7 +6070,6 @@ def get_available_slots(request, team_id):
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
                     logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {roster_in_slots.count()} players, dynasty={is_dynasty}")
-                    print(f"    Case 2: T player on bench - showing {slot_type} slot players (dynasty={is_dynasty}, count={roster_in_slots.count()})", file=sys.stderr)
                     # T player is on bench - can swap with players in starter slots (not bench)
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
@@ -6081,7 +6082,7 @@ def get_available_slots(request, team_id):
                                 'slot_type': slot_type,
                                 'slot_assignment': roster_entry.slot_assignment
                             })
-                            print(f"    Swap option (T from bench): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment} (dynasty={is_dynasty})")
+                            logger.warning(f"    Swap option (T from bench): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment} (dynasty={is_dynasty})")
                 
                 # Case 2b: T players in a starter slot can swap with compatible players in other positions or bench
                 elif current_player.position == 'T' and current_slot_type is not None:
