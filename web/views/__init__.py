@@ -5813,6 +5813,13 @@ def get_available_slots(request, team_id):
             if player_position == 'G' or allow_t_in_g:
                 can_move_to.add('G')
         
+        # DEBUG: Log can_move_to
+        try:
+            with open('/tmp/nfl_fantasy_debug.log', 'a') as f:
+                f.write(f"  can_move_to={can_move_to} (from position={player_position})\n")
+        except:
+            pass
+        
         # Build the response with sections for each slot type
         response_data = {
             'swap_options': [],  # List of players to swap with
@@ -5827,6 +5834,15 @@ def get_available_slots(request, team_id):
         ).select_related('player')
         
         logger.warning(f"GET_AVAILABLE_SLOTS START: player_id={current_player_id}, position={player_position}, is_dynasty={is_dynasty}, is_best_ball={is_best_ball}, all_active_roster.count()={all_active_roster.count()}")
+        
+        # DEBUG: Write to file to bypass logging issues
+        import os
+        debug_file = '/tmp/nfl_fantasy_debug.log'
+        try:
+            with open(debug_file, 'a') as f:
+                f.write(f"[GET_AVAIL] START: player_id={current_player_id}, pos={player_position}, is_dyn={is_dynasty}, is_bb={is_best_ball}, roster={all_active_roster.count()}\n")
+        except:
+            pass
         
         if is_best_ball:
             # For best ball leagues, ONLY Transition (T) players can be swapped
@@ -5975,7 +5991,19 @@ def get_available_slots(request, team_id):
             # For each position the player can move to, find swap and empty slot options
             for slot_type in ['O', 'D', 'G']:
                 if slot_type not in can_move_to:
+                    try:
+                        with open('/tmp/nfl_fantasy_debug.log', 'a') as f:
+                            f.write(f"SKIP {slot_type}: not in can_move_to={can_move_to}\n")
+                    except:
+                        pass
                     continue
+                
+                # DEBUG: Log slot type processing
+                try:
+                    with open('/tmp/nfl_fantasy_debug.log', 'a') as f:
+                        f.write(f"Processing {slot_type} slot: position={current_player.position}, slot_type={current_slot_type}\n")
+                except:
+                    pass
                 
                 print(f"  Processing {slot_type} slots - current_player.position={current_player.position}, current_slot_type={current_slot_type}", file=sys.stderr)
                 # Determine slot designations for this type using league configuration
@@ -6070,6 +6098,12 @@ def get_available_slots(request, team_id):
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
                     logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {roster_in_slots.count()} players, dynasty={is_dynasty}")
+                    # DEBUG: File logging
+                    try:
+                        with open('/tmp/nfl_fantasy_debug.log', 'a') as f:
+                            f.write(f"  CASE 2 ({slot_type}): {roster_in_slots.count()} players in {slot_type} slots\n")
+                    except:
+                        pass
                     # T player is on bench - can swap with players in starter slots (not bench)
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
@@ -6083,6 +6117,12 @@ def get_available_slots(request, team_id):
                                 'slot_assignment': roster_entry.slot_assignment
                             })
                             logger.warning(f"    Swap option (T from bench): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment} (dynasty={is_dynasty})")
+                            # DEBUG: File logging
+                            try:
+                                with open('/tmp/nfl_fantasy_debug.log', 'a') as f:
+                                    f.write(f"    -> Added {roster_entry.player.last_name} ({swap_player_pos}) from {roster_entry.slot_assignment}\n")
+                            except:
+                                pass
                 
                 # Case 2b: T players in a starter slot can swap with compatible players in other positions or bench
                 elif current_player.position == 'T' and current_slot_type is not None:
