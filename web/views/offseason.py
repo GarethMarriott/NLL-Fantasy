@@ -40,12 +40,16 @@ def league_offseason(request, league_id):
 @transaction.atomic
 def offseason_renew_league(request, league_id):
     """
-    Process league renewal based on league type:
-    - Redraft: Clear all rosters, advance season, unlock rosters for draft
-    - Dynasty: Keep rosters, advance season, clear draft lock, only rookies enter draft
+    Process league renewal via the task system.
+    
+    Now uses the unified renewal system that:
+    - Redraft: Clears all rosters, advances season, unlocks rosters for draft
+    - Dynasty: Keeps rosters, advances season, creates rookie draft
     
     POST request only
     """
+    from web.tasks import renew_league as renew_league_task
+    
     league = get_object_or_404(League, id=league_id)
     
     # Only commissioner can renew
@@ -60,53 +64,17 @@ def offseason_renew_league(request, league_id):
         return JsonResponse({'success': False, 'error': 'Only POST requests allowed'}, status=400)
     
     try:
-        # Advance season
-        league.season += 1
-        league.draft_locked = True  # Lock during draft
+        # Call the new unified renewal task
+        renewed_league = renew_league_task(league_id)
         
-        # Get all teams in league
-        teams = Team.objects.filter(league=league)
-        
-        if league.league_type == 'redraft':
-            # Clear all rosters for redraft leagues
-            Roster.objects.filter(league=league, season=league.season - 1).delete()
-            messages.success(request, 'All rosters have been cleared. Begin draft!')
-            
-        elif league.league_type == 'dynasty':
-            # For dynasty: update existing rosters to new season, keep players
-            old_rosters = Roster.objects.filter(league=league, season=league.season - 1)
-            for roster_entry in old_rosters:
-                # Copy roster entry to new season
-                Roster.objects.create(
-                    team=roster_entry.team,
-                    player=roster_entry.player,
-                    league=league,
-                    slot_assignment=roster_entry.slot_assignment,
-                    week_added=1,  # Reset to week 1 of new season
-                    week_dropped=None,
-                    season=league.season,
-                    is_locked=False,
-                    locked_reason='',
-                )
-            messages.success(request, 'League renewed! Existing rosters preserved. Draft rookies only.')
-            league.draft_locked = False  # Dynasty unlocks immediately
-        
-        # Update league status
-        league.status = 'renewal_complete'
-        league.season_winner = None  # Clear previous winner
-        league.save()
-        
-        # Unlock rosters after renewal
-        for team in teams:
-            Roster.objects.filter(team=team, season=league.season, is_locked=True).update(
-                is_locked=False,
-                locked_reason=''
-            )
+        if not renewed_league:
+            return JsonResponse({'success': False, 'error': 'Failed to renew league'}, status=500)
         
         return JsonResponse({
             'success': True,
-            'message': f'League renewed for season {league.season}',
-            'league_type': league.league_type,
+            'message': f'League renewed for season {renewed_league.season}',
+            'league_type': renewed_league.league_type,
+            'league_id': renewed_league.id,
         })
         
     except Exception as e:

@@ -4443,14 +4443,16 @@ def league_list(request):
         other_leagues = other_leagues.filter(is_public=True)
     
     # Separate user's leagues into active, completed, and archived
-    # Active: is_active=True AND not season_complete AND not renewal_complete
-    my_active = my_leagues.filter(is_active=True).exclude(status__in=['season_complete', 'renewal_complete'])
+    # Active: status='active'
+    # Completed: status='season_complete' (ready for renewal)
+    # Archived: Has LeagueHistory entries (previous seasons)
+    my_active = my_leagues.filter(status='active')
     my_completed = my_leagues.filter(status='season_complete')  # Completed but not yet renewed
-    my_archived = my_leagues.filter(is_active=False) | my_leagues.filter(status='renewal_complete')  # Archived or renewed
+    my_archived = my_leagues.filter(season_archives__isnull=False).distinct()  # Has season history
     
-    my_team_active = my_team_leagues.filter(is_active=True).exclude(status__in=['season_complete', 'renewal_complete'])
+    my_team_active = my_team_leagues.filter(status='active')
     my_team_completed = my_team_leagues.filter(status='season_complete')
-    my_team_archived = my_team_leagues.filter(is_active=False) | my_team_leagues.filter(status='renewal_complete')
+    my_team_archived = my_team_leagues.filter(season_archives__isnull=False).distinct()  # Has season history
     
     return render(request, "web/league_list.html", {
         "my_active_leagues": my_active,
@@ -4716,46 +4718,32 @@ def renew_league(request, league_id):
         
         # Renew the league immediately
         from ..tasks import renew_league as renew_league_task
-        import logging
-        import sys
-        logger = logging.getLogger(__name__)
         
         try:
-            print(f"[RENEWAL] Starting renewal for league {league.id} ({league.name})", file=sys.stderr)
-            sys.stderr.flush()
-            new_league = renew_league_task(league.id)
-            print(f"[RENEWAL] Renewal returned: {new_league}", file=sys.stderr)
-            sys.stderr.flush()
+            renewed_league = renew_league_task(league.id)
             
-            if new_league:
+            if renewed_league:
                 # Clear all messages again after renewal
                 storage = messages.get_messages(request)
                 storage.used = True
                 
+                next_season = renewed_league.season
                 messages.success(
                     request, 
-                    f"League renewed successfully! Your new league for {timezone.now().year + 1} is ready."
+                    f"✓ League renewed successfully for {next_season}! You're all set for the new season."
                 )
-                print(f"[RENEWAL] Renewal successful, redirecting to new league {new_league.id}", file=sys.stderr)
-                sys.stderr.flush()
-                return redirect("select_league", league_id=new_league.id)
+                return redirect("league_detail", league_id=renewed_league.id)
             else:
-                print(f"[RENEWAL] renew_league_task returned None for league {league.id}", file=sys.stderr)
-                sys.stderr.flush()
                 messages.error(request, "Failed to renew league. Please try again.")
                 return redirect("league_detail", league_id=league.id)
         except Exception as e:
-            print(f"[RENEWAL] Exception during renewal: {str(e)}", file=sys.stderr)
-            import traceback
-            traceback.print_exc(file=sys.stderr)
-            sys.stderr.flush()
             messages.error(request, f"Failed to renew league: {str(e)}")
             return redirect("league_detail", league_id=league.id)
     else:
         # Show confirmation page for GET request
         return render(request, "web/renew_league.html", {
             "league": league,
-            "next_season": timezone.now().year + 1,
+            "next_season": league.season + 1,
         })
 
 
@@ -6361,77 +6349,15 @@ def league_offseason(request, league_id):
 @transaction.atomic
 def offseason_renew_league(request, league_id):
     """
-    Process league renewal based on league type:
-    - Redraft: Clear all rosters, advance season, unlock rosters for draft
-    - Dynasty: Keep rosters, advance season, clear draft lock, only rookies enter draft
+    DEPRECATED: Old renewal endpoint. Use the POST endpoint at /renew_league/{league_id} instead.
     
-    POST request only
+    This endpoint is kept for backward compatibility only and directs users to the new UI flow.
     """
-    league = get_object_or_404(League, id=league_id)
-    
-    # Only commissioner can renew
-    if league.commissioner != request.user:
-        return JsonResponse({'success': False, 'error': 'Only commissioner can renew league'}, status=403)
-    
-    # Only can renew if season is complete
-    if league.status != 'season_complete':
-        return JsonResponse({'success': False, 'error': 'League season is not complete'}, status=400)
-    
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Only POST requests allowed'}, status=400)
-    
-    try:
-        # Advance season
-        league.season += 1
-        league.draft_locked = True  # Lock during draft
-        
-        # Get all teams in league
-        teams = Team.objects.filter(league=league)
-        
-        if league.league_type == 'redraft':
-            # Clear all rosters for redraft leagues
-            Roster.objects.filter(league=league, season=league.season - 1).delete()
-            messages.success(request, 'All rosters have been cleared. Begin draft!')
-            
-        elif league.league_type == 'dynasty':
-            # For dynasty: update existing rosters to new season, keep players
-            old_rosters = Roster.objects.filter(league=league, season=league.season - 1)
-            for roster_entry in old_rosters:
-                # Copy roster entry to new season
-                Roster.objects.create(
-                    team=roster_entry.team,
-                    player=roster_entry.player,
-                    league=league,
-                    slot_assignment=roster_entry.slot_assignment,
-                    week_added=1,  # Reset to week 1 of new season
-                    week_dropped=None,
-                    season=league.season,
-                    is_locked=False,
-                    locked_reason='',
-                )
-            messages.success(request, 'League renewed! Existing rosters preserved. Draft rookies only.')
-            league.draft_locked = False  # Dynasty unlocks immediately
-        
-        # Update league status
-        league.status = 'renewal_complete'
-        league.season_winner = None  # Clear previous winner
-        league.save()
-        
-        # Unlock rosters after renewal
-        for team in teams:
-            Roster.objects.filter(team=team, season=league.season, is_locked=True).update(
-                is_locked=False,
-                locked_reason=''
-            )
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'League renewed for season {league.season}',
-            'league_type': league.league_type,
-        })
-        
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    return JsonResponse({
+        'success': False, 
+        'error': 'This endpoint has been deprecated. Please use the renewal interface at /leagues/{league_id}/renew/',
+        'deprecation': 'Use the HTML form-based renewal at /leagues/{league_id}/renew/ instead'
+    }, status=410)
 
 
 @login_required

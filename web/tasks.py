@@ -231,9 +231,8 @@ def archive_old_leagues():
     """
     Archive completed leagues when the season ends.
     
-    Marks leagues as inactive (is_active=False) after the final game week
-    (typically week 21) has completed. The Monday after the final week is
-    when rosters unlock for the last time - at that point the league is archived.
+    Marks league.status as 'season_complete' after the final game week
+    (typically week 21) has completed. This prepares the league for renewal.
     
     Called by: Celery Beat schedule (daily check)
     """
@@ -242,27 +241,30 @@ def archive_old_leagues():
     try:
         current_season = timezone.now().year
         
-        # Get all active leagues
-        active_leagues = League.objects.filter(is_active=True)
+        # Get all active leagues that are not yet completed
+        active_leagues = League.objects.filter(
+            is_active=True,
+            status='active',
+            season=current_season
+        )
         
         for league in active_leagues:
-            # Find the final week of the regular season (highest week number, or week 21)
+            # Find the final week of the season
             final_week = Week.objects.filter(
                 season=current_season
             ).order_by('-week_number').first()
             
-            # If current time is past the Monday after the final week ends
-            # (allowing for playoff buffer), archive the league
             if final_week:
-                # Calculate Monday after final week ends (add 2 days for games + 1 for Monday)
+                # Calculate when to mark season complete (after playoffs end)
                 archive_date = final_week.end_date + timedelta(days=3)
                 
                 if timezone.now().date() >= archive_date:
-                    league.is_active = False
-                    league.save()
+                    league.status = 'season_complete'
+                    league.save(update_fields=['status'])
                     logger.info(
-                        f"Archived league: {league.name} (ID: {league.id}) "
-                        f"after season {current_season} week {final_week.week_number}"
+                        f"Marked league complete: {league.name} (ID: {league.id}) "
+                        f"after season {current_season} week {final_week.week_number}. "
+                        f"Ready for renewal."
                     )
         
         logger.info(f"Archive task completed for season {current_season}")
@@ -272,198 +274,200 @@ def archive_old_leagues():
         raise
 
 
-def renew_league(old_league_id, new_season=None):
+def renew_league(league_id):
     """
-    Create a new league for the next season with same settings and members.
+    Renew a completed league for the next season.
     
-    This is called by commissioners to renew their league. Creates a new
-    League with identical settings and optionally transfers team owners.
-    
-    For Dynasty leagues: Transfers all players from old league teams to new league teams.
-    For Re-Draft leagues: Only transfers team owners; players are cleared and must be drafted fresh.
+    Takes a league that is marked as 'season_complete' and:
+    1. Creates a LeagueHistory snapshot of the current season
+    2. Advances the league.season by 1
+    3. Resets league status to 'active' with draft_locked=True
+    4. Handles rosters based on league_type:
+       - Redraft: Clears all rosters for the new season
+       - Dynasty: Copies all rosters to the new season
+    5. For dynasty leagues: Creates rookie draft and future picks
     
     Args:
-        old_league_id: ID of the league to renew
-        new_season: Year for new league (defaults to next year)
+        league_id: ID of the league to renew
     
     Returns:
-        New League object or None if error
+        The renewed League object or None if error
     
     Usage:
         from web.tasks import renew_league
-        new_league = renew_league(old_league.id)
+        renewed_league = renew_league(league_id=5)
     """
-    from web.models import League, FantasyTeamOwner, Team, Roster
-    import sys
-    
-    print(f"[RENEW_TASK] Starting renew_league task for league {old_league_id}, new_season={new_season}", file=sys.stderr)
-    sys.stderr.flush()
+    from web.models import League, LeagueHistory, Team, Roster, TaxiSquad, Draft
     
     try:
-        old_league = League.objects.get(id=old_league_id)
-        print(f"[RENEW_TASK] Found league: {old_league.name}, current status={old_league.status}", file=sys.stderr)
-        sys.stderr.flush()
+        league = League.objects.get(id=league_id)
         
-        if new_season is None:
-            new_season = timezone.now().year + 1
+        if league.status != 'season_complete':
+            logger.warning(f"Cannot renew league {league.name}: status is '{league.status}', not 'season_complete'")
+            return None
         
-        # Create new league with same settings
-        new_league = League(
-            name=f"{old_league.name} - {new_season}",
-            commissioner=old_league.commissioner,
-            description=old_league.description,
-            max_teams=old_league.max_teams,
-            is_public=old_league.is_public,
-            is_active=True,
-            roster_size=old_league.roster_size,
-            roster_forwards=old_league.roster_forwards,
-            roster_defense=old_league.roster_defense,
-            roster_goalies=old_league.roster_goalies,
-            playoff_weeks=old_league.playoff_weeks,
-            playoff_teams=old_league.playoff_teams,
-            use_waivers=old_league.use_waivers,
-            league_type=old_league.league_type,  # Preserve league type
-            playoff_reseed=old_league.playoff_reseed,
-            roster_format=old_league.roster_format,
-            multigame_scoring=old_league.multigame_scoring,
-            taxi_squad_size=old_league.taxi_squad_size,
-            use_taxi_squad=old_league.use_taxi_squad,
-            use_future_rookie_picks=getattr(old_league, 'use_future_rookie_picks', True),  # Copy future picks setting
-            # Copy all scoring settings
-            scoring_goals=old_league.scoring_goals,
-            scoring_assists=old_league.scoring_assists,
-            scoring_loose_balls=old_league.scoring_loose_balls,
-            scoring_caused_turnovers=old_league.scoring_caused_turnovers,
-            scoring_blocked_shots=old_league.scoring_blocked_shots,
-            scoring_turnovers=old_league.scoring_turnovers,
-            scoring_goalie_wins=old_league.scoring_goalie_wins,
-            scoring_goalie_saves=old_league.scoring_goalie_saves,
-            scoring_goalie_goals_against=old_league.scoring_goalie_goals_against,
-            scoring_goalie_goals=old_league.scoring_goalie_goals,
-            scoring_goalie_assists=old_league.scoring_goalie_assists,
-        )
-        new_league.save()
+        current_season = league.season
+        new_season = current_season + 1
         
-        # Set the default current_week to the first available week of the new season
-        first_week = Week.objects.filter(season=new_season).order_by('week_number').first()
-        if first_week:
-            new_league.current_week = first_week
-            new_league.save()
+        logger.info(f"[RENEWAL] Starting renewal for league {league.name} (ID: {league.id})")
+        logger.info(f"[RENEWAL] League type: {league.league_type} | Current season: {current_season} → New season: {new_season}")
         
-        # Get all previous team owners and their teams
-        old_teams = Team.objects.filter(league=old_league)
-        old_team_owners = FantasyTeamOwner.objects.filter(
-            team__league=old_league
-        ).distinct('user')
+        # ============================================================================
+        # 1. CREATE LEAGUEHISTORY SNAPSHOT OF COMPLETED SEASON
+        # ============================================================================
+        try:
+            # Get the final champion and standings
+            champion = league.season_winner
+            
+            # Calculate final standings JSON snapshot
+            standings_data = []
+            current_teams = Team.objects.filter(league=league, season_year=current_season).order_by('-id')
+            
+            for team in current_teams:
+                team_data = {
+                    'team_id': team.id,
+                    'team_name': team.name,
+                    'owner': team.owner.user.username if team.owner else 'Unknown'
+                }
+                standings_data.append(team_data)
+            
+            # Create history record
+            league_history = LeagueHistory.objects.create(
+                league=league,
+                season_year=current_season,
+                champion=champion,
+                final_standings={'teams': standings_data}
+            )
+            
+            logger.info(f"[RENEWAL] Created LeagueHistory for season {current_season}")
+            
+        except Exception as e:
+            logger.error(f"[RENEWAL] Failed to create LeagueHistory: {str(e)}")
+            raise
         
-        # For Dynasty leagues, transfer rosters; for Re-Draft, just reset rosters
-        if old_league.league_type == "dynasty":
-            # Dynasty: Create new teams and transfer all rosters
-            logger.info(f"Dynasty league renewal: transferring rosters to new league")
-            from web.models import TaxiSquad
+        # ============================================================================
+        # 2. CREATE NEW TEAMS FOR NEXT SEASON (same owners, same names)
+        # ============================================================================
+        try:
+            old_teams = Team.objects.filter(league=league, season_year=current_season)
+            logger.info(f"[RENEWAL] Found {old_teams.count()} teams in season {current_season}")
+            
             for old_team in old_teams:
-                # Create new team in new league with same name and owner
+                # Create new team for next season with same owner and name
                 new_team = Team.objects.create(
-                    league=new_league,
+                    league=league,
                     name=old_team.name,
-                    owner=old_team.owner,
+                    season_year=new_season,
+                    waiver_priority=12 if league.use_waivers else 0  # Reset waiver priority
                 )
-                
-                # Transfer all roster entries from old team to new team
-                old_rosters = Roster.objects.filter(team=old_team)
-                for old_roster in old_rosters:
-                    Roster.objects.create(
-                        team=new_team,
-                        player=old_roster.player,
-                        season_year=new_season,
-                    )
-                
-                # Move any players still in taxi squad to main roster
-                old_taxi_squad = TaxiSquad.objects.filter(team=old_team, player__isnull=False)
-                taxi_players_moved = 0
-                for taxi_entry in old_taxi_squad:
-                    if taxi_entry.player:
-                        # Add player to new team's roster
+                logger.info(f"[RENEWAL] Created new team '{new_team.name}' for season {new_season}")
+            
+        except Exception as e:
+            logger.error(f"[RENEWAL] Failed to create new teams: {str(e)}")
+            raise
+        
+        # ============================================================================
+        # 3. HANDLE ROSTERS BASED ON LEAGUE TYPE
+        # ============================================================================
+        if league.league_type == 'redraft':
+            logger.info(f"[RENEWAL] Re-Draft league: Clearing all rosters for new season")
+            # Re-draft: rosters are empty, teams will draft fresh
+            # No action needed - new teams created empty
+            
+        elif league.league_type == 'dynasty':
+            logger.info(f"[RENEWAL] Dynasty league: Transferring rosters to new season")
+            try:
+                # Copy all rosters from current season teams to new season teams
+                for old_team in old_teams:
+                    new_team = Team.objects.get(league=league, season_year=new_season, name=old_team.name)
+                    
+                    # Transfer all roster entries
+                    old_rosters = Roster.objects.filter(team=old_team, season_year=current_season)
+                    transferred_count = 0
+                    
+                    for old_roster in old_rosters:
                         Roster.objects.create(
                             team=new_team,
-                            player=taxi_entry.player,
+                            player=old_roster.player,
                             season_year=new_season,
+                            slot_assignment=old_roster.slot_assignment if old_roster.slot_assignment else None
                         )
-                        taxi_players_moved += 1
+                        transferred_count += 1
+                    
+                    logger.info(f"[RENEWAL] Transferred {transferred_count} players to {new_team.name}")
+                    
+                    # Move taxi squad players to main roster
+                    old_taxi = TaxiSquad.objects.filter(team=old_team, player__isnull=False)
+                    taxi_moved = 0
+                    for taxi_entry in old_taxi:
+                        if taxi_entry.player:
+                            Roster.objects.create(
+                                team=new_team,
+                                player=taxi_entry.player,
+                                season_year=new_season
+                            )
+                            taxi_moved += 1
+                    
+                    # Create empty taxi squad slots for new season
+                    if league.use_taxi_squad:
+                        for slot_num in range(1, league.taxi_squad_size + 1):
+                            TaxiSquad.objects.get_or_create(
+                                team=new_team,
+                                slot_number=slot_num,
+                                defaults={'player': None}
+                            )
+                        logger.info(f"[RENEWAL] Created {league.taxi_squad_size} taxi squad slots for {new_team.name}")
                 
-                # Create taxi squad slots based on league setting
-                taxi_size = new_league.taxi_squad_size if hasattr(new_league, 'taxi_squad_size') else 3
-                for slot_num in range(1, taxi_size + 1):
-                    TaxiSquad.objects.get_or_create(
-                        team=new_team,
-                        slot_number=slot_num,
-                        defaults={'player': None}
-                    )
+                logger.info(f"[RENEWAL] Roster transfer complete for all teams")
                 
-                logger.info(f"Transferred roster for team '{new_team.name}' ({old_rosters.count()} players, {taxi_players_moved} from taxi squad) and created {taxi_size} empty taxi squad slots")
-        else:
-            # Re-Draft: Create new empty teams for each owner
-            logger.info(f"Re-Draft league renewal: creating empty rosters for re-drafting")
-            for old_team in old_teams:
-                Team.objects.create(
-                    league=new_league,
-                    name=old_team.name,
-                    owner=old_team.owner,
-                )
-        
-        logger.info(f"Created renewed league '{new_league.name}' (ID: {new_league.id}) " +
-                   f"with {old_team_owners.count()} members from {old_league.name} ({old_league.league_type})")
-        
-        # For dynasty leagues, create a rookie draft for the new season
-        if old_league.league_type == "dynasty":
-            try:
-                create_rookie_draft(new_league.id, new_season)
             except Exception as e:
-                logger.error(f"Failed to create rookie draft for league {new_league.id}: {str(e)}")
-            
-            # Create future rookie picks for all teams
-            try:
-                if getattr(new_league, 'use_future_rookie_picks', True):
-                    num_rounds = None
-                    if hasattr(new_league, 'draft') and new_league.draft:
-                        num_rounds = new_league.draft.total_rounds
-                    create_future_rookie_picks(new_league.id, years_ahead=5, num_rounds=num_rounds)
-            except Exception as e:
-                logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
+                logger.error(f"[RENEWAL] Failed to transfer rosters: {str(e)}")
+                raise
         
-        # Mark old league as renewal_complete (renewal completed)
+        # ============================================================================
+        # 4. UPDATE LEAGUE METADATA FOR NEW SEASON
+        # ============================================================================
         try:
-            old_league.refresh_from_db()
-            print(f"[RENEW_TASK] Before update - old league status: {old_league.status}", file=sys.stderr)
-            sys.stderr.flush()
+            league.season = new_season
+            league.status = 'active'
+            league.season_winner = None  # Clear previous winner
+            league.draft_locked = True  # Lock during draft
+            league.save()
             
-            # Simply update status WITHOUT atomic transaction
-            old_league.status = 'renewal_complete'
-            old_league.save(update_fields=['status'])
+            logger.info(f"[RENEWAL] League updated: season={new_season}, status=active, draft_locked=True")
             
-            old_league.refresh_from_db()
-            print(f"[RENEW_TASK] After update - old league status: {old_league.status}", file=sys.stderr)
-            sys.stderr.flush()
-            
-            print(f"[RENEW_TASK] League renewal complete: {old_league.name} → status changed to 'renewal_complete', new league created: {new_league.name} (ID: {new_league.id})", file=sys.stderr)
-            sys.stderr.flush()
-        except Exception as status_update_error:
-            print(f"[RENEW_TASK] ERROR updating old league status: {str(status_update_error)}", file=sys.stderr)
-            import traceback
-            traceback.print_exc(file=sys.stderr)
-            sys.stderr.flush()
+        except Exception as e:
+            logger.error(f"[RENEWAL] Failed to update league: {str(e)}")
+            raise
         
-        return new_league
+        # ============================================================================
+        # 5. FOR DYNASTY LEAGUES: CREATE ROOKIE DRAFT & FUTURE PICKS
+        # ============================================================================
+        if league.league_type == 'dynasty':
+            try:
+                rookie_draft = create_rookie_draft(league.id, new_season)
+                logger.info(f"[RENEWAL] Created rookie draft for dynasty league")
+            except Exception as e:
+                logger.error(f"[RENEWAL] Failed to create rookie draft: {str(e)}")
+            
+            try:
+                if league.use_future_rookie_picks:
+                    create_future_rookie_picks(league.id, years_ahead=5, num_rounds=None)
+                    logger.info(f"[RENEWAL] Created future rookie picks for dynasty league")
+            except Exception as e:
+                logger.error(f"[RENEWAL] Failed to create future picks: {str(e)}")
         
-    except League.DoesNotExist as e:
-        print(f"[RENEW_TASK] League with ID {old_league_id} not found", file=sys.stderr)
-        sys.stderr.flush()
+        logger.info(f"[RENEWAL] ✓ League renewal complete: {league.name} renewed for season {new_season}")
+        return league
+        
+    except League.DoesNotExist:
+        logger.error(f"League with ID {league_id} not found")
         return None
+    
     except Exception as e:
-        print(f"[RENEW_TASK] Error renewing league {old_league_id}: {str(e)}", file=sys.stderr)
+        logger.error(f"[RENEWAL] ✗ Error renewing league {league_id}: {str(e)}")
         import traceback
-        traceback.print_exc(file=sys.stderr)
-        sys.stderr.flush()
+        traceback.print_exc()
         return None
 
 

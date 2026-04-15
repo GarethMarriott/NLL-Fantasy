@@ -220,12 +220,11 @@ class League(models.Model):
     # Offseason/Multi-season fields
     season = models.PositiveIntegerField(
         default=2026,
-        help_text="Current season year"
+        help_text="Current season year (auto-incremented when league is renewed)"
     )
     STATUS_CHOICES = [
         ('active', 'Season in progress'),
-        ('season_complete', 'Season ended, awaiting renewal'),
-        ('renewal_complete', 'League renewed for new season'),
+        ('season_complete', 'Season ended, ready for renewal'),
     ]
     status = models.CharField(
         max_length=20,
@@ -304,6 +303,11 @@ class Team(models.Model):
         blank=True,
         help_text="The league this team belongs to"
     )
+    season_year = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Season year this team belongs to (null for teams created before multi-season support)"
+    )
     waiver_priority = models.PositiveIntegerField(
         default=0,
         help_text="Lower number = higher priority. Resets to last when claim succeeds"
@@ -315,8 +319,8 @@ class Team(models.Model):
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
-                fields=['name', 'league'],
-                name='unique_team_name_per_league'
+                fields=['name', 'league', 'season_year'],
+                name='unique_team_name_per_league_season'
             )
         ]
 
@@ -1732,6 +1736,62 @@ class NLLTransaction(models.Model):
     
     def __str__(self) -> str:
         return f"{self.transaction_date} - {self.player_name}: {self.get_transaction_type_display()}"
+
+
+class LeagueHistory(models.Model):
+    """
+    Archives a completed season for a league.
+    
+    When a league season ends, a LeagueHistory entry is created to preserve all data
+    from that season (rosters, scores, standings, playoff results, etc.).
+    Users can view archived seasons as read-only historical data.
+    """
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name='season_archives',
+        help_text="The league this season history belongs to"
+    )
+    season_year = models.PositiveIntegerField(
+        help_text="Year of the archived season"
+    )
+    champion = models.ForeignKey(
+        'Team',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='championships',
+        help_text="The team that won the championship"
+    )
+    final_standings = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON snapshot of final standings (team names and scores)"
+    )
+    archived_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this season was archived"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="When the record was last updated"
+    )
+
+    class Meta:
+        ordering = ['-season_year']
+        indexes = [
+            models.Index(fields=['league', '-season_year']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['league', 'season_year'],
+                name='unique_league_season_archive'
+            )
+        ]
+
+    def __str__(self) -> str:
+        champion_name = self.champion.name if self.champion else "No champion"
+        return f"{self.league.name} - {self.season_year} (Champion: {champion_name})"
 
 
 class BugReport(models.Model):
