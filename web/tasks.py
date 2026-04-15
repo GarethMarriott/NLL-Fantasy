@@ -425,8 +425,12 @@ def renew_league(old_league_id, new_season=None):
                 logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
         
         # Mark old league as offseason (renewal completed)
+        # Refresh old_league from database to ensure clean state
+        old_league = League.objects.get(id=old_league.id)
         old_league.status = 'offseason'
         old_league.save()
+        
+        logger.info(f"League renewal complete: {old_league.name} → status changed to 'offseason', new league created: {new_league.name} (ID: {new_league.id})")
         
         return new_league
         
