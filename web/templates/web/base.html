@@ -90,29 +90,24 @@
                   <ul class="space-y-1 text-xs">
                     {% for owner in user.fantasy_teams.all %}
                       <li class="flex items-center justify-between py-1">
-                        <div class="flex items-center space-x-2">
-                          <a href="{% url 'league_detail' owner.team.league.id %}" class="text-gray-600 hover:text-gray-900">
+                        <a href="{% url 'select_league' owner.team.league.id %}" 
+                           class="flex-1 flex items-center space-x-2 px-2 py-1 rounded border-2 {% if selected_league.id == owner.team.league.id %}border-blue-400 bg-blue-50{% else %}border-gray-300 hover:border-gray-400{% endif %} transition-colors cursor-pointer">
+                          <span class="flex-1 text-gray-600 hover:text-gray-900">
                             {{ owner.team.league.name }}
-                          </a>
-                          {% if selected_league.id == owner.team.league.id %}
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          </span>
+                          {% if owner.team.league.status == 'season_complete' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 whitespace-nowrap">
+                              Awaiting Renewal
+                            </span>
+                          {% elif selected_league.id == owner.team.league.id %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
                               Viewing
                             </span>
                           {% else %}
-                            {% if owner.team.league.status == 'season_complete' %}
-                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                Awaiting Renewal
-                              </span>
-                            {% else %}
-                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                Active
-                              </span>
-                            {% endif %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
+                              Active
+                            </span>
                           {% endif %}
-                        </div>
-                        <a href="{% url 'select_league' owner.team.league.id %}" 
-                           class="text-blue-600 hover:text-blue-800 text-xs font-medium">
-                          Select
                         </a>
                       </li>
                     {% endfor %}
