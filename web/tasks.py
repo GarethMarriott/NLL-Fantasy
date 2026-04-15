@@ -1056,19 +1056,20 @@ def auto_complete_seasons():
         
         # Find the most recent completed week for this season
         # (could be week 20, 21, or later depending on playoff structure)
-        latest_week = Week.objects.filter(
-            season=today_utc.year
+        # We look for the most recent week that has actually ENDED, not just the latest week in the system
+        latest_ended_week = Week.objects.filter(
+            season=today_utc.year,
+            end_date__lt=today_date_pacific  # Only weeks that have ended
         ).order_by('-week_number').first()
         
-        if not latest_week:
-            logger.info(f"[AUTO COMPLETE] No weeks found for season {today_utc.year}")
-            return "No weeks found"
+        if not latest_ended_week:
+            logger.info(f"[AUTO COMPLETE] No completed weeks found for season {today_utc.year}")
+            return "No completed weeks found"
         
-        # Check if we're on Tuesday (Pacific) and the latest week has ended
-        # Championship could be week 20, 21, 22, etc - just check the most recent
-        # Week ends on Sunday/Monday, Tuesday is the off day
-        if latest_week.end_date < today_date_pacific and today_pacific.weekday() == 1:  # Tuesday = 1
-            logger.info(f"[AUTO COMPLETE] Latest week {latest_week.week_number} has ended (ended: {latest_week.end_date}), and today is Tuesday (Pacific)")
+        # Check if we're on Tuesday (Pacific) and the latest ended week is championship-like
+        # Championship could be week 20, 21, 22, etc - we just marked the most recent week that ended
+        if today_pacific.weekday() == 1:  # Tuesday = 1
+            logger.info(f"[AUTO COMPLETE] Latest ended week {latest_ended_week.week_number} (ended: {latest_ended_week.end_date}), and today is Tuesday (Pacific)")
             
             # Mark all active leagues for this season as season_complete
             leagues = League.objects.filter(
