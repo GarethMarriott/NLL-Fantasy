@@ -4738,35 +4738,32 @@ def renew_league(request, league_id):
         messages.error(request, "Only the league commissioner can renew the league.")
         return redirect("league_detail", league_id=league.id)
     
-    # Can only renew archived leagues
-    if league.is_active:
-        messages.warning(request, "This league is still active. Wait until the season ends to renew.")
+    # Can only renew leagues that have completed their season
+    if league.status != 'season_complete':
+        messages.warning(request, "This league must have completed its season to renew.")
         return redirect("league_detail", league_id=league.id)
     
     if request.method == "POST":
-        form = LeagueRenewalForm(league=league, data=request.POST)
-        if form.is_valid():
-            from ..tasks import renew_league as renew_league_task
-            
-            new_league = renew_league_task(league.id)
-            
-            if new_league:
-                messages.success(
-                    request, 
-                    f"League renewed successfully! Visit the new league at /leagues/{new_league.id}/"
-                )
-                return redirect("league_detail", league_id=new_league.id)
-            else:
-                messages.error(request, "Failed to renew league. Please try again.")
-                return redirect("league_detail", league_id=league.id)
+        # Renew the league immediately
+        from ..tasks import renew_league as renew_league_task
+        
+        new_league = renew_league_task(league.id)
+        
+        if new_league:
+            messages.success(
+                request, 
+                f"League renewed successfully! Your new league for {timezone.now().year + 1} is ready."
+            )
+            return redirect("select_league", league_id=new_league.id)
+        else:
+            messages.error(request, "Failed to renew league. Please try again.")
+            return redirect("league_detail", league_id=league.id)
     else:
-        form = LeagueRenewalForm(league=league)
-    
-    return render(request, "web/renew_league.html", {
-        "league": league,
-        "form": form,
-        "next_season": timezone.now().year + 1,
-    })
+        # Show confirmation page for GET request
+        return render(request, "web/renew_league.html", {
+            "league": league,
+            "next_season": timezone.now().year + 1,
+        })
 
 
 @login_required

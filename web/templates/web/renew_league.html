@@ -59,12 +59,23 @@
             </li>
             <li class="flex items-start">
                 <span class="text-green-600 mr-2">✓</span>
-                <span><strong>Fresh rosters:</strong> Teams will be empty, ready for new drafts</span>
+                <span><strong>All team members:</strong> All owners from the previous season will be invited</span>
             </li>
-            <li class="flex items-start">
-                <span class="text-green-600 mr-2">✓</span>
-                <span><strong>Team owners invited:</strong> All previous members will be invited to join</span>
-            </li>
+            {% if league.league_type == 'dynasty' %}
+                <li class="flex items-start">
+                    <span class="text-green-600 mr-2">✓</span>
+                    <span><strong>Dynasty rosters:</strong> All existing players will be transferred to your teams for the new season</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="text-green-600 mr-2">✓</span>
+                    <span><strong>Rookie draft:</strong> A new rookie draft will be created for {{ next_season }}</span>
+                </li>
+            {% else %}
+                <li class="flex items-start">
+                    <span class="text-green-600 mr-2">✓</span>
+                    <span><strong>Fresh rosters:</strong> Teams will start empty, ready for the draft</span>
+                </li>
+            {% endif %}
             <li class="flex items-start">
                 <span class="text-green-600 mr-2">✓</span>
                 <span><strong>Stats reset:</strong> All scores, waivers, and trades start fresh</span>
