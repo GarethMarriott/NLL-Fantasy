@@ -424,6 +424,10 @@ def renew_league(old_league_id, new_season=None):
             except Exception as e:
                 logger.error(f"Failed to create future rookie picks for league {new_league.id}: {str(e)}")
         
+        # Mark old league as offseason (renewal completed)
+        old_league.status = 'offseason'
+        old_league.save()
+        
         return new_league
         
     except League.DoesNotExist:
