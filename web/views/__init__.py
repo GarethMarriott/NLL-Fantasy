@@ -4421,7 +4421,9 @@ def league_list(request):
     ).distinct()
     
     # All other ACTIVE leagues only (but exclude season_complete)
-    other_leagues = League.objects.filter(is_active=True, status__ne='season_complete').exclude(
+    other_leagues = League.objects.filter(is_active=True).exclude(
+        status='season_complete'
+    ).exclude(
         id__in=my_leagues.values_list('id', flat=True)
     ).exclude(
         id__in=my_team_leagues.values_list('id', flat=True)
@@ -4441,11 +4443,11 @@ def league_list(request):
         other_leagues = other_leagues.filter(is_public=True)
     
     # Separate user's leagues into active, completed, and archived
-    my_active = my_leagues.filter(is_active=True, status__ne='season_complete')
+    my_active = my_leagues.filter(is_active=True).exclude(status='season_complete')
     my_completed = my_leagues.filter(status='season_complete')  # Completed but not yet renewed
     my_archived = my_leagues.filter(is_active=False)
     
-    my_team_active = my_team_leagues.filter(is_active=True, status__ne='season_complete')
+    my_team_active = my_team_leagues.filter(is_active=True).exclude(status='season_complete')
     my_team_completed = my_team_leagues.filter(status='season_complete')
     my_team_archived = my_team_leagues.filter(is_active=False)
     
