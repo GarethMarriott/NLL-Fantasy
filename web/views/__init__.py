@@ -4421,6 +4421,7 @@ def league_list(request):
     ).distinct()
     
     # All other ACTIVE leagues only (but exclude season_complete)
+    from django.db.models import Count, F
     other_leagues = League.objects.filter(is_active=True).exclude(
         status='season_complete'
     ).exclude(
@@ -4441,6 +4442,13 @@ def league_list(request):
     else:
         # Without search, only show public leagues
         other_leagues = other_leagues.filter(is_public=True)
+    
+    # Only show leagues that are not full (have open roster spots)
+    other_leagues = other_leagues.annotate(
+        team_count=Count('teams')
+    ).exclude(
+        team_count=F('max_teams')
+    )
     
     # Separate user's leagues into active and completed
     # Active: status='active' (don't show archived leagues here - access via League Settings > Archives)
