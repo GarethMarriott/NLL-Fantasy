@@ -4449,8 +4449,13 @@ def league_list(request):
     my_active = my_leagues.filter(status='active')
     my_completed = my_leagues.filter(status='season_complete')  # Completed but not yet renewed
     
-    my_team_active = my_team_leagues.filter(status='active')
-    my_team_completed = my_team_leagues.filter(status='season_complete')
+    # Team leagues: exclude ones where user is already commissioner (to avoid duplicates)
+    my_team_active = my_team_leagues.exclude(
+        id__in=my_leagues.values_list('id', flat=True)
+    ).filter(status='active')
+    my_team_completed = my_team_leagues.exclude(
+        id__in=my_leagues.values_list('id', flat=True)
+    ).filter(status='season_complete')
     
     return render(request, "web/league_list.html", {
         "my_active_leagues": my_active,
