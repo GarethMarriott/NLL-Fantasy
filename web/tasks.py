@@ -476,7 +476,51 @@ def renew_league(league_id):
             raise
         
         # ============================================================================
-        # 5. FOR DYNASTY LEAGUES: CREATE ROOKIE DRAFT & FUTURE PICKS
+        # 5. FOR REDRAFT LEAGUES: CREATE DRAFT WITH STANDINGS-BASED ORDER
+        # ============================================================================
+        if league.league_type == 'redraft':
+            try:
+                from web.models import Draft, DraftPosition
+                
+                # Delete any existing draft
+                Draft.objects.filter(league=league).delete()
+                
+                # Calculate draft order from previous season standings (worst to best)
+                draft_order_teams = _calculate_draft_order_from_standings(league, current_season)
+                
+                # If no standings data or calculation failed, use team creation order
+                if not draft_order_teams:
+                    draft_order_teams = list(Team.objects.filter(league=league, season_year=new_season).order_by('id'))
+                    logger.info(f"[RENEWAL] No standings data, using team creation order for draft")
+                else:
+                    logger.info(f"[RENEWAL] Draft order from standings: {' → '.join([t.name for t in draft_order_teams])}")
+                
+                # Create Draft object
+                draft = Draft.objects.create(
+                    league=league,
+                    is_active=False,
+                    completed=False,
+                    draft_order_type=Draft.DraftOrderType.RANDOM,  # Will be set by commissioner
+                    draft_style=Draft.DraftStyle.SNAKE,  # Default to snake
+                    total_rounds=league.roster_size  # Match league roster size
+                )
+                
+                # Create DraftPosition objects for each team
+                for position, team in enumerate(draft_order_teams, 1):
+                    DraftPosition.objects.create(
+                        draft=draft,
+                        team=team,
+                        position=position
+                    )
+                
+                logger.info(f"[RENEWAL] Created Draft for redraft league with {len(draft_order_teams)} teams")
+                
+            except Exception as e:
+                logger.error(f"[RENEWAL] Failed to create draft: {str(e)}")
+                raise
+        
+        # ============================================================================
+        # 6. FOR DYNASTY LEAGUES: CREATE ROOKIE DRAFT & FUTURE PICKS
         # ============================================================================
         if league.league_type == 'dynasty':
             try:

@@ -128,11 +128,101 @@
     </div>
   </div>
   {% else %}
-  <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-    <h2 class="text-xl font-semibold mb-4 text-gray-800">Redraft League</h2>
-    <p class="text-blue-900">
-      This is a redraft league. Draft settings are managed in the <a href="{% url 'draft_room' %}" class="font-semibold text-blue-700 hover:text-blue-900">Draft Room</a>.
-    </p>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main Redraft Settings Form -->
+    <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800">Redraft League Settings</h2>
+      
+      {% if draft %}
+      <form method="post" class="space-y-6 {% if not is_commissioner %}opacity-60 pointer-events-none{% endif %}" {% if not is_commissioner %}onsubmit="return false;"{% endif %}>
+        {% csrf_token %}
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Number of Rounds:</label>
+          <input type="number" name="total_rounds" value="{{ draft.total_rounds }}" min="1" max="20" class="px-3 py-2 border border-gray-300 rounded-md w-full" {% if not is_commissioner %}disabled{% endif %}>
+          <p class="text-gray-600 text-sm mt-1">Number of draft rounds (typically matches roster size)</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Draft Style:</label>
+          <select name="draft_style" class="px-3 py-2 border border-gray-300 rounded-md w-full" {% if not is_commissioner %}disabled{% endif %}>
+            <option value="SNAKE" {% if draft.draft_style == 'SNAKE' %}selected{% endif %}>Snake Draft (1,2,3,4 then 4,3,2,1)</option>
+            <option value="LINEAR" {% if draft.draft_style == 'LINEAR' %}selected{% endif %}>Linear Draft (1,2,3,4 every round)</option>
+          </select>
+          <p class="text-gray-600 text-sm mt-1">How picks rotate between rounds</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Draft Order Type:</label>
+          <select name="draft_order_type" class="px-3 py-2 border border-gray-300 rounded-md w-full" {% if not is_commissioner or draft.is_active %}disabled{% endif %}>
+            <option value="RANDOM" {% if draft.draft_order_type == 'RANDOM' %}selected{% endif %}>Random Order</option>
+            <option value="MANUAL" {% if draft.draft_order_type == 'MANUAL' %}selected{% endif %}>Commissioner Selected</option>
+          </select>
+          <p class="text-gray-600 text-sm mt-1">How draft order is determined</p>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded p-4">
+          <p class="text-sm text-blue-900">
+            <strong>✔️ Current Setup:</strong>
+            <ul class="list-disc list-inside mt-2 space-y-1 text-blue-800">
+              <li>{{ draft.total_rounds }} rounds across {{ draft.draft_positions.count }} teams</li>
+              <li>{{ draft.get_draft_style_display }} draft style</li>
+              <li>Draft order: <strong>{{ draft.get_draft_order_type_display }}</strong></li>
+            </ul>
+          </p>
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          {% if is_commissioner %}
+          <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
+            Update Settings
+          </button>
+          {% else %}
+          <button type="button" disabled class="px-6 py-2 bg-gray-400 text-gray-600 rounded-md font-medium cursor-not-allowed opacity-50">
+            Update Settings (Commissioner Only)
+          </button>
+          {% endif %}
+          <a href="{% url 'draft_room' %}" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 font-medium">
+            Back to Draft Room
+          </a>
+        </div>
+      </form>
+      {% else %}
+      <div class="p-4 bg-yellow-50 border border-yellow-200 rounded">
+        <p class="text-yellow-900">No draft has been created yet. The draft will be created automatically when the league renews.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Info Panel -->
+    <div class="bg-gray-50 rounded-lg shadow-md p-6 h-fit sticky top-24">
+      <h3 class="text-lg font-semibold mb-4 text-gray-800">Draft Information</h3>
+      
+      <div class="space-y-4 text-sm text-gray-700">
+        <div>
+          <h4 class="font-medium text-gray-900 mb-1">🎯 Draft Order</h4>
+          <p>Based on reverse standings from previous season (worst team picks first for competitive balance).</p>
+        </div>
+
+        <div>
+          <h4 class="font-medium text-gray-900 mb-1">🔄 Snake vs Linear</h4>
+          <p><strong>Snake:</strong> Odd rounds forward, even rounds backward. <strong>Linear:</strong> Same order every round.</p>
+        </div>
+
+        <div>
+          <h4 class="font-medium text-gray-900 mb-1">📊 Current Teams</h4>
+          {% if draft %}
+          <ul class="list-disc list-inside space-y-1">
+            {% for position in draft.draft_positions.all %}
+            <li><strong>#{{ position.position }}</strong> - {{ position.team.name }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-gray-500">Draft not yet created</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
   </div>
   {% endif %}
 </div>

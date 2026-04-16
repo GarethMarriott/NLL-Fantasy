@@ -117,6 +117,53 @@
           {% endif %}
         </div>
         
+        <!-- Mock Draft Grid Preview -->
+        {% if mock_draft_grid %}
+        <div class="mt-6 bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+          <h4 class="font-semibold mb-4 text-gray-800">📊 Draft Order Preview</h4>
+          
+          <!-- Teams Header (Horizontal) -->
+          <div class="overflow-x-auto">
+            <div class="min-w-full">
+              <!-- Column headers: Round + Team names -->
+              <div class="grid gap-2 mb-2" style="grid-template-columns: 80px repeat({{ draft.draft_positions.count }}, 1fr);">
+                <div class="font-semibold text-gray-700 text-sm p-2 bg-gray-100 rounded">Round</div>
+                {% for position in draft.draft_positions.all %}
+                <div class="font-semibold text-gray-700 text-center text-sm p-2 bg-blue-50 rounded border border-blue-200">
+                  <div class="text-xs text-gray-600">#{{ position.position }}</div>
+                  <div class="text-sm font-medium truncate">{{ position.team.name }}</div>
+                </div>
+                {% endfor %}
+              </div>
+              
+              <!-- Rounds and picks -->
+              {% for round_data in mock_draft_grid %}
+              <div class="grid gap-2 mb-2" style="grid-template-columns: 80px repeat({{ draft.draft_positions.count }}, 1fr);">
+                <div class="font-semibold text-gray-700 text-sm p-2 bg-gray-100 rounded text-center">
+                  Rd {{ round_data.round }}
+                </div>
+                {% for pick_data in round_data.picks %}
+                <div class="text-sm p-2 rounded border border-gray-200 text-center bg-white hover:bg-blue-50 transition">
+                  <div class="text-xs text-gray-500">Pick #{{ pick_data.overall_pick }}</div>
+                  <div class="font-semibold text-gray-700 truncate">{{ pick_data.team.name }}</div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          
+          <p class="text-xs text-gray-500 mt-4">
+            💡 This preview shows where each team will pick in each round based on the current draft order.
+            {% if draft.draft_style == 'SNAKE' %}
+            <br>🔄 Snake Draft: Odd rounds follow the order above, even rounds reverse.
+            {% else %}
+            <br>🔄 Linear Draft: Same order for every round.
+            {% endif %}
+          </p>
+        </div>
+        {% endif %}
+        
         {% if is_commissioner and draft.draft_order_type == 'MANUAL' %}
         <div class="mt-4">
           <h4 class="font-semibold mb-2">Drag to Reorder Teams:</h4>

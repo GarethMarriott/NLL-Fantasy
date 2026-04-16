@@ -5094,6 +5094,38 @@ def draft_room(request):
             player__isnull=False
         ).select_related('player').order_by('round', 'pick_number')
     
+    # Build mock draft grid for offseason (when draft exists but not active)
+    mock_draft_grid = []
+    if draft and not draft.is_active and not draft.completed:
+        draft_positions = draft.get_draft_order()
+        if draft_positions:
+            team_count_draft = len(draft_positions)
+            
+            for round_num in range(1, draft.total_rounds + 1):
+                round_picks = []
+                for position in draft_positions:
+                    # Determine pick number in round based on draft style
+                    if draft.draft_style == 'SNAKE':
+                        if round_num % 2 == 1:  # Odd round
+                            pick_in_round = position.position
+                        else:  # Even round
+                            pick_in_round = team_count_draft - position.position + 1
+                    else:  # LINEAR
+                        pick_in_round = position.position
+                    
+                    round_picks.append({
+                        'team': position.team,
+                        'position': pick_in_round,
+                        'overall_pick': (round_num - 1) * team_count_draft + pick_in_round,
+                    })
+                
+                # Sort picks by position to display consistently
+                round_picks.sort(key=lambda x: x['position'])
+                mock_draft_grid.append({
+                    'round': round_num,
+                    'picks': round_picks
+                })
+    
     # Get future picks organized by year
     future_picks_by_year = {}
     if getattr(league, 'use_future_rookie_picks', False):
@@ -5119,6 +5151,7 @@ def draft_room(request):
         'current_team': current_team,
         'is_user_turn': is_user_turn,
         'draft_board': draft_board,
+        'mock_draft_grid': mock_draft_grid,
         'sort_by': sort_by,
         'sort_dir': sort_dir,
         'user_picks': user_picks,
@@ -5143,7 +5176,7 @@ def draft_settings(request):
     
     # For redraft leagues: only allow access before draft starts
     # For dynasty leagues: always allow access
-    if league.league_type != 'dynasty' and draft and draft.is_active:
+    if draft and draft.is_active:
         messages.error(request, "Draft settings cannot be modified after the draft has started.")
         return redirect('draft_room')
     
@@ -5191,15 +5224,23 @@ def draft_settings(request):
         else:
             # Handle redraft league draft configuration
             if draft and not draft.is_active:
+                # Get form parameters
                 total_rounds = request.POST.get('total_rounds')
-                if total_rounds:
-                    try:
+                draft_style = request.POST.get('draft_style', 'SNAKE')
+                draft_order_type = request.POST.get('draft_order_type', 'RANDOM')
+                
+                try:
+                    # Update draft settings
+                    if total_rounds:
                         draft.total_rounds = int(total_rounds)
-                        draft.save()
-                        messages.success(request, f"Draft rounds updated to {total_rounds}")
-                        post_league_message(league, f"📋 Commissioner updated draft rounds to {total_rounds}")
-                    except (ValueError, TypeError):
-                        messages.error(request, "Invalid number of rounds")
+                    draft.draft_style = draft_style
+                    draft.draft_order_type = draft_order_type
+                    draft.save()
+                    
+                    messages.success(request, f"Draft settings updated: {draft.total_rounds} rounds, {draft.get_draft_style_display()}, {draft.get_draft_order_type_display()}")
+                    post_league_message(league, f"📋 Commissioner updated draft settings: {draft.total_rounds} rounds, {draft.get_draft_style_display()}")
+                except (ValueError, TypeError):
+                    messages.error(request, "Invalid draft settings")
             
             return redirect('draft_room')
     else:
