@@ -4442,25 +4442,21 @@ def league_list(request):
         # Without search, only show public leagues
         other_leagues = other_leagues.filter(is_public=True)
     
-    # Separate user's leagues into active, completed, and archived
-    # Active: status='active'
+    # Separate user's leagues into active and completed
+    # Active: status='active' (don't show archived leagues here - access via League Settings > Archives)
     # Completed: status='season_complete' (ready for renewal)
-    # Archived: Has LeagueHistory entries (previous seasons)
+    # Note: Archived leagues (with LeagueHistory) are NOT shown here; access via league settings instead
     my_active = my_leagues.filter(status='active')
     my_completed = my_leagues.filter(status='season_complete')  # Completed but not yet renewed
-    my_archived = my_leagues.filter(season_archives__isnull=False).distinct()  # Has season history
     
     my_team_active = my_team_leagues.filter(status='active')
     my_team_completed = my_team_leagues.filter(status='season_complete')
-    my_team_archived = my_team_leagues.filter(season_archives__isnull=False).distinct()  # Has season history
     
     return render(request, "web/league_list.html", {
         "my_active_leagues": my_active,
         "my_completed_leagues": my_completed,
-        "my_archived_leagues": my_archived,
         "my_team_active_leagues": my_team_active,
         "my_team_completed_leagues": my_team_completed,
-        "my_team_archived_leagues": my_team_archived,
         "other_leagues": other_leagues,
         "search_query": search_query,
         "search_type": search_type,

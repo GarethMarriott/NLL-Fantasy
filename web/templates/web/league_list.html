@@ -104,36 +104,6 @@
     </section>
   {% endif %}
 
-  <!-- My Archived Leagues as Commissioner -->
-  {% if my_archived_leagues %}
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">My Archived Leagues (Commissioner)</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {% for league in my_archived_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-gray-400 opacity-75">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
-            <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
-              <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded">Archived</span>
-            </div>
-            <div class="flex gap-2">
-              <a href="{% url 'league_detail' league.id %}" 
-                 class="flex-1 text-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">
-                View League
-              </a>
-              <a href="{% url 'delete_league' league.id %}" 
-                 class="flex-1 text-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
-                Delete
-              </a>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
   <!-- My Active Leagues as Team Owner -->
   {% if my_team_active_leagues %}
     <section class="mb-8">
@@ -183,30 +153,6 @@
     </section>
   {% endif %}
 
-  <!-- My Archived Leagues as Team Owner -->
-  {% if my_team_archived_leagues %}
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">My Archived Leagues (Team Owner)</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {% for league in my_team_archived_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-gray-400 opacity-75">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
-            <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
-              <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded">Archived</span>
-            </div>
-            <a href="{% url 'league_detail' league.id %}" 
-               class="block text-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">
-              View League
-            </a>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
   <!-- Other Available Leagues -->
   <section>
     <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -243,7 +189,7 @@
     {% endif %}
   </section>
 
-  {% if not my_active_leagues and not my_completed_leagues and not my_archived_leagues and not my_team_active_leagues and not my_team_completed_leagues and not my_team_archived_leagues and not other_leagues and not search_query %}
+  {% if not my_active_leagues and not my_completed_leagues and not my_team_active_leagues and not my_team_completed_leagues and not other_leagues and not search_query %}
     <div class="text-center py-12">
       <p class="text-gray-600 dark:text-gray-400 mb-4">No leagues available yet.</p>
       <a href="{% url 'league_create' %}" 

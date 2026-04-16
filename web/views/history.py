@@ -6,10 +6,36 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db.models import Q, Sum, Case, When, Value, IntegerField, F, Prefetch
 from django.views.decorators.cache import cache_page
-from web.models import League, Team, Roster, Week, Game, PlayerGameStat
+from web.models import League, Team, Roster, Week, Game, PlayerGameStat, LeagueHistory
 from web.scoring import calculate_fantasy_points
 from web.cache_utils import get_standings_cache_key
 from web.views import get_cached_schedule  # Import schedule generation
+
+
+@login_required
+def league_archives(request, league_id):
+    """
+    Display all archived seasons for a league.
+    Shows past seasons with champion, final standings, and access to view those seasons.
+    Accessed from league settings/details page.
+    """
+    league = get_object_or_404(League, id=league_id)
+    
+    # Check if user is member of league
+    user_teams = Team.objects.filter(league=league, owner__user=request.user)
+    if not user_teams.exists() and league.commissioner != request.user:
+        return JsonResponse({'error': 'Not a member of this league'}, status=403)
+    
+    # Get all archived seasons for this league, ordered newest first
+    archives = LeagueHistory.objects.filter(league=league).order_by('-season_year')
+    
+    context = {
+        'league': league,
+        'archives': archives,
+        'is_commissioner': league.commissioner == request.user,
+    }
+    
+    return render(request, 'web/league_archives.html', context)
 
 
 @login_required

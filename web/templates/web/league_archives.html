@@ -1,0 +1,130 @@
+{% extends "web/base.html" %}
+
+{% block title %}League Archives - {{ league.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Back Button -->
+    <div class="mb-6">
+        <a href="{% url 'league_detail' league.id %}" class="text-blue-600 hover:text-blue-800 font-medium">
+            ← Back to {{ league.name }}
+        </a>
+    </div>
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">League Archives</h1>
+        <p class="text-gray-600 dark:text-gray-400">
+            {{ league.name }} - Historical seasons and records
+        </p>
+    </div>
+
+    <!-- No Archives Message -->
+    {% if not archives %}
+    <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-6 text-center">
+        <p class="text-blue-900 dark:text-blue-100">
+            <span class="text-4xl mb-2 block">📚</span>
+            <strong>No archived seasons yet.</strong> Once you complete a season and renew the league, it will appear here.
+        </p>
+    </div>
+    {% else %}
+
+    <!-- Archived Seasons Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for archive in archives %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow">
+            <!-- Season Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                <h2 class="text-2xl font-bold text-white">{{ archive.season_year }}</h2>
+                <p class="text-blue-100 text-sm">
+                    Archived {{ archive.archived_at|date:"M d, Y" }}
+                </p>
+            </div>
+
+            <!-- Season Content -->
+            <div class="px-6 py-4">
+                <!-- Champion -->
+                {% if archive.champion %}
+                <div class="mb-4">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Champion</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-white">
+                        🏆 {{ archive.champion.name }}
+                    </p>
+                    {% if archive.champion.owner %}
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Owner: {{ archive.champion.owner.user.username }}
+                    </p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                    <p class="text-sm text-gray-600 dark:text-gray-400 italic">
+                        No champion recorded for this season
+                    </p>
+                </div>
+                {% endif %}
+
+                <!-- Standings Summary -->
+                {% if archive.final_standings %}
+                <div class="mb-4">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Teams ({{ archive.final_standings.teams|length }})
+                    </p>
+                    <ul class="space-y-1 text-sm">
+                        {% for team in archive.final_standings.teams|slice:":5" %}
+                        <li class="text-gray-700 dark:text-gray-300">
+                            {{ forloop.counter }}. {{ team.team_name }}
+                            {% if team.owner %}<span class="text-xs text-gray-500">({{ team.owner }})</span>{% endif %}
+                        </li>
+                        {% endfor %}
+                        {% if archive.final_standings.teams|length > 5 %}
+                        <li class="text-gray-500 dark:text-gray-400 italic">
+                            +{{ archive.final_standings.teams|length|add:"-5" }} more teams...
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex flex-col gap-2">
+                    <a href="{% url 'league_history_standings' league.id archive.season_year %}" 
+                       class="w-full px-3 py-2 text-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-600 rounded transition">
+                        📊 View Standings
+                    </a>
+                    <a href="{% url 'league_history_matchups' league.id archive.season_year %}" 
+                       class="w-full px-3 py-2 text-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-600 rounded transition">
+                        🏟️ View Matchups
+                    </a>
+                    <a href="{% url 'league_history_playoffs' league.id archive.season_year %}" 
+                       class="w-full px-3 py-2 text-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-600 rounded transition">
+                        🎯 View Playoffs
+                    </a>
+                </div>
+
+                <!-- Metadata -->
+                <div class="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400">
+                    <p>Updated: {{ archive.updated_at|date:"M d, Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% endif %}
+</div>
+
+<!-- Inline Styles for Dark Mode Support -->
+<style>
+    @media (prefers-color-scheme: dark) {
+        .dark\:bg-gray-800 {
+            background-color: #1f2937;
+        }
+        .dark\:text-white {
+            color: #f3f4f6;
+        }
+    }
+</style>
+{% endblock %}

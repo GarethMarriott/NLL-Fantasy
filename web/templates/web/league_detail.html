@@ -111,10 +111,15 @@
       <p class="text-sm text-blue-800 dark:text-blue-200 mb-4">
         You can manage this league's settings and teams.
       </p>
-      <div class="flex gap-4">
+      <div class="flex gap-4 flex-wrap">
         <a href="{% url 'league_settings' league.id %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
           League Settings
         </a>
+        {% if league.season_archives.exists %}
+        <a href="{% url 'league_archives' league.id %}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded">
+          📚 View Archives
+        </a>
+        {% endif %}
         <button 
           onclick="copyLeagueCode('{{ league.unique_id }}')" 
           class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
@@ -124,6 +129,20 @@
         </button>
       </div>
     </div>
+  {% endif %}
+
+  <!-- League Archives -->
+  {% if league.season_archives.exists %}
+  <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-purple-600">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">📚 League Archives</h3>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+      This league has {{ league.season_archives.count }} archived season{{ league.season_archives.count|pluralize }}.
+      View past seasons, champions, standings, and matchups.
+    </p>
+    <a href="{% url 'league_archives' league.id %}" class="inline-block px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded">
+      View Archives
+    </a>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -8,7 +8,7 @@ from .views import (
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500,
     league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion
 )
-from .views.history import league_history, league_history_standings, league_history_matchups, league_history_playoffs
+from .views.history import league_history, league_history_standings, league_history_matchups, league_history_playoffs, league_archives
 from .views.nll_transactions import nll_transactions
 from .bug_views import report_bug, bug_list, bug_detail, update_bug_status, add_bug_note, bug_report_api
 
@@ -72,6 +72,7 @@ urlpatterns = [
     
     # Historical League Views
     path("league/<int:league_id>/history/", league_history, name="league_history"),
+    path("league/<int:league_id>/archives/", league_archives, name="league_archives"),
     path("league/<int:league_id>/history/<int:year>/standings/", league_history_standings, name="league_history_standings"),
     path("league/<int:league_id>/history/<int:year>/matchups/", league_history_matchups, name="league_history_matchups"),
     path("league/<int:league_id>/history/<int:year>/playoffs/", league_history_playoffs, name="league_history_playoffs"),
