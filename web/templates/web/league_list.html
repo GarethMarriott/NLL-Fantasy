@@ -51,117 +51,127 @@
     </form>
   </div>
 
-  <!-- My Active Leagues as Commissioner -->
-  {% if my_active_leagues %}
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">My Active Leagues (Commissioner)</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {% for league in my_active_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
-            <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
-              <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">Active</span>
-            </div>
-            <a href="{% url 'league_detail' league.id %}" 
-               class="block text-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
-              Manage League
-            </a>
-          </div>
-        {% endfor %}
+  <!-- Your Active Leagues Section -->
+  {% if my_active_leagues or my_team_active_leagues %}
+  <div class="mb-8">
+    <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 border-l-4 border-blue-500 rounded-lg p-6 mb-6">
+      <div class="flex items-start">
+        <div class="text-3xl mr-4">⚽</div>
+        <div>
+          <h2 class="text-2xl font-bold text-blue-900 dark:text-blue-100">Your Active Leagues</h2>
+          <p class="text-blue-700 dark:text-blue-300 mt-1">Leagues currently in progress. Manage your teams and track standings.</p>
+        </div>
       </div>
-    </section>
+    </div>
+    
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {% for league in my_active_leagues %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
+          <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
+            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">Active • You're Commissioner</span>
+          </div>
+          <a href="{% url 'league_detail' league.id %}" 
+             class="block text-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
+            Manage League
+          </a>
+        </div>
+      {% endfor %}
+
+      {% for league in my_team_active_leagues %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-green-500">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
+          <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
+            <span class="px-2 py-1 bg-green-100 text-green-800 rounded">Active • Team Owner</span>
+          </div>
+          <a href="{% url 'league_detail' league.id %}" 
+             class="block text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+            View League
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
   {% endif %}
 
-  <!-- My Completed Leagues as Commissioner -->
-  {% if my_completed_leagues %}
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">My Completed Leagues (Commissioner)</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {% for league in my_completed_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
-            <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
-              <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded">Complete</span>
-            </div>
-            <p class="text-xs text-orange-600 dark:text-orange-400 mb-3">⚠️ Rosters are locked. Only you can renew this league.</p>
-            <a href="{% url 'renew_league' league.id %}" 
-               class="block text-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded">
-              Renew League
-            </a>
-            <a href="{% url 'delete_league' league.id %}" 
-               class="block text-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded mt-2">
-              Delete League
-            </a>
-          </div>
-        {% endfor %}
+  <!-- Your Leagues Pending Renewal Section -->
+  {% if my_completed_leagues or my_team_completed_leagues %}
+  <div class="mb-8">
+    <div class="bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900 dark:to-orange-800 border-l-4 border-orange-500 rounded-lg p-6 mb-6">
+      <div class="flex items-start">
+        <div class="text-3xl mr-4">🔄</div>
+        <div>
+          <h2 class="text-2xl font-bold text-orange-900 dark:text-orange-100">Your Leagues Pending Renewal</h2>
+          <p class="text-orange-700 dark:text-orange-300 mt-1">Season complete. Only commissioners can renew for next season. Delete old leagues here.</p>
+        </div>
       </div>
-    </section>
+    </div>
+    
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {% for league in my_completed_leagues %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-orange-500">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
+          <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
+            <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded">Complete • You're Commissioner</span>
+          </div>
+          <p class="text-xs text-orange-600 dark:text-orange-400 mb-3">⚠️ Rosters are locked. Only you can renew this league.</p>
+          <a href="{% url 'renew_league' league.id %}" 
+             class="block text-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded">
+            Renew League
+          </a>
+          <a href="{% url 'delete_league' league.id %}" 
+             class="block text-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded mt-2">
+            Delete League
+          </a>
+        </div>
+      {% endfor %}
+
+      {% for league in my_team_completed_leagues %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-orange-500">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
+          <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
+            <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded">Complete • Team Owner</span>
+          </div>
+          <p class="text-xs text-orange-600 dark:text-orange-400 mb-3">⚠️ Rosters are locked.</p>
+          <a href="{% url 'league_detail' league.id %}" 
+             class="block text-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded">
+            View League
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
   {% endif %}
 
-  <!-- My Active Leagues as Team Owner -->
-  {% if my_team_active_leagues %}
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">My Active Leagues (Team Owner)</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {% for league in my_team_active_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-green-500">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
-            <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
-              <span class="px-2 py-1 bg-green-100 text-green-800 rounded">Active</span>
-            </div>
-            <a href="{% url 'league_detail' league.id %}" 
-               class="block text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
-              View League
-            </a>
-          </div>
-        {% endfor %}
+  <!-- Open Public Leagues Section -->
+  <div>
+    {% if other_leagues or search_query %}
+    <div class="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 border-l-4 border-purple-500 rounded-lg p-6 mb-6">
+      <div class="flex items-start">
+        <div class="text-3xl mr-4">🌐</div>
+        <div>
+          <h2 class="text-2xl font-bold text-purple-900 dark:text-purple-100">Open Public Leagues</h2>
+          <p class="text-purple-700 dark:text-purple-300 mt-1">Available leagues looking for team owners. Browse and join to start playing!</p>
+        </div>
       </div>
-    </section>
-  {% endif %}
-
-  <!-- My Completed Leagues as Team Owner -->
-  {% if my_team_completed_leagues %}
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">My Completed Leagues (Team Owner)</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {% for league in my_team_completed_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
-            <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
-              <span>{{ league.teams.count }}/{{ league.max_teams }} teams</span>
-              <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded">Complete</span>
-            </div>
-            <p class="text-xs text-orange-600 dark:text-orange-400 mb-3">⚠️ Rosters are locked.</p>
-            <a href="{% url 'league_detail' league.id %}" 
-               class="block text-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded">
-              View League
-            </a>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
-
-  <!-- Other Available Leagues -->
-  <section>
-    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-      {% if search_query %}Search Results{% else %}Available Leagues{% endif %}
-    </h2>
+    </div>
+    
     {% if other_leagues %}
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {% for league in other_leagues %}
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-purple-500">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ league.name }}</h3>
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ league.description|truncatewords:15 }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">Code: <span class="font-mono font-bold">{{ league.unique_id }}</span></p>
@@ -170,7 +180,7 @@
               <span>By: {{ league.commissioner.username }}</span>
             </div>
             <a href="{% url 'league_detail' league.id %}" 
-               class="block text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+               class="block text-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded">
               Join League
             </a>
           </div>
@@ -181,13 +191,14 @@
         <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
           <p class="text-gray-600 dark:text-gray-400 mb-4">No leagues found matching "{{ search_query }}"</p>
           <a href="{% url 'league_list' %}" 
-             class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg">
+             class="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg">
             View All Leagues
           </a>
         </div>
       {% endif %}
     {% endif %}
-  </section>
+    {% endif %}
+  </div>
 
   {% if not my_active_leagues and not my_completed_leagues and not my_team_active_leagues and not my_team_completed_leagues and not other_leagues and not search_query %}
     <div class="text-center py-12">
