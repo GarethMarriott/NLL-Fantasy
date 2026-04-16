@@ -349,6 +349,7 @@ def renew_league(league_id):
         # 2. CREATE NEW TEAMS FOR NEXT SEASON (same owners, same names)
         # ============================================================================
         try:
+            from web.models import FantasyTeamOwner
             old_teams = Team.objects.filter(league=league, season_year=current_season)
             logger.info(f"[RENEWAL] Found {old_teams.count()} teams in season {current_season}")
             
@@ -360,7 +361,16 @@ def renew_league(league_id):
                     season_year=new_season,
                     waiver_priority=12 if league.use_waivers else 0  # Reset waiver priority
                 )
-                logger.info(f"[RENEWAL] Created new team '{new_team.name}' for season {new_season}")
+                
+                # Link the new team to the same owner as the old team
+                if hasattr(old_team, 'owner') and old_team.owner:
+                    FantasyTeamOwner.objects.create(
+                        user=old_team.owner.user,
+                        team=new_team
+                    )
+                    logger.info(f"[RENEWAL] Created new team '{new_team.name}' for {old_team.owner.user.username}")
+                else:
+                    logger.info(f"[RENEWAL] Created new team '{new_team.name}' (no owner)")
             
         except Exception as e:
             logger.error(f"[RENEWAL] Failed to create new teams: {str(e)}")
@@ -370,9 +380,27 @@ def renew_league(league_id):
         # 3. HANDLE ROSTERS BASED ON LEAGUE TYPE
         # ============================================================================
         if league.league_type == 'redraft':
-            logger.info(f"[RENEWAL] Re-Draft league: Clearing all rosters for new season")
-            # Re-draft: rosters are empty, teams will draft fresh
-            # No action needed - new teams created empty
+            logger.info(f"[RENEWAL] Re-Draft league: Clearing all old rosters for new season")
+            # Re-draft: DELETE all old rosters so teams start empty for draft
+            try:
+                old_rosters = Roster.objects.filter(
+                    team__in=old_teams,
+                    season_year=current_season
+                )
+                deleted_count, _ = old_rosters.delete()
+                logger.info(f"[RENEWAL] Deleted {deleted_count} old roster entries")
+                
+                # Also clear taxi squad for redraft
+                old_taxi = TaxiSquad.objects.filter(
+                    team__in=old_teams,
+                    player__isnull=False
+                )
+                taxi_deleted, _ = old_taxi.delete()
+                logger.info(f"[RENEWAL] Deleted {taxi_deleted} old taxi squad entries")
+                
+            except Exception as e:
+                logger.error(f"[RENEWAL] Failed to clear old rosters: {str(e)}")
+                raise
             
         elif league.league_type == 'dynasty':
             logger.info(f"[RENEWAL] Dynasty league: Transferring rosters to new season")
@@ -435,6 +463,13 @@ def renew_league(league_id):
             league.save()
             
             logger.info(f"[RENEWAL] League updated: season={new_season}, status=active, draft_locked=True")
+            
+            # For redraft leagues: lock all NEW rosters during draft period
+            if league.league_type == 'redraft':
+                new_teams = Team.objects.filter(league=league, season_year=new_season)
+                rosters = Roster.objects.filter(team__in=new_teams, season_year=new_season)
+                rosters.update(is_locked=True, locked_reason='draft_in_progress')
+                logger.info(f"[RENEWAL] Locked {rosters.count()} new rosters for draft period")
             
         except Exception as e:
             logger.error(f"[RENEWAL] Failed to update league: {str(e)}")
