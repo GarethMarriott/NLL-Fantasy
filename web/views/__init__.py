@@ -4055,6 +4055,12 @@ def login_view(request):
 def logout_view(request):
     """User logout"""
     logout(request)
+    # Clear session data to prevent stale data from appearing after logout
+    if 'selected_league_id' in request.session:
+        del request.session['selected_league_id']
+    if 'chat_last_read' in request.session:
+        del request.session['chat_last_read']
+    request.session.flush()  # Clear entire session
     messages.success(request, "You have been logged out.")
     return redirect("home")
 
