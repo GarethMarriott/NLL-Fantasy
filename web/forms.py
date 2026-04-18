@@ -74,12 +74,20 @@ class TeamCreateForm(forms.ModelForm):
 
 
 class TeamSettingsForm(forms.ModelForm):
-    """Form for team owner to update their team name"""
+    """Form for team owner to update their team name and logo"""
     class Meta:
         model = Team
-        fields = ['name']
+        fields = ['name', 'logo']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
+            'logo': forms.FileInput(attrs={
+                'class': 'block w-full px-3 py-2 border border-gray-300 rounded-md cursor-pointer',
+                'accept': 'image/*',
+                'title': 'Upload team logo (PNG, JPG, GIF recommended)'
+            })
+        }
+        help_texts = {
+            'logo': 'Upload a square image (200x200px recommended)'
         }
 
 
@@ -263,6 +271,35 @@ class DraftSettingsForm(forms.Form):
     years_ahead = forms.IntegerField(
         min_value=1,
         max_value=10,
+        initial=1,
+        widget=forms.NumberInput(attrs={
+            'class': 'w-full px-3 py-2 border border-gray-300 rounded-md',
+        })
+    )
+
+
+class TeamLogoForm(forms.ModelForm):
+    """Form for team owners to upload a team logo"""
+    class Meta:
+        model = Team
+        fields = ['logo']
+        widgets = {
+            'logo': forms.FileInput(attrs={
+                'class': 'block w-full px-3 py-2 border border-gray-300 rounded-md cursor-pointer',
+                'accept': 'image/*',
+                'title': 'Upload team logo (PNG, JPG, GIF recommended)'
+            })
+        }
+        help_texts = {
+            'logo': 'Upload a square image (200x200px recommended)'
+        }
+
+
+class LeagueRookiePicksForm(forms.Form):
+    """Form for configuring rookie picks in the draft"""
+    rookie_picks_years = forms.IntegerField(
+        min_value=1,
+        max_value=10,
         initial=5,
         help_text="Number of years in advance to create rookie picks (1-10)",
         widget=forms.NumberInput(attrs={
@@ -283,7 +320,10 @@ class DraftSettingsForm(forms.Form):
             'max': '5'
         })
     )
-    
+
+
+class LeagueDraftForm(forms.Form):
+    """Form for configuring draft settings"""
     def __init__(self, *args, league=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.league = league

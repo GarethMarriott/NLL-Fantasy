@@ -4792,7 +4792,7 @@ def delete_league(request, league_id):
 
 @login_required
 def team_settings(request, team_id):
-    """Team owner settings page (change team name)"""
+    """Team owner settings page (change team name and logo)"""
     team = get_object_or_404(Team, id=team_id)
     
     # Only team owner can access
@@ -4801,10 +4801,10 @@ def team_settings(request, team_id):
         return redirect('home')
     
     if request.method == 'POST':
-        form = TeamSettingsForm(request.POST, instance=team)
+        form = TeamSettingsForm(request.POST, request.FILES, instance=team)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Team name updated successfully!')
+            messages.success(request, 'Team settings updated successfully!')
             return redirect('home')
     else:
         form = TeamSettingsForm(instance=team)
@@ -6401,6 +6401,36 @@ def current_user_api(request):
             'user_id': None,
             'username': 'guest'
         })
+
+
+@login_required
+def upload_team_logo(request, team_id):
+    """
+    Handle team logo upload via multipart form or AJAX
+    """
+    team = get_object_or_404(Team, id=team_id)
+    
+    # Check if user owns this team
+    if not (hasattr(team, 'owner') and team.owner and team.owner.user == request.user):
+        return JsonResponse({'error': 'You do not have permission to edit this team'}, status=403)
+    
+    if request.method == 'POST':
+        from .forms import TeamLogoForm
+        form = TeamLogoForm(request.POST, request.FILES, instance=team)
+        
+        if form.is_valid():
+            form.save()
+            return JsonResponse({
+                'success': True,
+                'logo_url': team.logo.url if team.logo else None,
+                'message': 'Team logo updated successfully!'
+            })
+        else:
+            errors = {field: str(form.errors[field]) for field in form.errors}
+            return JsonResponse({'success': False, 'errors': errors}, status=400)
+    
+    # GET request - return upload form
+    return JsonResponse({'error': 'POST request required'}, status=405)
 
 
 # ===== OFFSEASON MANAGEMENT VIEWS =====

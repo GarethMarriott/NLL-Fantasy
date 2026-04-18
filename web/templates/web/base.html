@@ -60,7 +60,11 @@
           </div>
         {% endif %}
         <div class="flex items-center p-2 space-x-4">
-          <img src="https://source.unsplash.com/100x100/?portrait" alt="" class="w-12 h-12 rounded-full dark:bg-gray-500">
+          {% if active_team.logo %}
+            <img src="{{ active_team.logo.url }}" alt="{{ active_team.name }} logo" class="w-12 h-12 rounded-full object-cover dark:bg-gray-500 border border-gray-300">
+          {% else %}
+            <img src="https://source.unsplash.com/100x100/?portrait" alt="" class="w-12 h-12 rounded-full dark:bg-gray-500">
+          {% endif %}
           <div id="user-info" data-user-id="{% if user.is_authenticated %}{{ user.id }}{% else %}null{% endif %}" data-username="{% if user.is_authenticated %}{{ user.username }}{% else %}guest{% endif %}">
             {% if user.is_authenticated %}
               <h2 class="text-lg font-semibold user-display-name">{{ user.username }}</h2>

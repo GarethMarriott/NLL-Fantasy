@@ -312,6 +312,12 @@ class Team(models.Model):
         default=0,
         help_text="Lower number = higher priority. Resets to last when claim succeeds"
     )
+    logo = models.ImageField(
+        upload_to='team_logos/',
+        null=True,
+        blank=True,
+        help_text="Team logo image (displayed as avatar)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

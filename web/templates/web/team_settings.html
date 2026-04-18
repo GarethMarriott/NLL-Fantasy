@@ -13,7 +13,7 @@
       Configure settings for your team: <span class="font-semibold">{{ team.name }}</span>
     </p>
 
-    <form method="post" class="space-y-6">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
       {% csrf_token %}
       
       <div class="bg-white border border-gray-200 rounded-lg p-4">
@@ -30,6 +30,26 @@
         <div class="text-sm text-gray-600">
           <p><strong>League:</strong> {{ team.league.name }}</p>
           <p><strong>Owner:</strong> {{ team.owner.user.username }}</p>
+        </div>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">Team Logo</h3>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Team Logo Image</label>
+          {% if team.logo %}
+            <div class="mb-4">
+              <img src="{{ team.logo.url }}" alt="{{ team.name }} logo" class="w-32 h-32 object-cover rounded border border-gray-200">
+            </div>
+          {% endif %}
+          {{ form.logo }}
+          {% if form.logo.help_text %}
+            <p class="text-gray-500 text-xs mt-1">{{ form.logo.help_text }}</p>
+          {% endif %}
+          {% if form.logo.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.logo.errors.0 }}</p>
+          {% endif %}
         </div>
       </div>
 
