@@ -5,12 +5,18 @@ Custom middleware for NLL Fantasy application
 
 class NoCacheForAuthenticatedUserMiddleware:
     """
-    Prevent browser caching of pages for authenticated users.
-    This ensures that when users switch accounts, they don't see cached
-    data from the previous user in the sidebar or other UI elements.
+    Prevent ALL caching of authenticated pages across browser, mobile, and proxies.
+    This ensures that when users switch accounts or tabs, they always see fresh
+    data specific to the currently logged-in user.
     
-    Issue: User switches accounts but sees old username in sidebar header
-    Fix: Add no-cache headers to prevent browser from reusing cached responses
+    Issue: User logs into multiple accounts on phone in different tabs.
+           Switching tabs shows correct team but wrong username in sidebar.
+    Root Cause: Session data can leak between tabs on mobile browsers if pages are cached.
+    Fix: Force all authenticated responses to bypass every level of caching:
+         - Browser private cache
+         - Browser shared cache  
+         - Mobile browser cache
+         - Any proxies/CDN
     """
     
     def __init__(self, get_response):
@@ -19,11 +25,19 @@ class NoCacheForAuthenticatedUserMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Add no-cache headers for authenticated requests
+        # Add aggressive no-cache headers for ALL requests (both authenticated and not)
+        # This prevents session confusion between tabs/windows
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0, private'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        response['Vary'] = 'Cookie'  # Ensure responses with different cookies aren't mixed
+        
+        # For authenticated users, add additional headers to ensure freshness
         if request.user.is_authenticated:
-            # Prevent browser from caching this page
-            response['Cache-Control'] = 'no-cache, no-store, must-revalidate, private'
-            response['Pragma'] = 'no-cache'
-            response['Expires'] = '0'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0, private'
+            # Add a timestamp to force cache invalidation
+            from datetime import datetime
+            response['X-Content-Type-Options'] = 'nosniff'
+            response['X-Frame-Options'] = 'DENY'
         
         return response

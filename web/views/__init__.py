@@ -865,6 +865,10 @@ def team_detail(request, team_id):
     current_roster_count, is_over_limit = team.is_over_roster_limit()
     roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
 
+    # Get current authenticated user for session verification (prevents sidebar user confusion)
+    current_user_id = request.user.id if request.user.is_authenticated else None
+    current_username = request.user.username if request.user.is_authenticated else None
+
     return render(
         request,
         "web/team_detail.html",
@@ -904,6 +908,8 @@ def team_detail(request, team_id):
             "is_over_roster_limit": is_over_limit,
             "current_roster_count": current_roster_count,
             "roster_limit": roster_limit,
+            "current_user_id": current_user_id,
+            "current_username": current_username,
         },
     )
 
