@@ -250,8 +250,8 @@ def home(request):
             except FantasyTeamOwner.DoesNotExist:
                 pass
     
-    # If not authenticated or no team, show a simple landing page
-    return render(request, "web/index.html", {})
+    # If not authenticated or no team, show the about page
+    return render(request, "web/about.html", {})
 
 
 def about(request):
