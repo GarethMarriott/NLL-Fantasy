@@ -5,7 +5,7 @@ from .views import (
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league, delete_league, remove_team_from_league,
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
     nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
-    manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500,
+    manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500, current_user_api,
     league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion
 )
 from .views.history import league_history, league_history_standings, league_history_matchups, league_history_playoffs, league_archives
@@ -95,6 +95,9 @@ urlpatterns = [
     path("bugs/<int:bug_id>/status/", update_bug_status, name="update_bug_status"),
     path("bugs/<int:bug_id>/note/", add_bug_note, name="add_bug_note"),
     path("api/bugs/report/", bug_report_api, name="bug_report_api"),
+    
+    # API Endpoints
+    path("api/current-user/", current_user_api, name="current_user_api"),
     
     # Cache Monitoring
     path("admin/cache-stats/", cache_stats, name="cache_stats"),

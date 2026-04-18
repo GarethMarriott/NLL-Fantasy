@@ -6381,6 +6381,28 @@ def handle_500(request):
     return render(request, '500.html', status=500)
 
 
+# ===== API ENDPOINTS =====
+def current_user_api(request):
+    """
+    Lightweight API endpoint that returns current user's info.
+    Used by JavaScript to verify session hasn't changed on cached pages.
+    Always returns fresh data based on current session.
+    """
+    if request.user.is_authenticated:
+        return JsonResponse({
+            'authenticated': True,
+            'user_id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email
+        })
+    else:
+        return JsonResponse({
+            'authenticated': False,
+            'user_id': None,
+            'username': 'guest'
+        })
+
+
 # ===== OFFSEASON MANAGEMENT VIEWS =====
 @login_required
 def league_offseason(request, league_id):
