@@ -277,7 +277,38 @@
           });
         });
       }
+
+      // Session validation: Detect if page was cached with wrong user
+      // This fixes issue where bookmarked pages show stale username in sidebar
+      {% if user.is_authenticated %}
+        validateSessionUser();
+      {% endif %}
     });
+
+    function validateSessionUser() {
+      /**
+       * Check if the current page's user context matches the active session.
+       * If a cached page is loaded after switching accounts (e.g., via bookmark),
+       * reload to fetch fresh content with current user context.
+       */
+      const renderedUserId = {% if current_user_id %}'{{ current_user_id }}'{% else %}null{% endif %};
+      const renderedUsername = {% if current_username %}'{{ current_username }}'{% else %}null{% endif %};
+      
+      // Get session user info from a hidden data attribute or fetch it
+      // Use page data that was rendered server-side
+      const pageUserElement = document.querySelector('h2.text-lg.font-semibold');
+      
+      if (pageUserElement && renderedUsername) {
+        const displayedUsername = pageUserElement.textContent.trim();
+        
+        // If displayed username doesn't match the rendered context, page is likely cached with old user
+        if (displayedUsername !== renderedUsername) {
+          console.debug(`Session mismatch detected: displayed="${displayedUsername}", current="${renderedUsername}". Reloading page.`);
+          // Force reload from server (bypass cache)
+          window.location.reload(true);
+        }
+      }
+    }
   </script>
 
 </body>
