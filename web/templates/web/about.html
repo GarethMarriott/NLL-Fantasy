@@ -157,18 +157,170 @@ function toggleDropdown(id) {
 }
 </script>
 {% endblock %}
-  <p>Welcome to NLL Fantasy, your go-to destination for managing and enjoying fantasy lacrosse.<br>
-   Our platform lets you view team rosters, track player statistics, follow schedules, and check<br>
-  league standings—all in one place. Whether you’re a seasoned fantasy player or just getting<br>
-  started, NLL Fantasy gives you the tools you need to compete and have fun. Good luck, and <br>
-  enjoy the season!
+{% extends "web/base.html" %}
+{% block title %}About — NLL Fantasy{% endblock %}
+{% block content %}
+<div class="container max-w-3xl mx-auto p-4 sm:p-6">
+  <h1 class="text-3xl font-bold mb-4">Welcome to NLL Fantasy</h1>
+  <p class="text-gray-600 dark:text-gray-400 mb-6">
+    Your go-to destination for managing and enjoying fantasy lacrosse. Whether you're a seasoned 
+    fantasy player or just getting started, NLL Fantasy gives you the tools you need to compete and 
+    have fun. Our goal is to grow this site into a full-featured fantasy lacrosse platform over 
+    time—helping fans get more involved, grow the game of lacrosse, and bring new fans to the NLL.
+  </p>
 
-  Our goal is to grow this site into a full-featured fantasy lacrosse platform over time—helping<br>
-  fans get more involved, grow the game of lacrosse, and bring new fans to the NLL.
+  <!-- Rosters Section -->
+  <section class="mb-8">
+    <h2 class="text-2xl font-semibold mb-4">Rosters</h2>
+    <p class="text-gray-700 dark:text-gray-300 mb-3">
+      Each fantasy team may carry a maximum of 12 players:
+    </p>
+    <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-2">
+      <li>11 Runners
+        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+          <li>Up to 6 Forwards</li>
+          <li>Up to 6 Defence</li>
+        </ul>
+      </li>
+      <li>1 Goalie</li>
+    </ul>
+  </section>
 
- <h2>Rosters</h2>
+  <!-- Scoring Dropdown -->
+  <section class="mb-8">
+    <button onclick="toggleDropdown('scoring')" class="flex items-center w-full p-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors">
+      <span>📊 How Scoring Works</span>
+      <span id="scoring-arrow" class="ml-auto">▼</span>
+    </button>
+    <div id="scoring" class="hidden bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Best Ball Scoring Format</h3>
+      <p class="text-gray-700 dark:text-gray-300 mb-4">
+        NLL Fantasy uses a Best Ball scoring format. Each week, only the highest-scoring players 
+        at each position contribute to your team's total score:
+      </p>
+      <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-2">
+        <li>Top 3 Forwards</li>
+        <li>Top 3 Defence</li>
+        <li>Top 1 Goalie</li>
+      </ul>
+      <p class="text-gray-700 dark:text-gray-300 mt-4">
+        <strong>Transition Players:</strong> Listed as Transition may count as either a Forward or Defence, 
+        depending on which position slot you have assigned them on your roster for that week.
+      </p>
+    </div>
+  </section>
 
-Each fantasy team may carry a maximum of 12 players: * Editable by Commissioner<br>
+  <!-- Dynasty vs Redraft Dropdown -->
+  <section class="mb-8">
+    <button onclick="toggleDropdown('dynasty')" class="flex items-center w-full p-4 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors">
+      <span>🔄 Dynasty vs Redraft</span>
+      <span id="dynasty-arrow" class="ml-auto">▼</span>
+    </button>
+    <div id="dynasty" class="hidden bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">League Type Explained</h3>
+      
+      <div class="mb-6">
+        <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">🔄 Redraft Leagues</h4>
+        <p class="text-gray-700 dark:text-gray-300">
+          Every season, all teams return to the draft and start fresh. Players are not retained from 
+          the previous season. This means each team has an equal opportunity to build their roster 
+          from scratch. Perfect for those who enjoy the excitement of the annual draft and want a 
+          level playing field each year.
+        </p>
+      </div>
+
+      <div>
+        <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">👑 Dynasty Leagues</h4>
+        <p class="text-gray-700 dark:text-gray-300">
+          Teams keep their players year to year, building a legacy roster. Each offseason, you can 
+          make trades, pick up rookies, and plan your dynasty. This creates more strategic depth 
+          as you manage your team over multiple seasons. Teams that manage well maintain competitive 
+          advantages, while newer teams must build through the draft and trades.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Best Ball vs Traditional Dropdown -->
+  <section class="mb-8">
+    <button onclick="toggleDropdown('bestball')" class="flex items-center w-full p-4 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors">
+      <span>🎯 Best Ball vs Traditional</span>
+      <span id="bestball-arrow" class="ml-auto">▼</span>
+    </button>
+    <div id="bestball" class="hidden bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Scoring Format Comparison</h3>
+      
+      <div class="mb-6">
+        <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">⚡ Best Ball</h4>
+        <p class="text-gray-700 dark:text-gray-300 mb-3">
+          <strong>Set it and forget it!</strong> You draft your team and submit your roster at the 
+          start of the week. Your score is then automatically calculated using only your highest-scoring 
+          players at each position.
+        </p>
+        <div class="bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300">
+          <strong>Key benefit:</strong> No need to manage weekly lineups. Your best players always count 
+          toward your score automatically.
+        </div>
+      </div>
+
+      <div>
+        <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">🎮 Traditional</h4>
+        <p class="text-gray-700 dark:text-gray-300 mb-3">
+          You actively choose your starting lineup each week. Only the players you select as starters 
+          contribute to your score. This requires more active management but rewards strategy and weekly 
+          decision-making.
+        </p>
+        <div class="bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300">
+          <strong>Key benefit:</strong> Complete control over your lineup. Maximize your score by strategically 
+          choosing who plays each week.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="bg-blue-50 dark:bg-gray-800 p-6 rounded-lg border border-blue-200 dark:border-gray-700 text-center">
+    {% if user.is_authenticated %}
+      <h3 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Ready to compete?</h3>
+      <p class="text-gray-700 dark:text-gray-300 mb-4">Head to your leagues or create a new one to get started.</p>
+      <a href="{% url 'league_list' %}" class="inline-block px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+        View Leagues →
+      </a>
+    {% else %}
+      <h3 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Get started today!</h3>
+      <p class="text-gray-700 dark:text-gray-300 mb-4">Sign up or log in to create your first fantasy lacrosse team.</p>
+      <div class="space-x-3">
+        <a href="{% url 'register' %}" class="inline-block px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+          Create Account
+        </a>
+        <a href="{% url 'login' %}" class="inline-block px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition-colors">
+          Sign In
+        </a>
+      </div>
+    {% endif %}
+  </section>
+</div>
+
+<script>
+function toggleDropdown(id) {
+  const element = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  
+  if (element.classList.contains('hidden')) {
+    element.classList.remove('hidden');
+    arrow.textContent = '▲';
+  } else {
+    element.classList.add('hidden');
+    arrow.textContent = '▼';
+  }
+}
+</script>
+
+
+
+
+
+
 
         11 Runners<br>
 
@@ -192,4 +344,4 @@ Players listed as Transition may count as either a Forward or Defence, depending
 which position slot you have assigned them on your roster for that week.<br>
 
   </p>
-{% endblock %}
+{% endblock %}{% endblock %}
