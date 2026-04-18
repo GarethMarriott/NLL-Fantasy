@@ -1,0 +1,11 @@
+{% if has_logo %}
+  <img src="{{ logo_url }}" alt="{{ team_name }}" 
+       class="{% if size == 'small' %}w-6 h-6{% elif size == 'medium' %}w-8 h-8{% else %}w-12 h-12{% endif %} rounded-full object-cover border border-gray-300"
+       title="{{ team_name }}">
+{% else %}
+  <div class="{% if size == 'small' %}w-6 h-6{% elif size == 'medium' %}w-8 h-8{% else %}w-12 h-12{% endif %} rounded-full flex items-center justify-center border border-gray-300 font-bold text-xs text-white"
+       style="background-color: {{ color }}"
+       title="{{ team_name }}">
+    {{ initials }}
+  </div>
+{% endif %}

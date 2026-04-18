@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load team_utils %}
 {% block title %}Matchups — NLL Fantasy{% endblock %}
 {% block content %}
   <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
@@ -44,11 +45,14 @@
                   {# Home Team Summary #}
                   <div class="flex flex-col items-start">
                     {% if game.home %}
-                      <h4 class="text-lg font-bold mb-0">
-                        <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
-                          {{ game.home.name }}
-                        </a>
-                      </h4>
+                      <div class="flex items-center gap-2 mb-2">
+                        {% team_avatar game.home "small" %}
+                        <h4 class="text-lg font-bold mb-0">
+                          <a href="{% url 'team_detail' game.home.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
+                            {{ game.home.name }}
+                          </a>
+                        </h4>
+                      </div>
                       {% if game.is_playoff %}
                         <span class="text-sm text-gray-600">{% if game.home_seed %}Seed #{{ game.home_seed }}{% endif %}</span>
                       {% endif %}
@@ -66,11 +70,14 @@
                   {# Away Team Summary #}
                   <div class="flex flex-col items-start">
                     {% if game.away %}
-                      <h4 class="text-lg font-bold mb-0">
-                        <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
-                          {{ game.away.name }}
-                        </a>
-                      </h4>
+                      <div class="flex items-center gap-2 mb-2">
+                        {% team_avatar game.away "small" %}
+                        <h4 class="text-lg font-bold mb-0">
+                          <a href="{% url 'team_detail' game.away.id %}" class="text-blue-600 hover:text-blue-800 hover:underline" onclick="event.stopPropagation()">
+                            {{ game.away.name }}
+                          </a>
+                        </h4>
+                      </div>
                       {% if game.is_playoff %}
                         <span class="text-sm text-gray-600">{% if game.away_seed %}Seed #{{ game.away_seed }}{% endif %}</span>
                       {% endif %}

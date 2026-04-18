@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load team_utils %}
 {% block title %}Standings — NLL Fantasy{% endblock %}
 {% block content %}
 <style>
@@ -178,6 +179,7 @@
                   </td>
                   <td class="px-3 py-2 text-left">
                     <div class="flex items-center gap-2">
+                      {% team_avatar row.team "small" %}
                       <a href="{% url 'team_detail' row.team.id %}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{{ row.team.name }}</a>
                       {% if row.playoff_seed %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-200 text-yellow-800">
@@ -227,11 +229,17 @@
                   {% for matchup in league_data.playoff_bracket.semifinals %}
                     <div class="matchup">
                       <div class="matchup-team {% if matchup.winner_id == matchup.team1.id %}winner{% endif %}">
-                        <span class="team-name">#{{ matchup.team1_seed }} {{ matchup.team1.name }}</span>
+                        <div class="flex items-center gap-1 flex-1">
+                          {% team_avatar matchup.team1 "small" %}
+                          <span class="team-name">#{{ matchup.team1_seed }} {{ matchup.team1.name }}</span>
+                        </div>
                         <span class="team-score">{{ matchup.team1_score|floatformat:1 }}</span>
                       </div>
                       <div class="matchup-team {% if matchup.winner_id == matchup.team2.id %}winner{% endif %}">
-                        <span class="team-name">#{{ matchup.team2_seed }} {{ matchup.team2.name }}</span>
+                        <div class="flex items-center gap-1 flex-1">
+                          {% team_avatar matchup.team2 "small" %}
+                          <span class="team-name">#{{ matchup.team2_seed }} {{ matchup.team2.name }}</span>
+                        </div>
                         <span class="team-score">{{ matchup.team2_score|floatformat:1 }}</span>
                       </div>
                     </div>
@@ -250,11 +258,17 @@
                 {% if league_data.playoff_bracket.final %}
                   <div class="matchup">
                     <div class="matchup-team {% if league_data.playoff_bracket.final.winner_id == league_data.playoff_bracket.final.team1.id %}winner{% endif %}">
-                      <span class="team-name">#{{ league_data.playoff_bracket.final.team1_seed }} {{ league_data.playoff_bracket.final.team1.name }}</span>
+                      <div class="flex items-center gap-1 flex-1">
+                        {% team_avatar league_data.playoff_bracket.final.team1 "small" %}
+                        <span class="team-name">#{{ league_data.playoff_bracket.final.team1_seed }} {{ league_data.playoff_bracket.final.team1.name }}</span>
+                      </div>
                       <span class="team-score">{{ league_data.playoff_bracket.final.team1_score|floatformat:1 }}</span>
                     </div>
                     <div class="matchup-team {% if league_data.playoff_bracket.final.winner_id == league_data.playoff_bracket.final.team2.id %}winner{% endif %}">
-                      <span class="team-name">#{{ league_data.playoff_bracket.final.team2_seed }} {{ league_data.playoff_bracket.final.team2.name }}</span>
+                      <div class="flex items-center gap-1 flex-1">
+                        {% team_avatar league_data.playoff_bracket.final.team2 "small" %}
+                        <span class="team-name">#{{ league_data.playoff_bracket.final.team2_seed }} {{ league_data.playoff_bracket.final.team2.name }}</span>
+                      </div>
                       <span class="team-score">{{ league_data.playoff_bracket.final.team2_score|floatformat:1 }}</span>
                     </div>
                   </div>
@@ -275,11 +289,17 @@
                 {% if league_data.playoff_bracket.third_place %}
                   <div class="matchup">
                     <div class="matchup-team {% if league_data.playoff_bracket.third_place.winner_id == league_data.playoff_bracket.third_place.team1.id %}winner{% endif %}">
-                      <span class="team-name">#{{ league_data.playoff_bracket.third_place.team1_seed }} {{ league_data.playoff_bracket.third_place.team1.name }}</span>
+                      <div class="flex items-center gap-1 flex-1">
+                        {% team_avatar league_data.playoff_bracket.third_place.team1 "small" %}
+                        <span class="team-name">#{{ league_data.playoff_bracket.third_place.team1_seed }} {{ league_data.playoff_bracket.third_place.team1.name }}</span>
+                      </div>
                       <span class="team-score">{{ league_data.playoff_bracket.third_place.team1_score|floatformat:1 }}</span>
                     </div>
                     <div class="matchup-team {% if league_data.playoff_bracket.third_place.winner_id == league_data.playoff_bracket.third_place.team2.id %}winner{% endif %}">
-                      <span class="team-name">#{{ league_data.playoff_bracket.third_place.team2_seed }} {{ league_data.playoff_bracket.third_place.team2.name }}</span>
+                      <div class="flex items-center gap-1 flex-1">
+                        {% team_avatar league_data.playoff_bracket.third_place.team2 "small" %}
+                        <span class="team-name">#{{ league_data.playoff_bracket.third_place.team2_seed }} {{ league_data.playoff_bracket.third_place.team2.name }}</span>
+                      </div>
                       <span class="team-score">{{ league_data.playoff_bracket.third_place.team2_score|floatformat:1 }}</span>
                     </div>
                   </div>

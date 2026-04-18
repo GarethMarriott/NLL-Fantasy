@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load team_utils %}
 {% block title %}{{ league.name }} - {{ year }} Matchups{% endblock %}
 
 {% block content %}
@@ -28,7 +29,10 @@
           <div class="flex items-center justify-between">
             <!-- Home Team -->
             <div class="flex-1 text-center pr-4">
-              <div class="font-bold text-lg">{{ matchup.home_team.name }}</div>
+              <div class="flex items-center justify-center gap-2 mb-2">
+                {% team_avatar matchup.home_team "small" %}
+                <div class="font-bold text-lg">{{ matchup.home_team.name }}</div>
+              </div>
               <div class="text-sm text-gray-500">{{ matchup.home_team.owner.user.username }}</div>
               <div class="text-3xl font-bold mt-2
                 {% if matchup.winner == matchup.home_team %}
@@ -57,7 +61,10 @@
 
             <!-- Away Team -->
             <div class="flex-1 text-center pl-4">
-              <div class="font-bold text-lg">{{ matchup.away_team.name }}</div>
+              <div class="flex items-center justify-center gap-2 mb-2">
+                {% team_avatar matchup.away_team "small" %}
+                <div class="font-bold text-lg">{{ matchup.away_team.name }}</div>
+              </div>
               <div class="text-sm text-gray-500">{{ matchup.away_team.owner.user.username }}</div>
               <div class="text-3xl font-bold mt-2
                 {% if matchup.winner == matchup.away_team %}
