@@ -18,15 +18,31 @@ def selected_league(request):
     # Check if user is in any league
     user_has_league = False
     active_team = None
+    sidebar_owners = []
     if request.user.is_authenticated:
-        user_has_league = FantasyTeamOwner.objects.filter(user=request.user).exists()
+        owners_by_league = {}
+        owners = FantasyTeamOwner.objects.filter(user=request.user).select_related('team__league')
+        for owner in owners:
+            team_league = owner.team.league
+            if not team_league:
+                continue
+
+            existing_owner = owners_by_league.get(team_league.id)
+            if (
+                existing_owner is None
+                or owner.team.season_year == team_league.season
+            ):
+                owners_by_league[team_league.id] = owner
+
+        sidebar_owners = sorted(
+            owners_by_league.values(),
+            key=lambda owner: owner.team.league.name.lower(),
+        )
+        user_has_league = bool(sidebar_owners)
         
         # Get the user's team in the selected league if available
         if selected_league_id:
-            owner = FantasyTeamOwner.objects.filter(
-                user=request.user,
-                team__league_id=selected_league_id
-            ).select_related('team').first()
+            owner = owners_by_league.get(selected_league_id)
             if owner:
                 active_team = owner.team
     
@@ -37,14 +53,8 @@ def selected_league(request):
         if 'chat_last_read' not in request.session:
             request.session['chat_last_read'] = {}
         
-        # Get user's team
-        owner = FantasyTeamOwner.objects.filter(
-            user=request.user,
-            team__league_id=selected_league_id
-        ).select_related('team').first()
-        
-        if owner:
-            user_team = owner.team
+        if active_team:
+            user_team = active_team
             chat_last_read = request.session.get('chat_last_read', {})
             
             # Check league chat for unread
@@ -106,6 +116,7 @@ def selected_league(request):
     return {
         'selected_league': league,
         'user_has_league': user_has_league,
+        'sidebar_owners': sidebar_owners,
         'active_team': active_team,
         'total_unread_chats': total_unread_chats
     }
