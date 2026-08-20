@@ -928,7 +928,7 @@ def team_detail(request, team_id):
             "ir_slots_count": ir_slots_count,
             "ineligible_ir_players": ineligible_ir_players,
             "week_range": [selected_week_num],  # Only show selected week
-            "selected_week": selected_week_num,
+            "selected_week": None if is_viewing_current_roster else selected_week_num,
             "league_season": league_season,
             "is_viewing_current_roster": is_viewing_current_roster,
             "selected_week_obj": selected_week_obj,
