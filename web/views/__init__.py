@@ -4574,14 +4574,12 @@ def league_create(request):
 def league_detail(request, league_id):
     """View league details and teams"""
     league = get_object_or_404(League, id=league_id)
-    teams = league.teams.select_related('owner__user').all()
+    teams = league.teams.select_related('owner__user').filter(season_year=league.season)
+    if not teams.exists():
+        teams = league.teams.select_related('owner__user').filter(season_year__isnull=True)
     
     # Check if user owns a team in this league
-    user_team = None
-    try:
-        user_team = teams.get(owner__user=request.user)
-    except Team.DoesNotExist:
-        pass
+    user_team = teams.filter(owner__user=request.user).first()
     
     is_commissioner = league.commissioner == request.user
     can_join = not user_team and teams.count() < league.max_teams
