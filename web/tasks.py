@@ -2,6 +2,8 @@ from celery import shared_task
 from django.core.mail import send_mail
 from django.utils import timezone
 from django.contrib.sessions.models import Session
+from django.db import transaction
+from django.db.models import Q
 from datetime import timedelta
 import logging
 import sys
@@ -274,6 +276,7 @@ def archive_old_leagues():
         raise
 
 
+@transaction.atomic
 def renew_league(league_id):
     """
     Renew a completed league for the next season.
@@ -321,25 +324,33 @@ def renew_league(league_id):
             
             # Calculate final standings JSON snapshot
             standings_data = []
-            current_teams = Team.objects.filter(league=league, season_year=current_season).order_by('-id')
+            current_teams = Team.objects.filter(league=league).filter(
+                Q(season_year=current_season) | Q(season_year__isnull=True)
+            ).order_by('-id')
             
             for team in current_teams:
+                owner = getattr(team, 'owner', None)
                 team_data = {
                     'team_id': team.id,
                     'team_name': team.name,
-                    'owner': team.owner.user.username if team.owner else 'Unknown'
+                    'owner': owner.user.username if owner else 'Unknown'
                 }
                 standings_data.append(team_data)
             
-            # Create history record
-            league_history = LeagueHistory.objects.create(
+            # A prior failed renewal may have already created the archive.
+            league_history, created = LeagueHistory.objects.get_or_create(
                 league=league,
                 season_year=current_season,
-                champion=champion,
-                final_standings={'teams': standings_data}
+                defaults={
+                    'champion': champion,
+                    'final_standings': {'teams': standings_data},
+                },
             )
-            
-            logger.info(f"[RENEWAL] Created LeagueHistory for season {current_season}")
+
+            logger.info(
+                f"[RENEWAL] {'Created' if created else 'Reused'} LeagueHistory "
+                f"for season {current_season}"
+            )
             
         except Exception as e:
             logger.error(f"[RENEWAL] Failed to create LeagueHistory: {str(e)}")
@@ -350,27 +361,29 @@ def renew_league(league_id):
         # ============================================================================
         try:
             from web.models import FantasyTeamOwner
-            old_teams = Team.objects.filter(league=league, season_year=current_season)
+            old_teams = Team.objects.filter(league=league).filter(
+                Q(season_year=current_season) | Q(season_year__isnull=True)
+            )
             logger.info(f"[RENEWAL] Found {old_teams.count()} teams in season {current_season}")
             
             for old_team in old_teams:
                 # Create new team for next season with same owner and name
-                new_team = Team.objects.create(
+                new_team, created = Team.objects.get_or_create(
                     league=league,
                     name=old_team.name,
                     season_year=new_season,
-                    waiver_priority=12 if league.use_waivers else 0  # Reset waiver priority
+                    defaults={'waiver_priority': 12 if league.use_waivers else 0},
                 )
                 
                 # Link the new team to the same owner as the old team
                 if hasattr(old_team, 'owner') and old_team.owner:
-                    FantasyTeamOwner.objects.create(
+                    FantasyTeamOwner.objects.get_or_create(
                         user=old_team.owner.user,
                         team=new_team
                     )
-                    logger.info(f"[RENEWAL] Created new team '{new_team.name}' for {old_team.owner.user.username}")
+                    logger.info(f"[RENEWAL] {'Created' if created else 'Reused'} team '{new_team.name}' for {old_team.owner.user.username}")
                 else:
-                    logger.info(f"[RENEWAL] Created new team '{new_team.name}' (no owner)")
+                    logger.info(f"[RENEWAL] {'Created' if created else 'Reused'} team '{new_team.name}' (no owner)")
             
         except Exception as e:
             logger.error(f"[RENEWAL] Failed to create new teams: {str(e)}")
@@ -380,27 +393,8 @@ def renew_league(league_id):
         # 3. HANDLE ROSTERS BASED ON LEAGUE TYPE
         # ============================================================================
         if league.league_type == 'redraft':
-            logger.info(f"[RENEWAL] Re-Draft league: Clearing all old rosters for new season")
-            # Re-draft: DELETE all old rosters so teams start empty for draft
-            try:
-                old_rosters = Roster.objects.filter(
-                    team__in=old_teams,
-                    season_year=current_season
-                )
-                deleted_count, _ = old_rosters.delete()
-                logger.info(f"[RENEWAL] Deleted {deleted_count} old roster entries")
-                
-                # Also clear taxi squad for redraft
-                old_taxi = TaxiSquad.objects.filter(
-                    team__in=old_teams,
-                    player__isnull=False
-                )
-                taxi_deleted, _ = old_taxi.delete()
-                logger.info(f"[RENEWAL] Deleted {taxi_deleted} old taxi squad entries")
-                
-            except Exception as e:
-                logger.error(f"[RENEWAL] Failed to clear old rosters: {str(e)}")
-                raise
+            # New-season teams begin empty; retain old roster records for archives.
+            logger.info(f"[RENEWAL] Re-Draft league: Created empty teams for season {new_season}")
             
         elif league.league_type == 'dynasty':
             logger.info(f"[RENEWAL] Dynasty league: Transferring rosters to new season")
@@ -410,14 +404,19 @@ def renew_league(league_id):
                     new_team = Team.objects.get(league=league, season_year=new_season, name=old_team.name)
                     
                     # Transfer all roster entries
-                    old_rosters = Roster.objects.filter(team=old_team, season_year=current_season)
+                    old_rosters = Roster.objects.filter(
+                        team=old_team,
+                        league=league,
+                        season=current_season,
+                    )
                     transferred_count = 0
                     
                     for old_roster in old_rosters:
                         Roster.objects.create(
                             team=new_team,
                             player=old_roster.player,
-                            season_year=new_season,
+                            league=league,
+                            season=new_season,
                             slot_assignment=old_roster.slot_assignment if old_roster.slot_assignment else None
                         )
                         transferred_count += 1
@@ -432,7 +431,8 @@ def renew_league(league_id):
                             Roster.objects.create(
                                 team=new_team,
                                 player=taxi_entry.player,
-                                season_year=new_season
+                                league=league,
+                                season=new_season
                             )
                             taxi_moved += 1
                     
@@ -467,7 +467,7 @@ def renew_league(league_id):
             # For redraft leagues: lock all NEW rosters during draft period
             if league.league_type == 'redraft':
                 new_teams = Team.objects.filter(league=league, season_year=new_season)
-                rosters = Roster.objects.filter(team__in=new_teams, season_year=new_season)
+                rosters = Roster.objects.filter(team__in=new_teams, season=new_season)
                 rosters.update(is_locked=True, locked_reason='draft_in_progress')
                 logger.info(f"[RENEWAL] Locked {rosters.count()} new rosters for draft period")
             
@@ -486,11 +486,18 @@ def renew_league(league_id):
                 Draft.objects.filter(league=league).delete()
                 
                 # Calculate draft order from previous season standings (worst to best)
-                draft_order_teams = _calculate_draft_order_from_standings(league, current_season)
+                previous_season_order = _calculate_draft_order_from_standings(league, current_season)
+                new_teams = list(Team.objects.filter(league=league, season_year=new_season).order_by('id'))
+                new_teams_by_name = {team.name: team for team in new_teams}
+                draft_order_teams = [
+                    new_teams_by_name[team.name]
+                    for team in previous_season_order or []
+                    if team.name in new_teams_by_name
+                ]
                 
                 # If no standings data or calculation failed, use team creation order
                 if not draft_order_teams:
-                    draft_order_teams = list(Team.objects.filter(league=league, season_year=new_season).order_by('id'))
+                    draft_order_teams = new_teams
                     logger.info(f"[RENEWAL] No standings data, using team creation order for draft")
                 else:
                     logger.info(f"[RENEWAL] Draft order from standings: {' → '.join([t.name for t in draft_order_teams])}")
@@ -544,6 +551,7 @@ def renew_league(league_id):
         return None
     
     except Exception as e:
+        transaction.set_rollback(True)
         logger.error(f"[RENEWAL] ✗ Error renewing league {league_id}: {str(e)}")
         import traceback
         traceback.print_exc()
@@ -1007,7 +1015,9 @@ def _calculate_draft_order_from_standings(league, season_year):
     
     try:
         # Get all teams
-        teams = list(Team.objects.filter(league=league).order_by('id'))
+        teams = list(Team.objects.filter(league=league).filter(
+            Q(season_year=season_year) | Q(season_year__isnull=True)
+        ).order_by('id'))
         if not teams:
             return None
         
@@ -1060,7 +1070,7 @@ def _calculate_draft_order_from_standings(league, season_year):
         
         # Get all rosters with related stats
         all_rosters = list(
-            Roster.objects.filter(team__in=teams, season_year=season_year, player__active=True)
+            Roster.objects.filter(team__in=teams, league=league, season=season_year, player__active=True)
             .select_related("player", "team")
             .prefetch_related("player__game_stats__game__week")
         )
