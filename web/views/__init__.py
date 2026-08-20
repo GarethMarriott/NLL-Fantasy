@@ -298,25 +298,36 @@ def team_detail(request, team_id):
     
     # Get all available weeks for dropdown - filter by league's season
     league_season = league.season
-    available_weeks = list(Week.objects.filter(season=league_season).order_by('week_number'))
+    fantasy_championship_week = 20
+    fantasy_playoff_start_week = league.get_playoff_start_week()
+    available_weeks = list(
+        Week.objects.filter(
+            season=league_season,
+            week_number__lte=fantasy_championship_week,
+        ).order_by('week_number')
+    )
+    for week in available_weeks:
+        week.is_fantasy_playoff = fantasy_playoff_start_week <= week.week_number <= fantasy_championship_week
     
     # Add future week placeholders (up to week 20 for NLL season)
     if available_weeks:
         max_week = available_weeks[-1].week_number
-        for future_week_num in range(max_week + 1, 21):
+        for future_week_num in range(max_week + 1, fantasy_championship_week + 1):
             # Create a placeholder dict for future weeks
             available_weeks.append({
                 'week_number': future_week_num,
                 'season': league_season,
-                'is_future': True
+                'is_future': True,
+                'is_fantasy_playoff': fantasy_playoff_start_week <= future_week_num <= fantasy_championship_week,
             })
     else:
         # No weeks exist yet, create placeholders for weeks 1-20
-        for week_num in range(1, 21):
+        for week_num in range(1, fantasy_championship_week + 1):
             available_weeks.append({
                 'week_number': week_num,
                 'season': league_season,
-                'is_future': True
+                'is_future': True,
+                'is_fantasy_playoff': fantasy_playoff_start_week <= week_num <= fantasy_championship_week,
             })
     
     # Find the next unlocked week (where roster changes are allowed)
@@ -325,7 +336,10 @@ def team_detail(request, team_id):
     
     # Find the next unlocked week
     next_unlocked_week = None
-    all_weeks = Week.objects.filter(season=league_season).order_by('week_number')
+    all_weeks = Week.objects.filter(
+        season=league_season,
+        week_number__lte=fantasy_championship_week,
+    ).order_by('week_number')
     for w in all_weeks:
         if not w.is_locked():
             next_unlocked_week = w
@@ -339,6 +353,7 @@ def team_detail(request, team_id):
         # No unlocked weeks - fall back to first future week
         future_week = Week.objects.filter(
             season=league_season,
+            week_number__lte=fantasy_championship_week,
             start_date__gt=current_date
         ).order_by('week_number').first()
         
@@ -356,6 +371,8 @@ def team_detail(request, team_id):
         try:
             selected_week_num = int(selected_week_num)
         except (ValueError, TypeError):
+            selected_week_num = default_week_num
+        if not 1 <= selected_week_num <= fantasy_championship_week:
             selected_week_num = default_week_num
     else:
         selected_week_num = default_week_num

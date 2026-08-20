@@ -38,7 +38,7 @@
           <option value="current" {% if is_viewing_current_roster %}selected{% endif %}>Current Roster</option>
           {% for week in available_weeks %}
             <option value="{{ week.week_number }}" {% if week.week_number == selected_week %}selected{% endif %}>
-              Week {{ week.week_number }} ({{ week.start_date|date:"M d, Y" }})
+              Week {{ week.week_number }}{% if week.is_fantasy_playoff %} - Playoffs{% endif %} ({{ week.start_date|date:"M d, Y" }})
             </option>
           {% endfor %}
         </select>
