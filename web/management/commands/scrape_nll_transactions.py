@@ -105,6 +105,16 @@ def scrape_nll_transactions_task():
                                 
                                 if created:
                                     transactions_saved += 1
+                                else:
+                                    update_fields = []
+                                    if not transaction.from_team and from_team:
+                                        transaction.from_team = from_team
+                                        update_fields.append('from_team')
+                                    if not transaction.to_team and to_team:
+                                        transaction.to_team = to_team
+                                        update_fields.append('to_team')
+                                    if update_fields:
+                                        transaction.save(update_fields=update_fields)
                     
                     next_elem = next_elem.find_next_sibling()
             
@@ -206,9 +216,12 @@ def extract_team_names(transaction_text):
     """Extract team names from transaction text"""
     # Common NLL team names
     nll_teams = [
-        'Buffalo Bandits', 'Georgia Swarm', 'Las Vegas Desert Dogs', 'New York Knights',
-        'San Diego Seals', 'Toronto Rock', 'Colorado Mammoth', 'Albany FireWolves',
-        'Ottawa Titans', 'Calgary Roughnecks', 'Rochester Knighthawks',
+        'Albany FireWolves', 'Buffalo Bandits', 'Calgary Roughnecks',
+        'Colorado Mammoth', 'Georgia Swarm', 'Halifax Thunderbirds',
+        'Las Vegas Desert Dogs', 'New York Knights', 'New York Riptide',
+        'Ottawa Titans', 'Philadelphia Wings', 'Rochester Knighthawks',
+        'San Diego Seals', 'Saskatchewan Rush', 'Toronto Rock',
+        'Vancouver Warriors',
     ]
     
     found_teams = []
