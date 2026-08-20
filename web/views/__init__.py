@@ -24,6 +24,30 @@ def get_team_abbr(team_name):
     return TEAM_ABBREVIATIONS.get(team_name, team_name[:3].upper() if team_name else "")
 
 
+def is_dynasty_offseason(league):
+    """Return whether the league is outside the Week 1-21 regular season."""
+    if league.league_type != 'dynasty':
+        return False
+
+    league_season = league.season
+    weeks = Week.objects.filter(season=league_season).order_by('week_number')
+    first_week = weeks.first()
+    last_week = weeks.last()
+    today = timezone.now().date()
+
+    return (
+        league.status == 'season_complete'
+        or not first_week
+        or (first_week and today < first_week.start_date)
+        or (last_week and last_week.week_number >= 21 and today > last_week.end_date)
+    )
+
+
+def dynasty_offseason_rosters_are_open(league):
+    """Return whether a commissioner's dynasty offseason roster setting is effective."""
+    return league.offseason_rosters_open and is_dynasty_offseason(league)
+
+
 def post_league_message(league, message_text):
     """Post a system message to league chat"""
     ChatMessage.objects.create(
@@ -59,8 +83,8 @@ def check_roster_capacity(team, position, exclude_player=None):
     """
     Check if a team has room to add a player to a specific position.
     
-    For traditional leagues: Enforces per-position limits (O, D, G slots)
-    For best ball leagues: Only enforces total roster size (no position limits)
+    Enforces configured per-position limits (O, D, G) for all roster formats.
+    Best-ball rosters do not require starter-slot assignments.
     
     Args:
         team: Team object
@@ -72,28 +96,12 @@ def check_roster_capacity(team, position, exclude_player=None):
     """
     is_best_ball = team.league.roster_format == 'bestball'
     
-    # For best ball, only check total roster size (not position-specific)
-    if is_best_ball and position != 'IR':
-        # Count all active players excluding IR
-        query = Roster.objects.filter(
-            team=team,
-            league=team.league,
-            week_dropped__isnull=True
-        ).exclude(slot_assignment='ir')
-        
-        if exclude_player:
-            query = query.exclude(player=exclude_player)
-        
-        total_count = query.count()
-        max_roster = team.league.roster_size if hasattr(team.league, 'roster_size') else 12
-        
-        return total_count < max_roster, total_count, max_roster
-    
     # For IR slots in best ball, check IR capacity separately
     if is_best_ball and position == 'IR':
         query = Roster.objects.filter(
             team=team,
             league=team.league,
+            season=team.league.season,
             week_dropped__isnull=True,
             slot_assignment='ir'
         )
@@ -105,10 +113,11 @@ def check_roster_capacity(team, position, exclude_player=None):
         max_ir = team.league.ir_slots if hasattr(team.league, 'ir_slots') else 0
         return ir_count < max_ir, ir_count, max_ir
     
-    # For traditional leagues, enforce position-based capacity
+    # Enforce position-based capacity for active roster entries.
     query = Roster.objects.filter(
         team=team,
         league=team.league,
+        season=team.league.season,
         week_dropped__isnull=True
     ).exclude(slot_assignment='ir').select_related('player')
     
@@ -177,6 +186,7 @@ def auto_assign_to_starter_slot(roster_entry):
     existing_roster = Roster.objects.filter(
         team=team,
         league=league,
+        season=league.season,
         week_dropped__isnull=True
     ).select_related('player').exclude(id=roster_entry.id)
     
@@ -268,7 +278,7 @@ def team_detail(request, team_id):
     league = team.league if team.league else League()
     
     # Get all available weeks for dropdown - filter by league's season
-    league_season = league.created_at.year if league.created_at else timezone.now().year
+    league_season = league.season
     available_weeks = list(Week.objects.filter(season=league_season).order_by('week_number'))
     
     # Add future week placeholders (up to week 20 for NLL season)
@@ -318,9 +328,12 @@ def team_detail(request, team_id):
         else:
             default_week_num = 1
     
-    # Get selected week from query params
-    selected_week_num = request.GET.get('week')
-    if selected_week_num:
+    # An omitted week always means the roster as it exists now. A specific week
+    # is a historical snapshot, while its score column still uses that week.
+    requested_week = request.GET.get('week')
+    is_viewing_current_roster = requested_week in (None, '', 'current')
+    selected_week_num = requested_week
+    if not is_viewing_current_roster:
         try:
             selected_week_num = int(selected_week_num)
         except (ValueError, TypeError):
@@ -334,12 +347,12 @@ def team_detail(request, team_id):
         week_number=selected_week_num
     ).first()
     
-    # Determine if viewing a past/locked week (disable buttons)
+    # Determine if viewing a past/locked week (disable roster changes)
     # A week is locked if its start_date has already passed
     is_viewing_past_week = False
-    if selected_week_obj:
+    if not is_viewing_current_roster and selected_week_obj:
         is_viewing_past_week = selected_week_obj.start_date <= current_date
-    elif selected_week_num < default_week_num:
+    elif not is_viewing_current_roster and selected_week_num < default_week_num:
         # If week object doesn't exist but week number is before default, it's a past week
         is_viewing_past_week = True
     
@@ -353,26 +366,25 @@ def team_detail(request, team_id):
 
     players_by_position = {"O": [], "D": [], "G": [], "T": []}
     
-    # determine most recent season available for weekly breakdown
-    recent_week = Week.objects.order_by("-season", "-week_number").first()
-    season = recent_week.season if recent_week else None
+    season = league_season
 
-    # Keep players in order of their slot assignment (for traditional leagues)
-    # Get players through roster entries for this team's league
-    # Filter to show only players who were on the roster during the selected week
+    # Keep players in order of their slot assignment (for traditional leagues).
+    # Current roster is the live assignment; a requested week is a snapshot.
     from django.db.models import Q
     
     # CRITICAL: Filter by league since team can have rosters in multiple leagues
     roster = team.roster_entries.select_related('player').prefetch_related(
         'player__game_stats__game__week'
-    ).filter(
-        league=league,
-        player__active=True
-    ).filter(
-        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
-    ).filter(
-        Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
-    ).order_by("player__updated_at", "player__id")
+    ).filter(league=league, season=league_season)
+    if is_viewing_current_roster:
+        roster = roster.filter(week_dropped__isnull=True)
+    else:
+        roster = roster.filter(
+            Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
+        ).filter(
+            Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
+        )
+    roster = roster.order_by("player__updated_at", "player__id")
     
     # OPTIMIZATION: Build stats index once at view level instead of filtering per-player
     # Index stats by (player_id, week_id) for O(1) lookups
@@ -457,7 +469,7 @@ def team_detail(request, team_id):
             if game:
                 opponent = f"{game.away_team} @ {game.home_team}"
         
-        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 21, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
+        entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 21, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent, "is_off_roster": is_viewing_past_week and roster_entry.week_dropped is not None}
 
         pos = getattr(p, "position", None)
         side = getattr(p, "assigned_side", None)
@@ -471,12 +483,16 @@ def team_detail(request, team_id):
     # CRITICAL: Must filter by league since team can have rosters in multiple leagues
     roster_with_slots = team.roster_entries.select_related('player').filter(
         league=league,
-        player__active=True
-    ).filter(
-        Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
-    ).filter(
-        Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
+        season=league_season,
     )
+    if is_viewing_current_roster:
+        roster_with_slots = roster_with_slots.filter(week_dropped__isnull=True)
+    else:
+        roster_with_slots = roster_with_slots.filter(
+            Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
+        ).filter(
+            Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
+        )
     
     # Create a mapping of player_id to slot_assignment
     player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
@@ -597,12 +613,17 @@ def team_detail(request, team_id):
         # This is more reliable than trying to derive from remaining position players
         ir_roster_entries = team.roster_entries.select_related('player').filter(
             league=league,
-            player__active=True,
-            week_dropped__isnull=True,
+            season=league_season,
             slot_assignment='ir'
-        ).filter(
-            Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
         )
+        if is_viewing_current_roster:
+            ir_roster_entries = ir_roster_entries.filter(week_dropped__isnull=True)
+        else:
+            ir_roster_entries = ir_roster_entries.filter(
+                Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
+            ).filter(
+                Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
+            )
         
         # Build IR slot entries similar to starter slots
         ir_slots = []
@@ -645,7 +666,7 @@ def team_detail(request, team_id):
                 if game:
                     opponent = f"{game.away_team} @ {game.home_team}"
             
-            entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 21, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent}
+            entry = {"player": p, "latest_stat": latest, "weekly_points": weekly_points, "weeks_total": total_points, "counts_for_total": [False] * 21, "selected_week_points": weekly_points[selected_week_num - 1] if selected_week_num <= len(weekly_points) else None, "opponent": opponent, "is_off_roster": is_viewing_past_week and roster_entry.week_dropped is not None}
             ir_slots.append(entry)
         
         # Pad with None to reach desired IR count
@@ -787,6 +808,7 @@ def team_detail(request, team_id):
         roster_entry = Roster.objects.filter(
             player=player,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True  # Only check current roster assignments
         ).select_related('team').first()
         players_with_teams.append({
@@ -868,6 +890,8 @@ def team_detail(request, team_id):
     # Get current authenticated user for session verification (prevents sidebar user confusion)
     current_user_id = request.user.id if request.user.is_authenticated else None
     current_username = request.user.username if request.user.is_authenticated else None
+    offseason_roster_moves_open = dynasty_offseason_rosters_are_open(league)
+    roster_status = (True, "Dynasty offseason rosters are open", None) if offseason_roster_moves_open else team.can_make_roster_changes(selected_week_obj)
 
     return render(
         request,
@@ -886,13 +910,16 @@ def team_detail(request, team_id):
             "ineligible_ir_players": ineligible_ir_players,
             "week_range": [selected_week_num],  # Only show selected week
             "selected_week": selected_week_num,
+            "league_season": league_season,
+            "is_viewing_current_roster": is_viewing_current_roster,
             "selected_week_obj": selected_week_obj,
             "available_weeks": available_weeks,
             "current_week": default_week_num,
             "selected_week_total": selected_week_total,
             "overall_total": overall_total,
             "players_for_select": players_with_teams,
-            "roster_status": team.can_make_roster_changes(selected_week_obj),
+            "roster_status": roster_status,
+            "offseason_roster_moves_open": offseason_roster_moves_open,
             "is_viewing_past_week": is_viewing_past_week,
             "pending_waiver_claims": pending_waiver_claims,
             "pending_trades": pending_trades,
@@ -1008,14 +1035,6 @@ def assign_player(request, team_id):
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
-    # Check if league is season_complete - rosters are locked
-    if team.league.status == 'season_complete':
-        error_msg = "This league has completed its season. Rosters are locked. Only the commissioner can renew the league for next year."
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'success': False, 'error': error_msg}, status=403)
-        messages.error(request, error_msg)
-        return redirect("team_detail", team_id=team.id)
-    
     # Check league settings for waiver status
     use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
     
@@ -1044,9 +1063,25 @@ def assign_player(request, team_id):
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
+
+    offseason_roster_moves_open = dynasty_offseason_rosters_are_open(team.league)
+    if team.league.status == 'season_complete' and not offseason_roster_moves_open:
+        error_msg = "This league has completed its season. Rosters are locked. Only the commissioner can renew the league for next year."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=403)
+        messages.error(request, error_msg)
+        return redirect("team_detail", team_id=team.id)
+
+    if offseason_roster_moves_open:
+        if action not in {'add', 'drop', 'swap'}:
+            messages.error(request, "Only player adds and drops are available while offseason rosters are open.")
+            return redirect("team_detail", team_id=team.id)
+        if player.is_rookie:
+            messages.error(request, "Rookies cannot be added or dropped while offseason rosters are open.")
+            return redirect("team_detail", team_id=team.id)
     
     # Check if roster changes are allowed - find the next unlocked week
-    league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
+    league_season = team.league.season
     
     # Get the current/active week (where today falls between start and end)
     from django.db.models import Q
@@ -1079,19 +1114,19 @@ def assign_player(request, team_id):
     
     # If rosters are locked and waivers are enabled, redirect to waiver claim process
     # EXCEPT for drop actions, which should always be allowed
-    if rosters_are_locked and use_waivers and action != "drop":
+    if not offseason_roster_moves_open and rosters_are_locked and use_waivers and action != "drop":
         # Redirect to waiver claim submission instead
         return redirect('submit_waiver_claim', team_id=team_id)
     
     # If rosters are locked and waivers are NOT enabled, prevent any roster moves (except drops)
-    if rosters_are_locked and not use_waivers and action != "drop":
+    if not offseason_roster_moves_open and rosters_are_locked and not use_waivers and action != "drop":
         error_msg = "Roster Moves not Allowed While Rosters are Locked"
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
-    if not next_unlocked_week:
+    if not offseason_roster_moves_open and not next_unlocked_week:
         # No unlocked weeks available and no waivers enabled
         error_msg = "All weeks are currently locked. No roster changes allowed."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1101,7 +1136,7 @@ def assign_player(request, team_id):
     
     # Verify changes are allowed for this week
     can_change, message, locked_until = team.can_make_roster_changes(next_unlocked_week)
-    if not can_change:
+    if not offseason_roster_moves_open and not can_change:
         # Use custom message for locked rosters
         if "locked" in message.lower():
             messages.error(request, "Roster Moves not Allowed While Rosters are Locked")
@@ -1125,7 +1160,11 @@ def assign_player(request, team_id):
     except Player.DoesNotExist:
         return redirect("team_detail", team_id=team.id)
 
-    next_week_number = next_unlocked_week.week_number
+    if offseason_roster_moves_open:
+        last_week = all_weeks.last()
+        next_week_number = 22 if team.league.status == 'season_complete' or (last_week and last_week.week_number >= 21 and today > last_week.end_date) else 1
+    else:
+        next_week_number = next_unlocked_week.week_number
     slot_group = request.POST.get("slot_group")
     
     if action == "swap":
@@ -1140,12 +1179,17 @@ def assign_player(request, team_id):
         except Player.DoesNotExist:
             messages.error(request, "Player to drop not found.")
             return redirect("players")
+
+        if offseason_roster_moves_open and drop_player.is_rookie:
+            messages.error(request, "Rookies cannot be added or dropped while offseason rosters are open.")
+            return redirect("players")
         
         # Verify the drop player is on the user's roster
         drop_roster = Roster.objects.filter(
             player=drop_player,
             team=team,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).first()
         
@@ -1173,6 +1217,7 @@ def assign_player(request, team_id):
         existing_roster = Roster.objects.filter(
             player=player,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).select_related('team').first()
         
@@ -1191,6 +1236,7 @@ def assign_player(request, team_id):
             player=player,
             team=team,
             league=team.league,
+            season=league_season,
             week_added=next_week_number
         )
         # Auto-assign to starter slot if traditional league
@@ -1215,6 +1261,7 @@ def assign_player(request, team_id):
         current_roster_count = Roster.objects.filter(
             team=team,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).exclude(slot_assignment='ir').count()
         
@@ -1240,33 +1287,7 @@ def assign_player(request, team_id):
             # Check position-specific capacity
             # For traditional leagues, only count players in starter slots (not bench)
             if team.league.roster_format == 'traditional':
-                roster_forwards = team.league.roster_forwards if hasattr(team.league, 'roster_forwards') else 6
-                roster_defense = team.league.roster_defense if hasattr(team.league, 'roster_defense') else 6
-                roster_goalies = team.league.roster_goalies if hasattr(team.league, 'roster_goalies') else 2
-                slot_map_starter = {
-                    'O': f"starter_o[1-{roster_forwards}]",
-                    'D': f"starter_d[1-{roster_defense}]",
-                    'G': 'starter_g'
-                }
-                # Build slot list for this position
-                if slot_group == 'O':
-                    starter_slots = [f'starter_o{i}' for i in range(1, roster_forwards + 1)]
-                elif slot_group == 'D':
-                    starter_slots = [f'starter_d{i}' for i in range(1, roster_defense + 1)]
-                elif slot_group == 'G':
-                    starter_slots = [f'starter_g{i}' for i in range(1, roster_goalies + 1)]
-                else:
-                    starter_slots = []
-                
-                starter_count = Roster.objects.filter(
-                    team=team,
-                    league=team.league,
-                    week_dropped__isnull=True,
-                    slot_assignment__in=starter_slots
-                ).count()
-                max_pos_slots = len(starter_slots)
-                can_add = starter_count < max_pos_slots
-                current_pos_count = starter_count
+                can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
             else:
                 # For best ball, use general capacity check
                 can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
@@ -1280,6 +1301,7 @@ def assign_player(request, team_id):
         existing_roster = Roster.objects.filter(
             player=player,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).select_related('team').first()
         
@@ -1293,6 +1315,7 @@ def assign_player(request, team_id):
                 player=player,
                 team=team,
                 league=team.league,
+                season=league_season,
                 week_added=next_week_number
             )
             # Auto-assign to starter slot if traditional league
@@ -1324,6 +1347,7 @@ def assign_player(request, team_id):
             player=player,
             team=team,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).first()
         
@@ -2542,12 +2566,15 @@ def players(request):
     # Get user's current roster for replacement options
     user_roster = {}
     user_roster_json = "{}"
+    position_capacity_json = "{}"
     roster_can_change = False
     roster_count = 0
     roster_max = 12
     if user_team:
         current_roster = Roster.objects.filter(
             team=user_team,
+            league=user_team.league,
+            season=user_team.league.season,
             week_dropped__isnull=True
         ).select_related('player').exclude(slot_assignment='ir')
         
@@ -2582,10 +2609,22 @@ def players(request):
         # Convert to JSON for JavaScript
         import json
         user_roster_json = json.dumps(user_roster)
+        position_capacity_json = json.dumps({
+            position: {
+                'can_add': can_add,
+                'current_count': current_count,
+                'max_allowed': max_allowed,
+            }
+            for position, (can_add, current_count, max_allowed) in {
+                position: check_roster_capacity(user_team, position)
+                for position in ('O', 'D', 'G')
+            }.items()
+        })
         
         # Check if roster changes are allowed
         can_change, _, _ = user_team.can_make_roster_changes()
-        roster_can_change = can_change
+        offseason_roster_moves_open = dynasty_offseason_rosters_are_open(user_team.league)
+        roster_can_change = can_change or offseason_roster_moves_open
         
         # Check if league uses waivers
         use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
@@ -2601,6 +2640,7 @@ def players(request):
             "selected_season": selected_season,
             "week_options": week_options,
             "selected_week_num": selected_week_num,
+            "offseason_roster_moves_open": offseason_roster_moves_open if user_team else False,
             "selected_position": selected_position,
             "selected_stat_type": selected_stat_type,
             "sort_field": sort_field,
@@ -2608,6 +2648,7 @@ def players(request):
             "search_query": search_query,
             "user_team": user_team,
             "user_roster_json": user_roster_json,
+            "position_capacity_json": position_capacity_json,
             "roster_can_change": roster_can_change,
             "roster_count": roster_count,
             "roster_max": roster_max,
@@ -2790,7 +2831,11 @@ def player_detail_modal(request, player_id):
     # Get player's game stats grouped by week
     from django.db.models import Sum
     
-    game_stats = player.game_stats.select_related('game__week').order_by('game__week__season', 'game__week__week_number', 'game__date')
+    league = League.objects.filter(pk=request.GET.get('league_id')).first()
+    game_stats = player.game_stats.select_related('game__week')
+    if league:
+        game_stats = game_stats.filter(game__week__season=league.season)
+    game_stats = game_stats.order_by('game__week__season', 'game__week__week_number', 'game__date')
     
     # Group stats by week
     stats_by_week = {}
@@ -2816,15 +2861,18 @@ def player_detail_modal(request, player_id):
     week_stats = []
     
     # Get a league to access scoring settings (use any league if available)
-    league = League.objects.first()
+    league = league or League.objects.first()
     if not league:
         league = League()  # Default scoring
     
     # Get all weeks from the season to fill in missing weeks with 0 stats
     from django.utils import timezone
     today = timezone.now().date()
-    latest_week = Week.objects.order_by('-season', '-week_number').first()
-    season = latest_week.season if latest_week else 2026
+    if league:
+        season = league.season
+    else:
+        latest_week = Week.objects.order_by('-season', '-week_number').first()
+        season = latest_week.season if latest_week else 2026
     
     all_weeks_in_season = Week.objects.filter(season=season).order_by('week_number')
     
@@ -2948,6 +2996,8 @@ def player_detail_modal(request, player_id):
             'draft_year': player.draft_year or 'Unknown',
             'birthdate': player.birthdate.strftime('%B %d, %Y') if player.birthdate else 'Unknown',
             'is_rookie': player.is_rookie,
+            'rookie_season': player.rookie_season or 'Unknown',
+            'seasons_played': player.seasons_played,
             'is_on_ir': player.is_on_injured_reserve,
         },
         'week_stats': week_stats,
@@ -4669,6 +4719,7 @@ def league_settings(request, league_id):
         "league": league,
         "is_commissioner": is_commissioner,
         "can_renew": league.status == 'season_complete' and is_commissioner,
+        "is_dynasty_offseason": is_dynasty_offseason(league),
     })
 
 
@@ -5682,7 +5733,7 @@ def add_to_taxi(request, team_id):
         return redirect('team_detail', team_id=team_id)
     
     # Check if season has started - prevent adding to taxi squad once season starts
-    league_season = team.league.created_at.year if team.league.created_at else timezone.now().year
+    league_season = team.league.season
     first_game = Game.objects.filter(season=league_season).order_by('date').first()
     if first_game and timezone.now() >= first_game.date:
         messages.error(request, "Cannot add to taxi squad after season starts. You can only move players FROM taxi squad to main roster during the season.")
@@ -6454,9 +6505,79 @@ def league_offseason(request, league_id):
         'league': league,
         'can_renew': league.status == 'season_complete',
         'season_winner': league.season_winner,
+        'is_dynasty_offseason': is_dynasty_offseason(league),
     }
     
     return render(request, 'web/league_offseason.html', context)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def toggle_offseason_rosters(request, league_id):
+    """Open or close dynasty non-rookie roster moves outside the regular season."""
+    league = get_object_or_404(League, id=league_id)
+    if league.commissioner != request.user:
+        return JsonResponse({'success': False, 'error': 'Only the commissioner can change roster access.'}, status=403)
+    if not is_dynasty_offseason(league):
+        return JsonResponse({'success': False, 'error': 'Offseason roster access is available only outside Weeks 1-21 for dynasty leagues.'}, status=400)
+
+    opening_rosters = not league.offseason_rosters_open
+    needs_rollover = (
+        league.offseason_roster_rollover_season is None
+        or league.status == 'season_complete'
+    )
+    if opening_rosters and needs_rollover:
+        previous_season = league.season
+        next_season = previous_season + 1
+        from ..models import LeagueHistory
+        current_rosters = list(Roster.objects.filter(
+            league=league,
+            season=previous_season,
+            week_dropped__isnull=True,
+        ))
+        standings = [
+            {
+                'team_id': team.id,
+                'team_name': team.name,
+                'owner': team.owner.user.username if hasattr(team, 'owner') and team.owner else 'Unknown',
+            }
+            for team in Team.objects.filter(league=league).order_by('name')
+        ]
+        LeagueHistory.objects.get_or_create(
+            league=league,
+            season_year=previous_season,
+            defaults={
+                'champion': league.season_winner,
+                'final_standings': {'teams': standings},
+            },
+        )
+        Player.objects.filter(is_rookie=True).update(is_rookie=False)
+        Roster.objects.filter(
+            league=league,
+            season=previous_season,
+            week_dropped__isnull=True,
+        ).update(week_dropped=22)
+        for roster_entry in current_rosters:
+            Roster.objects.create(
+                team=roster_entry.team,
+                player=roster_entry.player,
+                league=league,
+                season=next_season,
+                slot_assignment=roster_entry.slot_assignment,
+                week_added=1,
+            )
+        league.season = next_season
+        league.offseason_roster_rollover_season = next_season
+
+    league.offseason_rosters_open = opening_rosters
+    league.save(update_fields=[
+        'season',
+        'offseason_rosters_open',
+        'offseason_roster_rollover_season',
+        'updated_at',
+    ])
+    return JsonResponse({'success': True, 'rosters_open': league.offseason_rosters_open})
 
 
 @login_required

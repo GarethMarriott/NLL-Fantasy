@@ -244,6 +244,15 @@ class League(models.Model):
         default=False,
         help_text="Set to True to lock rosters during active draft (redraft leagues only)"
     )
+    offseason_rosters_open = models.BooleanField(
+        default=False,
+        help_text="Allow dynasty teams to add and drop non-rookies outside Weeks 1-21"
+    )
+    offseason_roster_rollover_season = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Season created by the most recent dynasty offseason roster rollover"
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -569,6 +578,15 @@ class Player(models.Model):
     is_rookie = models.BooleanField(
         default=False,
         help_text="Whether the player is a rookie in the current season"
+    )
+    rookie_season = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="First NLL season in which the player was a rookie"
+    )
+    seasons_played = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Number of NLL seasons in which the player has appeared"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

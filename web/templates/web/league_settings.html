@@ -277,6 +277,37 @@
             <p class="text-red-500 text-xs mt-1">{{ form.use_future_rookie_picks.errors.0 }}</p>
           {% endif %}
         </div>
+
+        {% if is_commissioner and is_dynasty_offseason %}
+        <div class="mt-6 pt-4 border-t border-gray-300">
+          <h4 class="text-sm font-semibold text-gray-800">Offseason Roster Access</h4>
+          <p class="text-xs text-gray-500 mt-1">When open, teams may add and drop non-rookie players outside Weeks 1-21.</p>
+          <button id="offseasonRostersBtn" type="button" class="mt-3 font-bold py-2 px-4 rounded {% if league.offseason_rosters_open %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %} text-white">
+            {% if league.offseason_rosters_open %}Close Rosters{% else %}Open Rosters{% endif %}
+          </button>
+        </div>
+
+        <script>
+          document.getElementById('offseasonRostersBtn').addEventListener('click', function() {
+            const button = this;
+            button.disabled = true;
+            fetch('{% url "toggle_offseason_rosters" league.id %}', {
+              method: 'POST',
+              headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                window.location.reload();
+              } else {
+                alert(data.error);
+                button.disabled = false;
+              }
+            })
+            .catch(() => { button.disabled = false; });
+          });
+        </script>
+        {% endif %}
         {% endif %}
 
       {# Field Player Scoring #}

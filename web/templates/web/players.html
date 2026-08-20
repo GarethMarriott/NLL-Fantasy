@@ -186,7 +186,7 @@
               {% elif item.roster_status == 'on_other_team' %}
                 <div class="block px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20" title="On {{ item.rostered_team.name }}">Rostered</div>
               {% elif item.roster_status == 'available' %}
-                {% if roster_can_change %}
+                {% if roster_can_change and not offseason_roster_moves_open or roster_can_change and not player.is_rookie %}
                   <div class="block px-2 py-1 bg-green-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-green-600"
                     onclick="showReplaceOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
                     title="Add player">
@@ -348,7 +348,9 @@
       // Check if roster is full
       const rosterCount = {{ roster_count }};
       const rosterMax = {{ roster_max }};
-      const hasSpace = rosterCount < rosterMax;
+      const positionCapacity = {{ position_capacity_json|safe }}[newPlayerPosition];
+      const hasPositionSpace = !positionCapacity || positionCapacity.can_add;
+      const hasSpace = rosterCount < rosterMax && hasPositionSpace;
 
       // Add "Add without dropping" option if roster isn't full
       if (hasSpace) {
@@ -365,10 +367,21 @@
           separator.textContent = 'OR';
           optionsDiv.appendChild(separator);
         }
+      } else if (!hasPositionSpace && positionCapacity) {
+        const fullPositionButton = document.createElement('button');
+        fullPositionButton.type = 'button';
+        fullPositionButton.disabled = true;
+        fullPositionButton.className = 'w-full px-4 py-2 text-left bg-red-100 border border-red-400 rounded font-semibold text-red-800 cursor-not-allowed';
+        const positionName = newPlayerPosition === 'O' ? 'Offence' : newPlayerPosition === 'D' ? 'Defence' : 'Goalie';
+        fullPositionButton.textContent = `Too many ${positionName} Players (${positionCapacity.current_count}/${positionCapacity.max_allowed}). You must drop a player.`;
+        optionsDiv.appendChild(fullPositionButton);
       }
 
       if (positionRoster.length === 0 && !hasSpace) {
-        optionsDiv.innerHTML = '<p class="text-sm text-red-500">Roster is full. No players in this position to replace.</p>';
+        const message = document.createElement('p');
+        message.className = 'text-sm text-red-500';
+        message.textContent = 'No players in this position are available to replace.';
+        optionsDiv.appendChild(message);
       } else if (positionRoster.length > 0) {
         positionRoster.forEach(player => {
           const button = document.createElement('button');

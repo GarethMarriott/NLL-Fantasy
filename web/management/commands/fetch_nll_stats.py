@@ -148,12 +148,20 @@ class Command(BaseCommand):
         # Build rookie status lookup from player_seasons data
         # player_seasons is indexed by (player_id, season) and has a 'rookie' field
         rookie_by_player_season = {}
+        player_seasons = {}
+        rookie_season_by_player = {}
         for season_data in data.get('player_seasons', []):
             player_id = season_data.get('player_id')
             season = season_data.get('season')
             is_rookie = season_data.get('rookie', False)
             if player_id and season:
                 rookie_by_player_season[(player_id, season)] = is_rookie
+                player_seasons.setdefault(player_id, set()).add(season)
+                if is_rookie:
+                    rookie_season_by_player[player_id] = min(
+                        rookie_season_by_player.get(player_id, season),
+                        season,
+                    )
         
         self.stdout.write(f'Loaded rookie status for {len(rookie_by_player_season)} player-season combinations')
 
@@ -347,7 +355,18 @@ class Command(BaseCommand):
                 # Get rookie status for this player in this season
                 is_rookie = rookie_by_player_season.get((root_player_id, season_filter), False)
                 
-                player = self.find_or_create_player(player_data, stat, jersey_number, team_name, is_rookie, season_filter, dry_run)
+                seasons_played = len({season for season in player_seasons.get(root_player_id, set()) if season <= season_filter})
+                player = self.find_or_create_player(
+                    player_data,
+                    stat,
+                    jersey_number,
+                    team_name,
+                    is_rookie,
+                    rookie_season_by_player.get(root_player_id),
+                    seasons_played,
+                    season_filter,
+                    dry_run,
+                )
                 
                 if not player:
                     stats_skipped += 1
@@ -390,7 +409,7 @@ class Command(BaseCommand):
             'skipped': stats_skipped
         }
 
-    def find_or_create_player(self, player_data, stat, jersey_number, team_name, is_rookie, season, dry_run):
+    def find_or_create_player(self, player_data, stat, jersey_number, team_name, is_rookie, rookie_season, seasons_played, season, dry_run):
         """Find a player in our database by NLL stats ID, or create if not found"""
         # Get NLL stats player ID
         nll_player_id = player_data.get('id')
@@ -459,6 +478,12 @@ class Command(BaseCommand):
             # Update rookie status
             if player.is_rookie != is_rookie:
                 player.is_rookie = is_rookie
+                needs_update = True
+            if player.rookie_season != rookie_season:
+                player.rookie_season = rookie_season
+                needs_update = True
+            if player.seasons_played != seasons_played:
+                player.seasons_played = seasons_played
                 needs_update = True
             
             if needs_update and not dry_run:
@@ -557,7 +582,9 @@ class Command(BaseCommand):
                     hometown=player_data.get('hometown'),
                     draft_year=player_data.get('draft_year'),
                     birthdate=player_data.get('birthdate'),
-                    is_rookie=is_rookie
+                    is_rookie=is_rookie,
+                    rookie_season=rookie_season,
+                    seasons_played=seasons_played,
                 )
                 
                 num_str = f" #{jersey_number}" if jersey_number is not None else ""

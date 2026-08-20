@@ -25,7 +25,7 @@
 
     {# Week Selector with Navigation #}
     <div class="mb-4">
-      <label for="week-selector" class="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
+      <label for="week-selector" class="block text-sm font-medium text-gray-700 mb-2">Roster View: {{ league_season }} Season</label>
       <div class="flex items-center gap-2">
         <button id="prev-week-btn" 
                 type="button"
@@ -34,7 +34,8 @@
                 title="Previous week">
           ← Back
         </button>
-        <select id="week-selector" onchange="window.location.href='?week=' + this.value" class="flex-1 sm:flex-0 sm:w-64 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+        <select id="week-selector" onchange="window.location.href=this.value === 'current' ? window.location.pathname : '?week=' + this.value" class="flex-1 sm:flex-0 sm:w-64 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          <option value="current" {% if is_viewing_current_roster %}selected{% endif %}>Current Roster</option>
           {% for week in available_weeks %}
             <option value="{{ week.week_number }}" {% if week.week_number == selected_week %}selected{% endif %}>
               Week {{ week.week_number }} ({{ week.start_date|date:"M d, Y" }})
@@ -52,7 +53,11 @@
     </div>
 
     {# Roster Lock Status Banner #}
-    {% if selected_week_obj %}
+    {% if offseason_roster_moves_open %}
+      <div class="rounded-md bg-green-50 border border-green-300 p-4 mb-4">
+        <p class="text-sm font-semibold text-green-800">Dynasty offseason rosters are open for non-rookie adds and drops.</p>
+      </div>
+    {% elif selected_week_obj %}
       {% if selected_week_obj.is_locked %}
         <div class="rounded-md bg-yellow-50 border border-yellow-200 p-4 mb-4">
           <div class="flex items-center">
@@ -386,6 +391,7 @@
                       <div class="font-semibold truncate flex items-center gap-1.5">
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                         {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
+                        {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                         {% if slot.player.position == 'O' %}
                           <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                         {% elif slot.player.position == 'D' %}
@@ -432,6 +438,7 @@
                       <div class="font-semibold truncate flex items-center gap-1.5">
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                         {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
+                        {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                         {% if slot.player.position == 'O' %}
                           <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                         {% elif slot.player.position == 'D' %}
@@ -478,6 +485,7 @@
                       <div class="font-semibold truncate flex items-center gap-1.5">
                         <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                         {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
+                        {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                         {% if slot.player.position == 'O' %}
                           <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                         {% elif slot.player.position == 'D' %}
@@ -545,6 +553,7 @@
                   <div class="font-semibold truncate flex items-center gap-1.5">
                     <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                     {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
+                    {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                     {% if slot.player.position == 'O' %}
                       <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                     {% elif slot.player.position == 'D' %}
@@ -601,6 +610,7 @@
                   <div class="font-semibold truncate flex items-center gap-1.5">
                     <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
                     {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
+                    {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                     {% if slot.player.position == 'O' %}
                       <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
                     {% elif slot.player.position == 'D' %}
@@ -763,7 +773,14 @@
         </div>
         <button onclick="closePlayerModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
       </div>
-      
+      {% if user_owns_team and not is_viewing_past_week and roster_status.0 %}
+      <div class="border-b border-gray-200 bg-gray-50 px-6 py-3">
+        <button type="button" onclick="dropPlayerFromModal()" class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+          Drop Player
+        </button>
+      </div>
+      {% endif %}
+
       <!-- Tabs -->
       <div class="border-b border-gray-200 bg-gray-50">
         <div class="flex gap-8 px-6">
@@ -821,6 +838,14 @@
             <div>
               <span class="font-semibold text-gray-600">Draft Year:</span>
               <div id="playerDraftYear">-</div>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-600">Rookie Season:</span>
+              <div id="playerRookieSeason">-</div>
+            </div>
+            <div>
+              <span class="font-semibold text-gray-600">Seasons Played:</span>
+              <div id="playerSeasonsPlayed">-</div>
             </div>
           </div>
         </div>
@@ -1319,8 +1344,11 @@ function getPositionColor(position) {
 }
 
 function showPlayerModal(playerId, playerName) {
+  currentModalPlayerId = playerId;
+  currentModalPlayerName = playerName;
+
   // Fetch player data from AJAX endpoint
-  fetch(`/players/${playerId}/modal/`)
+  fetch(`/players/${playerId}/modal/?league_id={{ league.id }`)
     .then(response => {
       if (!response.ok) throw new Error('Failed to load player data');
       return response.json();
@@ -1337,6 +1365,8 @@ function showPlayerModal(playerId, playerName) {
       document.getElementById('playerHometown').textContent = data.player.hometown || '-';
       document.getElementById('playerDraftYear').textContent = data.player.draft_year || '-';
       document.getElementById('playerBirthdate').textContent = data.player.birthdate || '-';
+      document.getElementById('playerRookieSeason').textContent = data.player.rookie_season || '-';
+      document.getElementById('playerSeasonsPlayed').textContent = data.player.seasons_played || '0';
       
       // Show rookie badge if applicable
       const rookieBadge = document.getElementById('playerRookieBadge');

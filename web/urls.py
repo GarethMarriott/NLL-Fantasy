@@ -6,7 +6,7 @@ from .views import (
     submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
     nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500, current_user_api, upload_team_logo,
-    league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion
+    league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion, toggle_offseason_rosters
 )
 from .views.history import league_history, league_history_standings, league_history_matchups, league_history_playoffs, league_archives
 from .views.nll_transactions import nll_transactions
@@ -67,6 +67,7 @@ urlpatterns = [
     path("league/<int:league_id>/offseason/", league_offseason, name="league_offseason"),
     path("league/<int:league_id>/renew/", offseason_renew_league, name="league_renew"),
     path("league/<int:league_id>/lock-rosters/", lock_rosters, name="lock_rosters"),
+    path("league/<int:league_id>/toggle-offseason-rosters/", toggle_offseason_rosters, name="toggle_offseason_rosters"),
     path("league/<int:league_id>/finalize-draft/", finalize_draft, name="finalize_draft"),
     path("league/<int:league_id>/crown-champion/", crown_champion, name="crown_champion"),
     
