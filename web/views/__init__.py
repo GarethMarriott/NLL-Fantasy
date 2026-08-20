@@ -220,21 +220,25 @@ def my_team(request):
     if not selected_league_id:
         # Auto-select league if user has exactly one
         user_leagues = FantasyTeamOwner.objects.filter(user=request.user).select_related('team__league')
-        if user_leagues.count() == 1:
+        if user_leagues.values('team__league_id').distinct().count() == 1:
             selected_league_id = user_leagues.first().team.league.id
             request.session['selected_league_id'] = selected_league_id
         else:
             # Redirect to league list if user has multiple leagues or no league
             return redirect('league_list')
-    
-    try:
-        owner = FantasyTeamOwner.objects.select_related('team').get(
+
+    league = League.objects.filter(pk=selected_league_id).first()
+    owner = None
+    if league:
+        owner = FantasyTeamOwner.objects.select_related('team').filter(
             user=request.user,
-            team__league_id=selected_league_id
-        )
+            team__league=league,
+            team__season_year=league.season,
+        ).first()
+
+    if owner:
         return redirect('team_detail', team_id=owner.team.id)
-    except FantasyTeamOwner.DoesNotExist:
-        return redirect('league_list')
+    return redirect('league_list')
 
 
 def home(request):
@@ -245,20 +249,23 @@ def home(request):
         # Auto-select league if user has exactly one
         if not selected_league_id:
             user_leagues = FantasyTeamOwner.objects.filter(user=request.user).select_related('team__league')
-            if user_leagues.count() == 1:
+            if user_leagues.values('team__league_id').distinct().count() == 1:
                 selected_league_id = user_leagues.first().team.league.id
                 request.session['selected_league_id'] = selected_league_id
         
         if selected_league_id:
-            try:
-                owner = FantasyTeamOwner.objects.select_related('team').get(
+            league = League.objects.filter(pk=selected_league_id).first()
+            owner = None
+            if league:
+                owner = FantasyTeamOwner.objects.select_related('team').filter(
                     user=request.user,
-                    team__league_id=selected_league_id
-                )
+                    team__league=league,
+                    team__season_year=league.season,
+                ).first()
+
+            if owner:
                 # Redirect to team detail page
                 return redirect('team_detail', team_id=owner.team.id)
-            except FantasyTeamOwner.DoesNotExist:
-                pass
     
     # If not authenticated or no team, show the about page
     return render(request, "web/about.html", {})
