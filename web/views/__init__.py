@@ -235,6 +235,12 @@ def my_team(request):
             team__league=league,
             team__season_year=league.season,
         ).first()
+        if not owner:
+            owner = FantasyTeamOwner.objects.select_related('team').filter(
+                user=request.user,
+                team__league=league,
+                team__season_year__isnull=True,
+            ).first()
 
     if owner:
         return redirect('team_detail', team_id=owner.team.id)
@@ -262,6 +268,12 @@ def home(request):
                     team__league=league,
                     team__season_year=league.season,
                 ).first()
+                if not owner:
+                    owner = FantasyTeamOwner.objects.select_related('team').filter(
+                        user=request.user,
+                        team__league=league,
+                        team__season_year__isnull=True,
+                    ).first()
 
             if owner:
                 # Redirect to team detail page
