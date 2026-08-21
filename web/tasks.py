@@ -393,8 +393,15 @@ def renew_league(league_id):
         # 3. HANDLE ROSTERS BASED ON LEAGUE TYPE
         # ============================================================================
         if league.league_type == 'redraft':
-            # New-season teams begin empty; retain old roster records for archives.
+            # Preserve old-season rows for history, but mark their active players as
+            # dropped after the fantasy championship before opening the new draft.
+            dropped_count = Roster.objects.filter(
+                league=league,
+                season=current_season,
+                week_dropped__isnull=True,
+            ).update(week_dropped=22)
             logger.info(f"[RENEWAL] Re-Draft league: Created empty teams for season {new_season}")
+            logger.info(f"[RENEWAL] Marked {dropped_count} prior-season roster entries as dropped")
             
         elif league.league_type == 'dynasty':
             logger.info(f"[RENEWAL] Dynasty league: Transferring rosters to new season")

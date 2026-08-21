@@ -1070,6 +1070,13 @@ def assign_player(request, team_id):
             return JsonResponse({'success': False, 'error': error_msg}, status=403)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
+
+    if team.league.league_type == 'redraft' and team.league.draft_locked:
+        error_msg = "Player moves are unavailable until the draft is finalized."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=403)
+        messages.error(request, error_msg)
+        return redirect("team_detail", team_id=team.id)
     
     # Check league settings for waiver status
     use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
@@ -2386,12 +2393,20 @@ def players(request):
         selected_league_id = request.session.get('selected_league_id')
         if selected_league_id:
             selected_league = League.objects.filter(id=selected_league_id).first()
-            team_owner = FantasyTeamOwner.objects.filter(
-                user=request.user,
-                team__league_id=selected_league_id
-            ).select_related('team').first()
-            if team_owner:
-                user_team = team_owner.team
+            if selected_league:
+                team_owner = FantasyTeamOwner.objects.filter(
+                    user=request.user,
+                    team__league=selected_league,
+                    team__season_year=selected_league.season,
+                ).select_related('team').first()
+                if not team_owner:
+                    team_owner = FantasyTeamOwner.objects.filter(
+                        user=request.user,
+                        team__league=selected_league,
+                        team__season_year__isnull=True,
+                    ).select_related('team').first()
+                if team_owner:
+                    user_team = team_owner.team
     
     qs = Player.objects.filter(active=True)
     
@@ -2423,11 +2438,11 @@ def players(request):
     # Pre-fetch all roster entries to avoid N+1 queries
     # This will be used in the loop below to check player roster status
     rosters_by_player = {}
-    if request.user.is_authenticated and selected_league_id:
+    if request.user.is_authenticated and selected_league_id and selected_league:
         from django.db.models import Q
-        selected_league = League.objects.filter(id=selected_league_id).first()
         all_roster_entries = Roster.objects.filter(
             team__league_id=selected_league_id,
+            season=selected_league.season,
             week_dropped__isnull=True
         ).select_related('team')
         for roster_entry in all_roster_entries:
@@ -2670,6 +2685,12 @@ def players(request):
         # Check if league uses waivers
         use_waivers = user_team.league.use_waivers if hasattr(user_team.league, 'use_waivers') else False
 
+    draft_in_progress = bool(
+        user_team
+        and user_team.league.league_type == 'redraft'
+        and user_team.league.draft_locked
+    )
+
     logger.info(f"PLAYERS VIEW RENDER: user={request.user}, user_team={user_team}, selected_league={selected_league}")
 
     return render(
@@ -2694,6 +2715,7 @@ def players(request):
             "roster_count": roster_count,
             "roster_max": roster_max,
             "use_waivers": use_waivers if user_team else False,
+            "draft_in_progress": draft_in_progress,
         },
     )
 
@@ -4934,6 +4956,10 @@ def submit_waiver_claim(request, team_id):
     if not team.league.use_waivers:
         messages.error(request, "Waiver claims are not enabled for this league.")
         return redirect('team_detail', team_id=team.id)
+
+    if team.league.league_type == 'redraft' and team.league.draft_locked:
+        messages.error(request, "Waiver claims are unavailable until the draft is finalized.")
+        return redirect('team_detail', team_id=team.id)
     
     # Get player to add - accept both parameter names for compatibility
     player_id = request.POST.get('player_to_add_id') or request.POST.get('player_id')
@@ -4945,6 +4971,15 @@ def submit_waiver_claim(request, team_id):
         player = Player.objects.get(id=int(player_id))
     except Player.DoesNotExist:
         messages.error(request, "Player not found.")
+        return redirect('team_detail', team_id=team.id)
+
+    if Roster.objects.filter(
+        league=team.league,
+        season=team.league.season,
+        player=player,
+        week_dropped__isnull=True,
+    ).exists():
+        messages.error(request, f"{player.first_name} {player.last_name} is already on a roster.")
         return redirect('team_detail', team_id=team.id)
     
     # Get player to drop (if any) - accept both parameter names

@@ -186,13 +186,13 @@
               {% elif item.roster_status == 'on_other_team' %}
                 <div class="block px-2 py-1 bg-red-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20" title="On {{ item.rostered_team.name }}">Rostered</div>
               {% elif item.roster_status == 'available' %}
-                {% if roster_can_change and not offseason_roster_moves_open or roster_can_change and not player.is_rookie %}
+                {% if not draft_in_progress and roster_can_change and not offseason_roster_moves_open or not draft_in_progress and roster_can_change and not player.is_rookie %}
                   <div class="block px-2 py-1 bg-green-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-green-600"
                     onclick="showReplaceOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
                     title="Add player">
                     Add
                   </div>
-                {% elif use_waivers %}
+                {% elif not draft_in_progress and use_waivers %}
                   <div class="block px-2 py-1 bg-yellow-500 text-white rounded text-xs font-semibold whitespace-nowrap text-center w-20 cursor-pointer hover:bg-yellow-600"
                     onclick="showWaiverOptions({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}', '{{ player.position }}')"
                     title="Submit waiver claim">
