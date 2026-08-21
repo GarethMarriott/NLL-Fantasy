@@ -1109,7 +1109,7 @@ def assign_player(request, team_id):
         return redirect("team_detail", team_id=team.id)
 
     if offseason_roster_moves_open:
-        if action not in {'add', 'drop', 'swap'}:
+        if action not in {'add', 'drop', 'swap', 'swap_slots', 'move_to_empty_slot'}:
             messages.error(request, "Only player adds and drops are available while offseason rosters are open.")
             return redirect("team_detail", team_id=team.id)
         if player.is_rookie:
