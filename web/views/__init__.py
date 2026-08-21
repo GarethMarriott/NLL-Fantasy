@@ -6557,6 +6557,7 @@ def toggle_offseason_rosters(request, league_id):
         return JsonResponse({'success': False, 'error': 'Offseason roster access is available only outside Weeks 1-21 for dynasty leagues.'}, status=400)
 
     opening_rosters = not league.offseason_rosters_open
+    maximum_season = timezone.now().year + 1
     needs_rollover = (
         league.offseason_roster_rollover_season is None
         or league.status == 'season_complete'
@@ -6564,6 +6565,11 @@ def toggle_offseason_rosters(request, league_id):
     if opening_rosters and needs_rollover:
         previous_season = league.season
         next_season = previous_season + 1
+        if next_season > maximum_season:
+            return JsonResponse({
+                'success': False,
+                'error': f'Rosters cannot roll over beyond the {maximum_season} season yet.',
+            }, status=400)
         from ..models import LeagueHistory
         current_rosters = list(Roster.objects.filter(
             league=league,
@@ -6602,11 +6608,13 @@ def toggle_offseason_rosters(request, league_id):
                 week_added=1,
             )
         league.season = next_season
+        league.status = 'active'
         league.offseason_roster_rollover_season = next_season
 
     league.offseason_rosters_open = opening_rosters
     league.save(update_fields=[
         'season',
+        'status',
         'offseason_rosters_open',
         'offseason_roster_rollover_season',
         'updated_at',
