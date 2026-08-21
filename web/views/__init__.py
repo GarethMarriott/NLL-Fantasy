@@ -1418,6 +1418,7 @@ def assign_player(request, team_id):
             player=player,
             team=team,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).first()
         
@@ -1437,6 +1438,7 @@ def assign_player(request, team_id):
                 player=target_player,
                 team=team,
                 league=team.league,
+                season=league_season,
                 week_dropped__isnull=True
             ).first()
             
@@ -1524,6 +1526,7 @@ def assign_player(request, team_id):
             player=player,
             team=team,
             league=team.league,
+            season=league_season,
             week_dropped__isnull=True
         ).first()
         
@@ -1579,6 +1582,7 @@ def assign_player(request, team_id):
                 ir_roster_entries = list(Roster.objects.filter(
                     team=team,
                     league=team.league,
+                    season=league_season,
                     week_dropped__isnull=True,
                     slot_assignment='ir'
                 ).exclude(player=player).values('player_id', 'player__last_name', 'player__first_name'))
@@ -1616,6 +1620,7 @@ def assign_player(request, team_id):
                     starter_count = Roster.objects.filter(
                         team=team,
                         league=team.league,
+                        season=league_season,
                         week_dropped__isnull=True,
                         slot_assignment__in=starter_slots
                     ).exclude(player=player).count()
@@ -2867,7 +2872,13 @@ def player_detail_modal(request, player_id):
     # Get player's game stats grouped by week
     from django.db.models import Sum
     
-    league = League.objects.filter(pk=request.GET.get('league_id')).first()
+    team_id = request.GET.get('team_id')
+    league = None
+    if team_id:
+        league_id = Team.objects.filter(pk=team_id).values_list('league', flat=True).first()
+        league = League.objects.filter(pk=league_id).first()
+    if not league:
+        league = League.objects.filter(pk=request.GET.get('league_id')).first()
     game_stats = player.game_stats.select_related('game__week')
     if league:
         game_stats = game_stats.filter(game__week__season=league.season)
@@ -6029,6 +6040,7 @@ def get_available_slots(request, team_id):
         all_active_roster = Roster.objects.filter(
             team=team,
             league=league,
+            season=league.season,
             week_dropped__isnull=True
         ).select_related('player')
         
@@ -6157,6 +6169,7 @@ def get_available_slots(request, team_id):
                 player=current_player,
                 team=team,
                 league=league,
+                season=league.season,
                 week_dropped__isnull=True
             )
             logger.warning(f"GET_AVAILABLE_SLOTS: player_id={current_player_id}, found {player_roster_all.count()} active roster entries")

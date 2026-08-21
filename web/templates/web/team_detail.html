@@ -1140,7 +1140,8 @@
       
       console.log('Sending request with action:', isEmpty ? 'move_to_empty_slot' : 'swap_slots');
       
-      fetch('/teams/{{ team.id }}/assign-player/', {
+      const teamId = new URL(window.location.href).pathname.split('/')[2];
+      fetch(`/teams/${teamId}/assign-player/`, {
         method: 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest'
@@ -1346,9 +1347,10 @@ function getPositionColor(position) {
 function showPlayerModal(playerId, playerName) {
   currentModalPlayerId = playerId;
   currentModalPlayerName = playerName;
+  const teamId = new URL(window.location.href).pathname.split('/')[2];
 
   // Fetch player data from AJAX endpoint
-  fetch(`/players/${playerId}/modal/?league_id={{ league.id }`)
+  fetch(`/players/${playerId}/modal/?team_id=${teamId}`)
     .then(response => {
       if (!response.ok) throw new Error('Failed to load player data');
       return response.json();
