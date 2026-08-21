@@ -447,15 +447,11 @@
                 <span class="font-medium">{{ team.name }}</span>
               </td>
               <td class="px-4 py-3 text-sm text-gray-600">
-                {% with owners=team.fantasy_teams.all %}
-                  {% if owners %}
-                    {% for owner in owners %}
-                      <span>{{ owner.user.get_full_name|default:owner.user.username }}</span>{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                  {% else %}
-                    <span class="text-gray-400">No owner assigned</span>
-                  {% endif %}
-                {% endwith %}
+                {% if team.owner %}
+                  <span>{{ team.owner.user.get_full_name|default:team.owner.user.username }}</span>
+                {% else %}
+                  <span class="text-gray-400">No owner assigned</span>
+                {% endif %}
               </td>
               <td class="px-4 py-3 text-right">
                 {% if active_team_count > 1 %}

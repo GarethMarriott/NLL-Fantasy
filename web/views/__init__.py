@@ -4783,11 +4783,11 @@ def league_settings(request, league_id):
 
     active_teams = league.teams.filter(
         season_year=league.season,
-    ).prefetch_related('fantasy_teams__user')
+    ).select_related('owner__user')
     if not active_teams.exists():
         active_teams = league.teams.filter(
             season_year__isnull=True,
-        ).prefetch_related('fantasy_teams__user')
+        ).select_related('owner__user')
     
     return render(request, "web/league_settings.html", {
         "form": form,
