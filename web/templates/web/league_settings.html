@@ -441,7 +441,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for team in league.teams.all %}
+          {% for team in active_teams %}
             <tr class="border-t border-gray-200 hover:bg-gray-50">
               <td class="px-4 py-3">
                 <span class="font-medium">{{ team.name }}</span>
@@ -458,7 +458,7 @@
                 {% endwith %}
               </td>
               <td class="px-4 py-3 text-right">
-                {% if league.teams.count > 1 %}
+                {% if active_team_count > 1 %}
                   <a href="{% url 'remove_team_from_league' league.id team.id %}" class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">
                     Remove
                   </a>

@@ -4780,10 +4780,20 @@ def league_settings(request, league_id):
                     messages.error(request, f"{field}: {error}")
     else:
         form = LeagueSettingsForm(instance=league)
+
+    active_teams = league.teams.filter(
+        season_year=league.season,
+    ).prefetch_related('fantasy_teams__user')
+    if not active_teams.exists():
+        active_teams = league.teams.filter(
+            season_year__isnull=True,
+        ).prefetch_related('fantasy_teams__user')
     
     return render(request, "web/league_settings.html", {
         "form": form,
         "league": league,
+        "active_teams": active_teams,
+        "active_team_count": active_teams.count(),
         "is_commissioner": is_commissioner,
         "can_renew": league.status == 'season_complete' and is_commissioner,
         "is_dynasty_offseason": is_dynasty_offseason(league),
@@ -4796,7 +4806,10 @@ def league_settings(request, league_id):
 def remove_team_from_league(request, league_id, team_id):
     """Remove a team from a league (commissioner only)"""
     league = get_object_or_404(League, id=league_id)
-    team = get_object_or_404(Team, id=team_id, league=league)
+    active_teams = Team.objects.filter(league=league, season_year=league.season)
+    if not active_teams.exists():
+        active_teams = Team.objects.filter(league=league, season_year__isnull=True)
+    team = get_object_or_404(active_teams, id=team_id)
     
     # Only commissioner can remove teams
     if league.commissioner != request.user:
@@ -4804,7 +4817,7 @@ def remove_team_from_league(request, league_id, team_id):
         return redirect("league_settings", league_id=league.id)
     
     # Prevent removing the only team in a league
-    if league.teams.count() <= 1:
+    if active_teams.count() <= 1:
         messages.error(request, "Cannot remove the last team from a league.")
         return redirect("league_settings", league_id=league.id)
     
@@ -4817,7 +4830,7 @@ def remove_team_from_league(request, league_id, team_id):
             team.delete()
             
             # Update waiver priorities: teams with priority > removed_priority bump up one spot
-            teams_to_adjust = league.teams.filter(waiver_priority__gt=removed_priority)
+            teams_to_adjust = active_teams.filter(waiver_priority__gt=removed_priority)
             for team_obj in teams_to_adjust:
                 team_obj.waiver_priority -= 1
                 team_obj.save()
