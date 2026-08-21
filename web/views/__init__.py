@@ -5096,26 +5096,43 @@ def draft_room(request):
     except Draft.DoesNotExist:
         draft = None
     
-    # Get user's team in this league
-    try:
-        owner = FantasyTeamOwner.objects.select_related('team').get(
+    # Prefer the renewed team's ownership record, with a legacy fallback for
+    # leagues whose teams predate season tracking.
+    owner = FantasyTeamOwner.objects.select_related('team').filter(
+        user=request.user,
+        team__league=league,
+        team__season_year=league.season,
+    ).first()
+    if not owner:
+        owner = FantasyTeamOwner.objects.select_related('team').filter(
             user=request.user,
-            team__league=league
-        )
-        user_team = owner.team
-    except FantasyTeamOwner.DoesNotExist:
-        user_team = None
+            team__league=league,
+            team__season_year__isnull=True,
+        ).first()
+    user_team = owner.team if owner else None
     
     # Check if user is commissioner
     is_commissioner = league.commissioner == request.user
     
     # Get all teams in league
-    teams = Team.objects.filter(league=league).select_related('league')
+    teams = Team.objects.filter(
+        league=league,
+        season_year=league.season,
+    ).select_related('league')
+    if not teams.exists():
+        teams = Team.objects.filter(
+            league=league,
+            season_year__isnull=True,
+        ).select_related('league')
     team_count = teams.count()
     league_is_full = team_count == league.max_teams
 
     # Lock draft if any team has players on their roster
-    draft_locked = Roster.objects.filter(league=league, week_dropped__isnull=True).exists()
+    draft_locked = Roster.objects.filter(
+        league=league,
+        season=league.season,
+        week_dropped__isnull=True,
+    ).exists()
 
     # Get available players (not on any roster in this league and not drafted)
     drafted_player_ids = []
@@ -5127,6 +5144,7 @@ def draft_room(request):
     rostered_player_ids = list(
         Roster.objects.filter(
             league=league,
+            season=league.season,
             week_dropped__isnull=True
         ).values_list('player_id', flat=True)
     )
