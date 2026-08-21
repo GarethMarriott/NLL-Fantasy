@@ -9,7 +9,7 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse_lazy
 
-from ..models import Player, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
+from ..models import Player, PlayerNLLTeam, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
 from ..forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm, PasswordResetForm, SetPasswordForm
 from ..tasks import send_password_reset_email
 from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME, TEAM_ABBREVIATIONS
@@ -2465,6 +2465,14 @@ def players(request):
     if selected_season:
         week_options = list(Week.objects.filter(season=int(selected_season)).order_by('week_number'))
 
+    season_teams_by_player = {}
+    if selected_season:
+        season_teams_by_player = dict(
+            PlayerNLLTeam.objects.filter(season=int(selected_season)).values_list(
+                'player_id', 'nll_team'
+            )
+        )
+
     sort_field = request.GET.get("sort", "fpts")
     sort_dir = request.GET.get("dir", "asc")
 
@@ -2546,6 +2554,7 @@ def players(request):
         
         players_with_stats.append({
             "player": p,
+            "nll_team": season_teams_by_player.get(p.id, p.nll_team),
             "latest_stat": stat_for_view,
             "fantasy_points": fpts,
             "ppg": ppg,

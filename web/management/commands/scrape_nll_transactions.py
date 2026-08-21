@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from bs4 import BeautifulSoup
 import re
 from datetime import datetime
-from web.models import NLLTransaction
+from web.models import NLLTransaction, Player, PlayerNLLTeam, nll_season_for_date
 
 
 def scrape_nll_transactions_task():
@@ -88,6 +88,7 @@ def scrape_nll_transactions_task():
                                 
                                 # Extract player-specific details
                                 player_details = extract_player_details(transaction_text, player_name)
+                                player = find_player(player_name)
                                 
                                 # Create or get transaction
                                 transaction, created = NLLTransaction.objects.get_or_create(
@@ -99,6 +100,7 @@ def scrape_nll_transactions_task():
                                         'from_team': from_team,
                                         'to_team': to_team,
                                         'details': player_details,
+                                        'player': player,
                                         'scraped_at': datetime.now(),
                                     }
                                 )
@@ -113,8 +115,31 @@ def scrape_nll_transactions_task():
                                     if not transaction.to_team and to_team:
                                         transaction.to_team = to_team
                                         update_fields.append('to_team')
+                                    if not transaction.player and player:
+                                        transaction.player = player
+                                        update_fields.append('player')
                                     if update_fields:
                                         transaction.save(update_fields=update_fields)
+
+                                if player and to_team and transaction_type in {'traded', 'signed'}:
+                                    season = nll_season_for_date(transaction_date)
+                                    if transaction_date.month >= 8 and from_team:
+                                        PlayerNLLTeam.objects.get_or_create(
+                                            player=player,
+                                            season=season - 1,
+                                            defaults={'nll_team': from_team},
+                                        )
+                                    PlayerNLLTeam.objects.update_or_create(
+                                        player=player,
+                                        season=season,
+                                        defaults={
+                                            'nll_team': to_team,
+                                            'source_transaction': transaction,
+                                        },
+                                    )
+                                    if player.nll_team != to_team:
+                                        player.nll_team = to_team
+                                        player.save(update_fields=['nll_team'])
                     
                     next_elem = next_elem.find_next_sibling()
             
@@ -156,6 +181,17 @@ def extract_player_names(transaction_text):
                     names.append(name)
     
     return names
+
+
+def find_player(player_name):
+    """Match a transaction name to one player without guessing on duplicates."""
+    name_parts = player_name.split(maxsplit=1)
+    if len(name_parts) != 2:
+        return None
+    return Player.objects.filter(
+        first_name__iexact=name_parts[0],
+        last_name__iexact=name_parts[1],
+    ).first()
 
 
 def clean_and_validate_name(name_str):

@@ -6,6 +6,11 @@ import string
 import pytz
 
 
+def nll_season_for_date(transaction_date):
+    """Return the NLL season ending year for a transaction or roster date."""
+    return transaction_date.year + 1 if transaction_date.month >= 8 else transaction_date.year
+
+
 class League(models.Model):
         # Multi-game week scoring method
     """Fantasy league that contains multiple teams"""
@@ -684,6 +689,37 @@ class Player(models.Model):
         
         self._is_on_ir_cache = True
         return True
+
+
+class PlayerNLLTeam(models.Model):
+    """A player's real-world NLL team for a specific NLL season."""
+
+    player = models.ForeignKey(
+        Player,
+        on_delete=models.CASCADE,
+        related_name='nll_team_seasons',
+    )
+    season = models.PositiveSmallIntegerField(help_text="NLL season ending year")
+    nll_team = models.CharField(max_length=50)
+    source_transaction = models.ForeignKey(
+        'NLLTransaction',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='team_history_updates',
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['player', 'season'],
+                name='unique_player_nll_team_per_season',
+            ),
+        ]
+        indexes = [models.Index(fields=['season', 'nll_team'])]
+
+    def __str__(self):
+        return f"{self.player} - {self.season}: {self.nll_team}"
 
 
 class Week(models.Model):
