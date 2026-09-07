@@ -2714,6 +2714,7 @@ def players(request):
             "sort_field": sort_field,
             "sort_dir": sort_dir,
             "search_query": search_query,
+            "league": selected_league,
             "user_team": user_team,
             "user_roster_json": user_roster_json,
             "position_capacity_json": position_capacity_json,

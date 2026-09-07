@@ -3,6 +3,9 @@
 {% block content %}
   <div class="container p-2 mx-auto rounded-md sm:p-4 dark:text-gray-800 dark:bg-gray-50">
     <h2 class="mb-3 text-2xl font-semibold leading-tight">Players</h2>
+    {% if league %}
+      <p class="mb-3 text-xs text-gray-500">League: {{ league.name }}</p>
+    {% endif %}
 
     <div class="flex items-center justify-between mb-4">
       <div class="hidden sm:block">
