@@ -2927,6 +2927,15 @@ def player_detail_modal(request, player_id):
     if selected_season:
         game_stats = game_stats.filter(game__week__season=selected_season)
     game_stats = game_stats.order_by('game__week__season', 'game__week__week_number', 'game__date')
+
+    def opponent_for_game(game):
+        home_team = TEAM_ID_TO_NAME.get(str(game.home_team), game.home_team)
+        away_team = TEAM_ID_TO_NAME.get(str(game.away_team), game.away_team)
+        if home_team == player.nll_team:
+            return away_team
+        if away_team == player.nll_team:
+            return home_team
+        return away_team
     
     # Group stats by week
     stats_by_week = {}
@@ -2998,7 +3007,7 @@ def player_detail_modal(request, player_id):
                         game_points.append(pts)
                     game_details.append({
                         'date': stat.game.date.strftime('%Y-%m-%d'),
-                        'opponent': f"{stat.game.away_team} @ {stat.game.home_team}",
+                        'opponent': opponent_for_game(stat.game),
                         'goals': stat.goals,
                         'assists': stat.assists,
                         'loose_balls': stat.loose_balls,
@@ -3050,7 +3059,7 @@ def player_detail_modal(request, player_id):
                 )
                 upcoming_games = [{
                     'date': game.date.strftime('%Y-%m-%d'),
-                    'opponent': f"{game.away_team} @ {game.home_team}",
+                    'opponent': opponent_for_game(game),
                 } for game in games]
                 is_bye_week = len(upcoming_games) == 0
             
@@ -3324,9 +3333,8 @@ def matchups(request):
     
     if selected_league_id:
         teams = list(Team.objects.filter(league_id=selected_league_id).order_by("id"))
-        # Use the most recent season (not league creation year)
-        latest_week = Week.objects.order_by('-season', '-week_number').first()
-        league_season = latest_week.season if latest_week else timezone.now().year
+        selected_league = League.objects.filter(id=selected_league_id).first()
+        league_season = selected_league.season if selected_league else timezone.now().year
     else:
         teams = list(Team.objects.filter(league__is_active=True).order_by("id"))
         # Use the most recent season
@@ -3887,9 +3895,8 @@ def standings(request):
         team_ids = [t.id for t in teams]
         all_weeks = get_cached_schedule(team_ids)
         
-        # Get current season and only process completed weeks (end_date has passed)
-        latest_week = Week.objects.order_by('-season', '-week_number').first()
-        league_season = latest_week.season if latest_week else timezone.now().year
+        # Use the league's configured season and only process completed weeks.
+        league_season = league.season
         # Only include weeks where end_date has passed (week is complete)
         # Compare dates properly: end_date is a DateField, so use date() for timezone.now()
         today = timezone.now().date()

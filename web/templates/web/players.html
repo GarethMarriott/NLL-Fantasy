@@ -840,13 +840,13 @@
         if (week.is_upcoming) {
           const games = week.games || [];
           rows += games.length
-            ? games.map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-gray-700" colspan="${statHeaders.length + 1}">${game.opponent}</td></tr>`).join('')
+            ? games.map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-gray-700" colspan="${statHeaders.length + 1}">VS ${game.opponent}</td></tr>`).join('')
             : `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${week.week}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-orange-600 font-medium" colspan="${statHeaders.length + 1}">BYE</td></tr>`;
         } else if (week.is_bye || week.is_no_stats) {
           const status = week.is_bye ? 'BYE WEEK' : 'No stats recorded';
           rows += `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${week.week}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 ${week.is_bye ? 'text-orange-600 font-medium' : 'text-gray-500'}" colspan="${statHeaders.length + 1}">${status}</td></tr>`;
         } else {
-          rows += (week.game_details || []).map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium whitespace-nowrap">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 font-bold text-blue-600">${game.fantasy_points}</td><td class="px-3 py-2 text-gray-700 whitespace-nowrap">${game.opponent}</td>${statValues(game).map(value => `<td class="px-3 py-2 text-center">${value}</td>`).join('')}</tr>`).join('');
+          rows += (week.game_details || []).map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium whitespace-nowrap">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 font-bold text-blue-600">${game.fantasy_points}</td><td class="px-3 py-2 text-gray-700 whitespace-nowrap">VS ${game.opponent}</td>${statValues(game).map(value => `<td class="px-3 py-2 text-center">${value}</td>`).join('')}</tr>`).join('');
         }
       });
 
