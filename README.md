@@ -57,7 +57,7 @@ python manage.py fetch_nll_stats --season 2025 --week 5
 # Preview import without saving (dry run)
 python manage.py fetch_nll_stats --dry-run --week 1
 
-# Import historical NLLStats box scores from 2005 through 2025
+# Import historical NLLStats box scores from 2020 through 2025
 python manage.py fetch_nll_stats --historical
 ```
 

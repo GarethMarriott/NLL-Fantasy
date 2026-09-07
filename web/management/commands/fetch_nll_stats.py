@@ -40,7 +40,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--historical',
             action='store_true',
-            help='Import every available completed NLLStats season from 2005 through 2025'
+            help='Import completed NLLStats seasons from 2020 through 2025'
         )
 
     def handle(self, *args, **options):
@@ -95,7 +95,7 @@ class Command(BaseCommand):
                 if isinstance(game.get('season'), int)
             })
             seasons_to_import = (
-                [year for year in available_seasons if 2005 <= year <= 2025]
+                [year for year in available_seasons if 2020 <= year <= 2025]
                 if historical else [season]
             )
             if not seasons_to_import:
