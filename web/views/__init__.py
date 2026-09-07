@@ -1327,18 +1327,15 @@ def assign_player(request, team_id):
                 messages.error(request, f"{player.first_name} {player.last_name} cannot be added to Goalie slots (position: {player.get_position_display()})")
                 return redirect("team_detail", team_id=team.id)
             
-            # Check position-specific capacity
-            # For traditional leagues, only count players in starter slots (not bench)
-            if team.league.roster_format == 'traditional':
+            # Traditional leagues use the overall roster capacity above. Their
+            # positional limits apply when a manager sets the starting lineup.
+            if team.league.roster_format != 'traditional':
                 can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
-            else:
-                # For best ball, use general capacity check
-                can_add, current_pos_count, max_pos_slots = check_roster_capacity(team, slot_group)
-            
-            if not can_add:
-                position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(slot_group, 'Unknown')
-                messages.error(request, f"Your {position_name} roster is full ({current_pos_count}/{max_pos_slots} spots).")
-                return redirect("team_detail", team_id=team.id)
+
+                if not can_add:
+                    position_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(slot_group, 'Unknown')
+                    messages.error(request, f"Your {position_name} roster is full ({current_pos_count}/{max_pos_slots} spots).")
+                    return redirect("team_detail", team_id=team.id)
         
         # Check if player is already rostered in this league (active roster only)
         existing_roster = Roster.objects.filter(
