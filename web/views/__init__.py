@@ -2940,7 +2940,7 @@ def player_detail_modal(request, player_id):
     # Group stats by week
     stats_by_week = {}
     for stat in game_stats:
-        week_key = f"Week {stat.game.week.week_number} (S{stat.game.week.season})"
+        week_key = f"Week {stat.game.week.week_number}"
         if week_key not in stats_by_week:
             stats_by_week[week_key] = []
         stats_by_week[week_key].append({
@@ -2982,7 +2982,7 @@ def player_detail_modal(request, player_id):
     ).order_by('week_number')
     
     # Sort by week number (numerically, not alphabetically)
-    # week_key format: "Week 1 (S2026)" -> extract week number
+    # week_key format: "Week 1" -> extract week number
     def extract_week_number(week_key):
         try:
             return int(week_key.split()[1])
@@ -2991,7 +2991,7 @@ def player_detail_modal(request, player_id):
     
     # Add stats for all weeks (past and upcoming)
     for week in all_weeks_in_season:
-        week_key = f"Week {week.week_number} (S{week.season})"
+        week_key = f"Week {week.week_number}"
         is_upcoming = week.start_date > today
         
         if week_key in stats_by_week:
@@ -3001,7 +3001,7 @@ def player_detail_modal(request, player_id):
             game_points = []
             game_details = []
             for stat in game_stats:
-                if f"Week {stat.game.week.week_number} (S{stat.game.week.season})" == week_key:
+                if f"Week {stat.game.week.week_number}" == week_key:
                     pts = calculate_fantasy_points(stat, player, league)
                     if pts is not None:
                         game_points.append(pts)
@@ -3102,6 +3102,15 @@ def player_detail_modal(request, player_id):
             'from_team': trans.from_team or '-',
             'to_team': trans.to_team or '-',
         })
+
+    completed_games = [
+        game
+        for week in week_stats
+        if not week.get('is_upcoming') and not week.get('is_no_stats')
+        for game in week.get('game_details', [])
+    ]
+    total_fantasy_points = sum(game['fantasy_points'] for game in completed_games)
+    games_played = len(completed_games)
     
     # Build response data
     data = {
@@ -3125,6 +3134,11 @@ def player_detail_modal(request, player_id):
         'transactions': transactions_list,
         'available_seasons': available_seasons,
         'selected_season': season,
+        'season_totals': {
+            'fantasy_points': round(total_fantasy_points, 1),
+            'games_played': games_played,
+            'points_per_game': round(total_fantasy_points / games_played, 2) if games_played else 0,
+        },
     }
     
     return JsonResponse(data)
@@ -5192,12 +5206,15 @@ def draft_room(request):
     team_count = teams.count()
     league_is_full = team_count == league.max_teams
 
-    # Lock draft if any team has players on their roster
-    draft_locked = Roster.objects.filter(
-        league=league,
-        season=league.season,
-        week_dropped__isnull=True,
-    ).exists()
+    # Existing rosters prevent a redraft, but are expected for dynasty rookie drafts.
+    draft_locked = (
+        league.league_type == 'redraft'
+        and Roster.objects.filter(
+            league=league,
+            season=league.season,
+            week_dropped__isnull=True,
+        ).exists()
+    )
 
     # Get available players (not on any roster in this league and not drafted)
     drafted_player_ids = []
@@ -6683,66 +6700,17 @@ def toggle_offseason_rosters(request, league_id):
         return JsonResponse({'success': False, 'error': 'Offseason roster access is available only outside Weeks 1-21 for dynasty leagues.'}, status=400)
 
     opening_rosters = not league.offseason_rosters_open
-    maximum_season = timezone.now().year + 1
-    needs_rollover = (
-        league.offseason_roster_rollover_season is None
-        or league.status == 'season_complete'
+    Roster.objects.filter(
+        league=league,
+        season=league.season,
+        week_dropped__isnull=True,
+    ).update(
+        is_locked=not opening_rosters,
+        locked_reason='' if opening_rosters else 'offseason',
     )
-    if opening_rosters and needs_rollover:
-        previous_season = league.season
-        next_season = previous_season + 1
-        if next_season > maximum_season:
-            return JsonResponse({
-                'success': False,
-                'error': f'Rosters cannot roll over beyond the {maximum_season} season yet.',
-            }, status=400)
-        from ..models import LeagueHistory
-        current_rosters = list(Roster.objects.filter(
-            league=league,
-            season=previous_season,
-            week_dropped__isnull=True,
-        ))
-        standings = [
-            {
-                'team_id': team.id,
-                'team_name': team.name,
-                'owner': team.owner.user.username if hasattr(team, 'owner') and team.owner else 'Unknown',
-            }
-            for team in Team.objects.filter(league=league).order_by('name')
-        ]
-        LeagueHistory.objects.get_or_create(
-            league=league,
-            season_year=previous_season,
-            defaults={
-                'champion': league.season_winner,
-                'final_standings': {'teams': standings},
-            },
-        )
-        Player.objects.filter(is_rookie=True).update(is_rookie=False)
-        Roster.objects.filter(
-            league=league,
-            season=previous_season,
-            week_dropped__isnull=True,
-        ).update(week_dropped=22)
-        for roster_entry in current_rosters:
-            Roster.objects.create(
-                team=roster_entry.team,
-                player=roster_entry.player,
-                league=league,
-                season=next_season,
-                slot_assignment=roster_entry.slot_assignment,
-                week_added=1,
-            )
-        league.season = next_season
-        league.status = 'active'
-        league.offseason_roster_rollover_season = next_season
-
     league.offseason_rosters_open = opening_rosters
     league.save(update_fields=[
-        'season',
-        'status',
         'offseason_rosters_open',
-        'offseason_roster_rollover_season',
         'updated_at',
     ])
     return JsonResponse({'success': True, 'rosters_open': league.offseason_rosters_open})

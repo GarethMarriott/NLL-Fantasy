@@ -287,7 +287,7 @@ def renew_league(league_id):
     3. Resets league status to 'active' with draft_locked=True
     4. Handles rosters based on league_type:
        - Redraft: Clears all rosters for the new season
-       - Dynasty: Copies all rosters to the new season
+         - Dynasty: Copies and locks all rosters for the new season
     5. For dynasty leagues: Creates rookie draft and future picks
     
     Args:
@@ -424,7 +424,9 @@ def renew_league(league_id):
                             player=old_roster.player,
                             league=league,
                             season=new_season,
-                            slot_assignment=old_roster.slot_assignment if old_roster.slot_assignment else None
+                            slot_assignment=old_roster.slot_assignment if old_roster.slot_assignment else None,
+                            is_locked=True,
+                            locked_reason='offseason',
                         )
                         transferred_count += 1
                     
@@ -439,7 +441,9 @@ def renew_league(league_id):
                                 team=new_team,
                                 player=taxi_entry.player,
                                 league=league,
-                                season=new_season
+                                season=new_season,
+                                is_locked=True,
+                                locked_reason='offseason',
                             )
                             taxi_moved += 1
                     
@@ -467,6 +471,8 @@ def renew_league(league_id):
             league.status = 'active'
             league.season_winner = None  # Clear previous winner
             league.draft_locked = True  # Lock during draft
+            league.offseason_rosters_open = False
+            league.offseason_roster_rollover_season = new_season
             league.save()
             
             logger.info(f"[RENEWAL] League updated: season={new_season}, status=active, draft_locked=True")

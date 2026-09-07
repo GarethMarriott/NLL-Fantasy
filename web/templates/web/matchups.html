@@ -415,6 +415,8 @@
             const statValues = isGoalie
               ? game => [game.wins, game.saves, game.goals_against, game.goals, game.assists]
               : game => [game.goals, game.assists, game.loose_balls, game.caused_turnovers, game.blocked_shots, game.turnovers];
+            const totals = data.season_totals || { fantasy_points: 0, games_played: 0, points_per_game: 0 };
+            const summary = `<div class="grid grid-cols-3 gap-2 mb-3 text-center"><div class="bg-blue-50 border border-blue-100 rounded-md p-2"><div class="text-xs uppercase text-gray-500">Season Pts</div><div class="font-bold text-blue-700">${totals.fantasy_points}</div></div><div class="bg-gray-50 border border-gray-200 rounded-md p-2"><div class="text-xs uppercase text-gray-500">Games Played</div><div class="font-bold text-gray-800">${totals.games_played}</div></div><div class="bg-gray-50 border border-gray-200 rounded-md p-2"><div class="text-xs uppercase text-gray-500">Pts / Game</div><div class="font-bold text-gray-800">${totals.points_per_game}</div></div></div>`;
             let rows = '';
 
             (data.week_stats || []).forEach(week => {
@@ -431,9 +433,9 @@
               }
             });
 
-            container.innerHTML = rows
+            container.innerHTML = summary + (rows
               ? `<div class="overflow-x-auto border border-gray-200 rounded-md"><table class="w-full text-sm text-left"><thead class="bg-gray-100 text-xs uppercase text-gray-600"><tr><th class="px-3 py-2">Week</th><th class="px-3 py-2">Pts</th><th class="px-3 py-2">Game</th>${statHeaders.map(header => `<th class="px-3 py-2 text-center">${header}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
-              : '<p class="text-gray-500 text-sm">No stats available</p>';
+              : '<p class="text-gray-500 text-sm">No stats available</p>');
           }
 
           function switchPlayerTab(tabName) {
