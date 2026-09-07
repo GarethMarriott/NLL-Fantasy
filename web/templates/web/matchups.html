@@ -109,7 +109,7 @@
                         {% for slot in game.home_roster.offence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')}">{{ slot.player.last_name }}, {{ slot.player.first_name }}{% if slot.player.is_on_injured_reserve %} <span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %} #{{ slot.player.number }}</span>
+                              <button type="button" class="text-left hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }})">{{ slot.player.last_name }}, {{ slot.player.first_name }}{% if slot.player.is_on_injured_reserve %} <span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %} #{{ slot.player.number }}</button>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -126,7 +126,7 @@
                         {% for slot in game.home_roster.defence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')}">{{ slot.player.last_name }}, {{ slot.player.first_name }}{% if slot.player.is_on_injured_reserve %} <span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %} #{{ slot.player.number }}</span>
+                              <button type="button" class="text-left hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }})">{{ slot.player.last_name }}, {{ slot.player.first_name }}{% if slot.player.is_on_injured_reserve %} <span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %} #{{ slot.player.number }}</button>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -143,7 +143,7 @@
                         {% for slot in game.home_roster.goalie_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <button type="button" class="text-left hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }})">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</button>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -170,7 +170,7 @@
                         {% for slot in game.away_roster.offence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-green-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <button type="button" class="text-left hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }})">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</button>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -187,7 +187,7 @@
                         {% for slot in game.away_roster.defence_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-orange-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <button type="button" class="text-left hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }})">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</button>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -204,7 +204,7 @@
                         {% for slot in game.away_roster.goalie_slots %}
                           {% if slot %}
                             <div class="flex justify-between text-xs {% if slot.counts_for_total %}bg-purple-100 px-2 py-1 rounded font-semibold{% endif %}">
-                              <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</span>
+                              <button type="button" class="text-left hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }})">{{ slot.player.last_name }}, {{ slot.player.first_name }} #{{ slot.player.number }}</button>
                               <span class="font-semibold">{% if slot.fantasy_points is not None %}{{ slot.fantasy_points }}{% else %}-{% endif %}</span>
                             </div>
                           {% else %}
@@ -250,7 +250,7 @@
           let currentModalPlayerId = null;
           let currentModalPlayerName = '';
 
-          function showPlayerModal(playerId, playerName, season = '', activeTab = 'info') {
+          function showPlayerModal(playerId, playerName = '', season = '', activeTab = 'info') {
             currentModalPlayerId = playerId;
             currentModalPlayerName = playerName;
             // Fetch player data from AJAX endpoint
