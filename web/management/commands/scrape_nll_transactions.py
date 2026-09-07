@@ -315,6 +315,9 @@ def extract_transaction_type_for_player(text, player_name):
                 any(word in context_text for word in ('placed', 'added', 'assigned'))):
             return 'injured_reserve'
 
+        if 'retired list' in context_text or 'retirement' in context_text or 'retired' in context_text:
+            return 'retired'
+
         # Active-roster moves take precedence over unrelated signings in a
         # multi-player transaction announcement.
         if ('active roster' in context_text and
@@ -366,6 +369,8 @@ def extract_transaction_type(text):
             ('on the injured reserve' in text_lower or 'on injured reserve' in text_lower) and
             any(word in text_lower for word in ('placed', 'added', 'assigned'))):
         return 'injured_reserve'
+    if 'retired list' in text_lower or 'retirement' in text_lower or 'retired' in text_lower:
+        return 'retired'
     if 'active roster' in text_lower and any(word in text_lower for word in ('placed', 'added', 'activated', 'returned', 'recalled')):
         return 'activated'
     
