@@ -247,9 +247,15 @@
             }
           }
 
-          function showPlayerModal(playerId, playerName) {
+          let currentModalPlayerId = null;
+          let currentModalPlayerName = '';
+
+          function showPlayerModal(playerId, playerName, season = '') {
+            currentModalPlayerId = playerId;
+            currentModalPlayerName = playerName;
             // Fetch player data from AJAX endpoint
-            fetch(`/players/${playerId}/modal/`)
+            const query = season ? `?season=${encodeURIComponent(season)}` : '';
+            fetch(`/players/${playerId}/modal/${query}`)
               .then(response => {
                 if (!response.ok) throw new Error('Failed to load player data');
                 return response.json();
@@ -266,6 +272,12 @@
                 document.getElementById('playerHometown').textContent = data.player.hometown || '-';
                 document.getElementById('playerDraftYear').textContent = data.player.draft_year || '-';
                 document.getElementById('playerBirthdate').textContent = data.player.birthdate || '-';
+
+                const seasonSelector = document.getElementById('statsSeasonSelector');
+                seasonSelector.innerHTML = '';
+                data.available_seasons.forEach(year => {
+                  seasonSelector.add(new Option(year, year, false, year === data.selected_season));
+                });
                 
                 // Show rookie badge if applicable
                 const rookieBadge = document.getElementById('playerRookieBadge');
@@ -384,6 +396,7 @@
                 }
                 
                 // Show modal
+                switchPlayerTab('info');
                 document.getElementById('playerModal').classList.remove('hidden');
                 document.getElementById('playerModal').classList.add('flex');
               })
@@ -395,25 +408,22 @@
           
           function switchPlayerTab(tabName) {
             // Hide all content
+            document.getElementById('playerInfoTabContent').classList.add('hidden');
             document.getElementById('statsTabContent').classList.add('hidden');
             document.getElementById('transactionsTabContent').classList.add('hidden');
             
             // Remove active styling from all tabs
-            document.getElementById('statsTab').classList.remove('border-blue-600', 'text-blue-600');
-            document.getElementById('statsTab').classList.add('border-transparent', 'text-gray-600');
-            document.getElementById('transactionsTab').classList.remove('border-blue-600', 'text-blue-600');
-            document.getElementById('transactionsTab').classList.add('border-transparent', 'text-gray-600');
+            ['info', 'transactions', 'stats'].forEach(tab => {
+              const button = document.getElementById(`${tab}Tab`);
+              button.classList.remove('border-blue-600', 'text-blue-600');
+              button.classList.add('border-transparent', 'text-gray-600');
+            });
             
             // Show selected content and activate tab
-            if (tabName === 'stats') {
-              document.getElementById('statsTabContent').classList.remove('hidden');
-              document.getElementById('statsTab').classList.remove('border-transparent', 'text-gray-600');
-              document.getElementById('statsTab').classList.add('border-blue-600', 'text-blue-600');
-            } else if (tabName === 'transactions') {
-              document.getElementById('transactionsTabContent').classList.remove('hidden');
-              document.getElementById('transactionsTab').classList.remove('border-transparent', 'text-gray-600');
-              document.getElementById('transactionsTab').classList.add('border-blue-600', 'text-blue-600');
-            }
+            document.getElementById(`${tabName}TabContent`).classList.remove('hidden');
+            const activeTab = document.getElementById(`${tabName}Tab`);
+            activeTab.classList.remove('border-transparent', 'text-gray-600');
+            activeTab.classList.add('border-blue-600', 'text-blue-600');
           }
           
           function closePlayerModal(event) {
@@ -470,17 +480,21 @@
             
             <!-- Tabs -->
             <div class="border-b border-gray-200 bg-gray-50">
-              <div class="flex gap-8 px-6">
-                <button onclick="switchPlayerTab('stats')" id="statsTab" class="py-3 px-2 border-b-2 border-blue-600 text-blue-600 font-semibold cursor-pointer">
-                  Stats & Schedule
+              <div class="flex gap-4 sm:gap-8 px-6 overflow-x-auto">
+                <button onclick="switchPlayerTab('info')" id="infoTab" class="py-3 px-2 border-b-2 border-blue-600 text-blue-600 font-semibold cursor-pointer whitespace-nowrap">
+                  Player Info
                 </button>
-                <button onclick="switchPlayerTab('transactions')" id="transactionsTab" class="py-3 px-2 border-b-2 border-transparent text-gray-600 font-semibold cursor-pointer hover:text-gray-800">
+                <button onclick="switchPlayerTab('transactions')" id="transactionsTab" class="py-3 px-2 border-b-2 border-transparent text-gray-600 font-semibold cursor-pointer hover:text-gray-800 whitespace-nowrap">
                   Transactions
+                </button>
+                <button onclick="switchPlayerTab('stats')" id="statsTab" class="py-3 px-2 border-b-2 border-transparent text-gray-600 font-semibold cursor-pointer hover:text-gray-800 whitespace-nowrap">
+                  Stats & Schedule
                 </button>
               </div>
             </div>
             
             <div class="p-6">
+              <div id="playerInfoTabContent">
               <!-- NLL Team & Position Section (Prominent for mobile) -->
               <div class="mb-6 pb-6 border-b border-gray-300">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -529,9 +543,17 @@
                 </div>
               </div>
               
+              </div>
+
               <!-- Stats & Schedule Tab Content -->
-              <div id="statsTabContent">
-                <h3 class="text-lg font-semibold mb-4">Stats & Schedule</h3>
+              <div id="statsTabContent" class="hidden">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <h3 class="text-lg font-semibold">Stats & Schedule</h3>
+                  <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <span>Year</span>
+                    <select id="statsSeasonSelector" onchange="showPlayerModal(currentModalPlayerId, currentModalPlayerName, this.value)" class="border border-gray-300 rounded-md bg-white px-2 py-1 text-sm text-gray-900"></select>
+                  </label>
+                </div>
                 <div id="weekStatsContainer" class="space-y-4 max-h-96 overflow-y-auto">
                   <!-- Will be populated by JavaScript -->
                 </div>

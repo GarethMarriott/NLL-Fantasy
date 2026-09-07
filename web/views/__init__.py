@@ -2911,8 +2911,21 @@ def player_detail_modal(request, player_id):
     if not league:
         league = League.objects.filter(pk=request.GET.get('league_id')).first()
     game_stats = player.game_stats.select_related('game__week')
-    if league:
-        game_stats = game_stats.filter(game__week__season=league.season)
+    available_seasons = list(
+        game_stats.values_list('game__week__season', flat=True).distinct().order_by('-game__week__season')
+    )
+    if league and league.season not in available_seasons:
+        available_seasons.insert(0, league.season)
+
+    requested_season = request.GET.get('season')
+    try:
+        selected_season = int(requested_season) if requested_season else None
+    except (TypeError, ValueError):
+        selected_season = None
+    if selected_season not in available_seasons:
+        selected_season = league.season if league else (available_seasons[0] if available_seasons else None)
+    if selected_season:
+        game_stats = game_stats.filter(game__week__season=selected_season)
     game_stats = game_stats.order_by('game__week__season', 'game__week__week_number', 'game__date')
     
     # Group stats by week
@@ -2946,11 +2959,13 @@ def player_detail_modal(request, player_id):
     # Get all weeks from the season to fill in missing weeks with 0 stats
     from django.utils import timezone
     today = timezone.now().date()
-    if league:
-        season = league.season
+    if selected_season:
+        season = selected_season
     else:
         latest_week = Week.objects.order_by('-season', '-week_number').first()
         season = latest_week.season if latest_week else 2026
+    if season not in available_seasons:
+        available_seasons.insert(0, season)
     
     all_weeks_in_season = Week.objects.filter(season=season).order_by('week_number')
     
@@ -3079,7 +3094,9 @@ def player_detail_modal(request, player_id):
             'is_on_ir': player.is_on_injured_reserve,
         },
         'week_stats': week_stats,
-        'transactions': transactions_list
+        'transactions': transactions_list,
+        'available_seasons': available_seasons,
+        'selected_season': season,
     }
     
     return JsonResponse(data)
