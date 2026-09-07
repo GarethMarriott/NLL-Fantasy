@@ -3346,9 +3346,17 @@ def matchups(request):
             request.session['selected_league_id'] = selected_league_id
     
     if selected_league_id:
-        teams = list(Team.objects.filter(league_id=selected_league_id).order_by("id"))
         selected_league = League.objects.filter(id=selected_league_id).first()
         league_season = selected_league.season if selected_league else timezone.now().year
+        teams = list(Team.objects.filter(
+            league_id=selected_league_id,
+            season_year=league_season,
+        ).order_by("id"))
+        if not teams:
+            teams = list(Team.objects.filter(
+                league_id=selected_league_id,
+                season_year__isnull=True,
+            ).order_by("id"))
     else:
         teams = list(Team.objects.filter(league__is_active=True).order_by("id"))
         # Use the most recent season
@@ -3902,7 +3910,9 @@ def standings(request):
     all_league_standings = []
     
     for league in leagues:
-        teams = list(league.teams.order_by("name"))
+        teams = list(league.teams.filter(season_year=league.season).order_by("name"))
+        if not teams:
+            teams = list(league.teams.filter(season_year__isnull=True).order_by("name"))
         if not teams:
             continue
             
