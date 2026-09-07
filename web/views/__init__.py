@@ -5734,14 +5734,16 @@ def make_draft_pick(request, draft_id):
                         messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
                         return redirect('draft_room')
                     
-                    # Check position-specific capacity
+                    # Traditional leagues use total roster capacity; starter limits
+                    # are enforced separately when managers set their lineups.
                     player_position = pick.player.assigned_side if pick.player.assigned_side else pick.player.position
-                    can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
-                    if not can_add:
-                        pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                        post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} {pos_name} roster full")
-                        messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
-                        return redirect('draft_room')
+                    if draft.league.roster_format != 'traditional':
+                        can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
+                        if not can_add:
+                            pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                            post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} {pos_name} roster full")
+                            messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
+                            return redirect('draft_room')
                     
                     draft_roster = Roster.objects.create(
                         team=pick.team,
@@ -5771,14 +5773,16 @@ def make_draft_pick(request, draft_id):
                     messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
                     return redirect('draft_room')
                 
-                # Check position-specific capacity
+                # Traditional leagues use total roster capacity; starter limits
+                # are enforced separately when managers set their lineups.
                 player_position = pick.player.assigned_side if pick.player.assigned_side else pick.player.position
-                can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
-                if not can_add:
-                    pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                    post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} {pos_name} roster full")
-                    messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
-                    return redirect('draft_room')
+                if draft.league.roster_format != 'traditional':
+                    can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
+                    if not can_add:
+                        pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                        post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} {pos_name} roster full")
+                        messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
+                        return redirect('draft_room')
                 
                 draft_roster = Roster.objects.create(
                     team=pick.team,

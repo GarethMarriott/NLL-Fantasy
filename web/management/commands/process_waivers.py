@@ -288,18 +288,20 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.WARNING(f"  ✗ {claim.team.name}: Roster full"))
                         return False
                 
-                # Check position-specific capacity for the player being added
+                # Traditional leagues use total roster capacity; starter limits
+                # are enforced separately when managers set their lineups.
                 player_position = claim.player_to_add.assigned_side if claim.player_to_add.assigned_side else claim.player_to_add.position
-                can_add, current_pos_count, max_pos_slots = check_roster_capacity(claim.team, player_position, exclude_player=claim.player_to_drop)
-                
-                if not can_add:
-                    claim.status = WaiverClaim.Status.FAILED
-                    pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                    claim.failure_reason = f"{pos_name} roster full ({current_pos_count}/{max_pos_slots})"
-                    claim.processed_at = timezone.now()
-                    claim.save()
-                    self.stdout.write(self.style.WARNING(f"  ✗ {claim.team.name}: {pos_name} roster full"))
-                    return False
+                if claim.league.roster_format != 'traditional':
+                    can_add, current_pos_count, max_pos_slots = check_roster_capacity(claim.team, player_position, exclude_player=claim.player_to_drop)
+
+                    if not can_add:
+                        claim.status = WaiverClaim.Status.FAILED
+                        pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                        claim.failure_reason = f"{pos_name} roster full ({current_pos_count}/{max_pos_slots})"
+                        claim.processed_at = timezone.now()
+                        claim.save()
+                        self.stdout.write(self.style.WARNING(f"  ✗ {claim.team.name}: {pos_name} roster full"))
+                        return False
                 
                 # Add the new player with week_added set to NEXT week
                 # (not current locked week, since player only becomes active next week)
@@ -396,27 +398,29 @@ class Command(BaseCommand):
                         ))
                         return False
                 
-                # Validate roster capacity for receiving teams
+                # Validate position capacity for receiving Best Ball teams.
                 # Team 1 players → Team 2, Team 2 players → Team 1
                 for tp in from_team_to_players[team1]:
                     player_position = tp.player.assigned_side if tp.player.assigned_side else tp.player.position
-                    can_add, current_pos_count, max_pos_slots = check_roster_capacity(team2, player_position)
-                    if not can_add:
-                        pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                        self.stdout.write(self.style.WARNING(
-                            f"  ✗ Trade {trade.id}: {team2.name} {pos_name} roster full ({current_pos_count}/{max_pos_slots})"
-                        ))
-                        return False
+                    if trade.league.roster_format != 'traditional':
+                        can_add, current_pos_count, max_pos_slots = check_roster_capacity(team2, player_position)
+                        if not can_add:
+                            pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                            self.stdout.write(self.style.WARNING(
+                                f"  ✗ Trade {trade.id}: {team2.name} {pos_name} roster full ({current_pos_count}/{max_pos_slots})"
+                            ))
+                            return False
                 
                 for tp in from_team_to_players[team2]:
                     player_position = tp.player.assigned_side if tp.player.assigned_side else tp.player.position
-                    can_add, current_pos_count, max_pos_slots = check_roster_capacity(team1, player_position)
-                    if not can_add:
-                        pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                        self.stdout.write(self.style.WARNING(
-                            f"  ✗ Trade {trade.id}: {team1.name} {pos_name} roster full ({current_pos_count}/{max_pos_slots})"
-                        ))
-                        return False
+                    if trade.league.roster_format != 'traditional':
+                        can_add, current_pos_count, max_pos_slots = check_roster_capacity(team1, player_position)
+                        if not can_add:
+                            pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
+                            self.stdout.write(self.style.WARNING(
+                                f"  ✗ Trade {trade.id}: {team1.name} {pos_name} roster full ({current_pos_count}/{max_pos_slots})"
+                            ))
+                            return False
                 
                 # Execute the trade - swap players between teams
                 player_moves = []

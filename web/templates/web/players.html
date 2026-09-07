@@ -352,7 +352,8 @@
       const rosterCount = {{ roster_count }};
       const rosterMax = {{ roster_max }};
       const positionCapacity = {{ position_capacity_json|safe }}[newPlayerPosition];
-      const hasPositionSpace = !positionCapacity || positionCapacity.can_add;
+      const isTraditional = '{{ league.roster_format|default:"" }}' === 'traditional';
+      const hasPositionSpace = isTraditional || !positionCapacity || positionCapacity.can_add;
       const hasSpace = rosterCount < rosterMax && hasPositionSpace;
 
       // Add "Add without dropping" option if roster isn't full
