@@ -124,9 +124,9 @@
           
           <!-- Teams Header (Horizontal) -->
           <div class="overflow-x-auto">
-            <div class="min-w-full">
+            <div class="min-w-max">
               <!-- Column headers: Round + Team names -->
-              <div class="grid gap-2 mb-2" style="grid-template-columns: 80px repeat({{ draft.draft_positions.count }}, 1fr);">
+              <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
                 <div class="font-semibold text-gray-700 text-sm p-2 bg-gray-100 rounded">Round</div>
                 {% for position in draft.draft_positions.all %}
                 <div class="font-semibold text-gray-700 text-center text-sm p-2 bg-blue-50 rounded border border-blue-200">
@@ -138,14 +138,13 @@
               
               <!-- Rounds and picks -->
               {% for round_data in mock_draft_grid %}
-              <div class="grid gap-2 mb-2" style="grid-template-columns: 80px repeat({{ draft.draft_positions.count }}, 1fr);">
+              <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
                 <div class="font-semibold text-gray-700 text-sm p-2 bg-gray-100 rounded text-center">
                   Rd {{ round_data.round }}
                 </div>
                 {% for pick_data in round_data.picks %}
                 <div class="text-sm p-2 rounded border border-gray-200 text-center bg-white hover:bg-blue-50 transition">
-                  <div class="text-xs text-gray-500">Pick #{{ pick_data.overall_pick }}</div>
-                  <div class="font-semibold text-gray-700 truncate">{{ pick_data.team.name }}</div>
+                  <div class="font-semibold text-gray-700">{{ pick_data.pick_label }}</div>
                 </div>
                 {% endfor %}
               </div>
@@ -262,31 +261,36 @@
       <div class="lg:col-span-1">
         <div class="bg-white dark:bg-gray-50 rounded-lg shadow p-4">
           <h3 class="text-lg font-semibold mb-3">Draft Board</h3>
-          <div class="max-h-96 overflow-y-auto text-xs">
+          <div class="max-h-96 overflow-auto text-xs">
+            <div class="min-w-max">
+              <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
+                <div class="font-semibold text-gray-700 p-2 bg-gray-100 rounded">Round</div>
+                {% for position in draft.draft_positions.all %}
+                <div class="font-semibold text-gray-700 text-center p-2 bg-blue-50 rounded border border-blue-200 truncate" title="{{ position.team.name }}">
+                  {{ position.team.name }}
+                </div>
+                {% endfor %}
+              </div>
             {% for round_data in draft_board %}
-            <div class="mb-3">
-              <h4 class="font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded">Round {{ round_data.round }}</h4>
-              <div class="space-y-1 mt-1">
-                {% for pick_data in round_data.picks %}
-                <div class="flex justify-between items-center p-1 
+            <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
+              <div class="font-semibold text-gray-700 p-2 bg-gray-100 rounded text-center">Rd {{ round_data.round }}</div>
+              {% for pick_data in round_data.picks %}
+                <div class="p-2
                   {% if pick_data.pick.player %}bg-gray-50
                   {% elif current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round %}bg-yellow-100 border border-yellow-300
                   {% else %}bg-white border border-gray-200{% endif %} rounded"
                   {% if current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round %}id="current-pick"{% endif %}>
-                  <div class="flex-1">
-                    <div class="font-semibold">{{ pick_data.team.name }}</div>
+                  <div class="font-semibold text-gray-700">{{ pick_data.pick_label }}</div>
                     {% if pick_data.pick.player %}
                     <div class="text-gray-600">{{ pick_data.pick.player.first_name }} {{ pick_data.pick.player.last_name }}</div>
                     {% else %}
                     <div class="text-gray-400 italic">—</div>
                     {% endif %}
-                  </div>
-                  <div class="text-gray-500 text-xs">{{ pick_data.position }}</div>
                 </div>
-                {% endfor %}
-              </div>
+              {% endfor %}
             </div>
             {% endfor %}
+            </div>
           </div>
         </div>
       </div>

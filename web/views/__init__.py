@@ -5309,10 +5309,8 @@ def draft_room(request):
                     'team': position.team,
                     'pick': pick,
                     'position': pick_in_round,
+                    'pick_label': f"{round_num}.{pick_in_round:02d}",
                 })
-            
-            # Sort picks by position to display top-down consistently
-            round_picks.sort(key=lambda x: x['position'])
             
             draft_board.append({
                 'round': round_num,
@@ -5350,11 +5348,8 @@ def draft_room(request):
                     round_picks.append({
                         'team': position.team,
                         'position': pick_in_round,
-                        'overall_pick': (round_num - 1) * team_count_draft + pick_in_round,
+                        'pick_label': f"{round_num}.{pick_in_round:02d}",
                     })
-                
-                # Sort picks by position to display consistently
-                round_picks.sort(key=lambda x: x['position'])
                 mock_draft_grid.append({
                     'round': round_num,
                     'picks': round_picks
