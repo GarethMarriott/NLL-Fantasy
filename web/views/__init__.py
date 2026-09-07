@@ -4284,14 +4284,23 @@ def chat_view(request):
     if not selected_league_id:
         messages.warning(request, "Please select a league to view chat.")
         return redirect('league_list')
+
+    selected_league = get_object_or_404(League, id=selected_league_id)
     
     # Get the user's team(s) in this league
     user_team = None
     if request.user.is_authenticated:
         owner = FantasyTeamOwner.objects.filter(
             user=request.user,
-            team__league_id=selected_league_id
+            team__league=selected_league,
+            team__season_year=selected_league.season,
         ).select_related('team').first()
+        if not owner:
+            owner = FantasyTeamOwner.objects.filter(
+                user=request.user,
+                team__league=selected_league,
+                team__season_year__isnull=True,
+            ).select_related('team').first()
         if owner:
             user_team = owner.team
     
@@ -4332,7 +4341,12 @@ def chat_view(request):
         ).all()[:100]  # Last 100 messages
         
         # Get the other team
-        current_chat_with = Team.objects.get(id=other_team_id)
+        current_chat_with = get_object_or_404(
+            Team,
+            id=other_team_id,
+            league=selected_league,
+            season_year=selected_league.season,
+        )
         chat_key_viewed = f"team_{team1_id}_{team2_id}"
     
     # Get all other teams in the league for chat options
@@ -4340,10 +4354,18 @@ def chat_view(request):
     if user_team:
         # Show all other teams in the league (not just existing chats)
         available_team_chats = Team.objects.filter(
-            league_id=selected_league_id
+            league=selected_league,
+            season_year=selected_league.season,
         ).exclude(
             id=user_team.id
         ).order_by('name')
+        if not available_team_chats.exists():
+            available_team_chats = Team.objects.filter(
+                league=selected_league,
+                season_year__isnull=True,
+            ).exclude(
+                id=user_team.id
+            ).order_by('name')
         
         # Calculate unread counts for each team chat
         for other_team in available_team_chats:
@@ -4394,6 +4416,7 @@ def chat_view(request):
     
     return render(request, "web/chat.html", {
         "messages": messages_list,
+        "selected_league": selected_league,
         "chat_type": chat_type,
         "current_chat_with": current_chat_with,
         "available_team_chats": available_team_chats,
@@ -4422,7 +4445,17 @@ def chat_post_message(request):
         return JsonResponse({"error": "League not found"}, status=404)
     
     # Verify user is a member of this league
-    owner = FantasyTeamOwner.objects.filter(user=request.user, team__league=league).first()
+    owner = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team__league=league,
+        team__season_year=league.season,
+    ).first()
+    if not owner:
+        owner = FantasyTeamOwner.objects.filter(
+            user=request.user,
+            team__league=league,
+            team__season_year__isnull=True,
+        ).first()
     if not owner:
         return JsonResponse({"error": "You are not a member of this league"}, status=403)
     
@@ -4448,7 +4481,12 @@ def chat_post_message(request):
     elif chat_type == 'team' and team_chat_id:
         # Team-to-team chat
         other_team_id = int(team_chat_id)
-        other_team = Team.objects.get(id=other_team_id, league=league)
+        other_team = get_object_or_404(
+            Team,
+            id=other_team_id,
+            league=league,
+            season_year=league.season,
+        )
         
         # Create message using the helper function
         post_team_chat_message(
@@ -4484,6 +4522,12 @@ def chat_get_messages(request):
     
     if not selected_league_id:
         return JsonResponse({"messages": []})
+
+    selected_league_season = League.objects.filter(
+        id=selected_league_id
+    ).values_list('season', flat=True).first()
+    if selected_league_season is None:
+        return JsonResponse({"messages": []})
     
     since_id = request.GET.get("since", 0)
     chat_type = request.GET.get("chat_type", "league")
@@ -4508,7 +4552,10 @@ def chat_get_messages(request):
             if msg.sender:
                 team_names = [
                     owner.team.name 
-                    for owner in msg.sender.fantasy_teams.filter(team__league_id=selected_league_id)
+                    for owner in msg.sender.fantasy_teams.filter(
+                        team__league_id=selected_league_id,
+                        team__season_year=selected_league_season,
+                    )
                 ]
             
             # For transaction messages (ADD/DROP/TRADE), use the team name if available
@@ -4539,7 +4586,8 @@ def chat_get_messages(request):
         # Team chat messages
         user_team = FantasyTeamOwner.objects.filter(
             user=request.user,
-            team__league_id=selected_league_id
+            team__league_id=selected_league_id,
+            team__season_year=selected_league_season,
         ).select_related('team').first()
         
         if user_team:

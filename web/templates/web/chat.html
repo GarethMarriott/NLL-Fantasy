@@ -2,7 +2,7 @@
 {% load custom_filters %}
 
 {% block title %}
-  {% if chat_type == 'league' %}League Chat{% else %}Team Chat with {{ current_chat_with.name }}{% endif %} - NLL Fantasy
+  {{ selected_league.name }} Chat{% if current_chat_with %} - {{ current_chat_with.name }}{% endif %} - NLL Fantasy
 {% endblock %}
 
 {% block content %}
@@ -17,17 +17,13 @@
     <div class="flex items-center justify-between mb-2">
       <div>
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {% if chat_type == 'league' %}
-            League Chat
-          {% else %}
-            Team Chat: {{ current_chat_with.name }}
-          {% endif %}
+          {{ selected_league.name }} Chat
         </h2>
         <p class="text-sm text-gray-600 dark:text-gray-400">
           {% if chat_type == 'league' %}
             Chat with other team owners and see league activity
           {% else %}
-            Private chat about trades and team matters
+            {{ current_chat_with.name }}
           {% endif %}
         </p>
       </div>
