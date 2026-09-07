@@ -310,31 +310,28 @@ def extract_transaction_type_for_player(text, player_name):
         # Check for transaction types in the context around the player's name
         # Prioritize specific patterns with the player name
         
-        # "signed [player]" or "[player] signed" patterns
-        if 'signed' in context_text:
-            return 'signed'
-        
-        # "placed [player] on the active roster" (activation)
-        if 'placed' in context_text and 'on the active roster' in context_text:
-            return 'activated'
-        
-        # "placed [player] on" injured reserve - but only if not also "signed"
-        if 'placed' in context_text and ('on the injured reserve' in context_text or 'on injured reserve' in context_text):
+        if (('injured reserve' in context_text or 'injured-reserve' in context_text) and
+                ('on the injured reserve' in context_text or 'on injured reserve' in context_text) and
+                any(word in context_text for word in ('placed', 'added', 'assigned'))):
             return 'injured_reserve'
-        
-        # Other transaction types
-        if 'traded' in context_text:
-            return 'traded'
-        elif 'released' in context_text:
-            return 'released'
-        elif 'waived' in context_text:
-            return 'waived'
-        elif 'activated' in context_text or 'recalled' in context_text:
+
+        # Active-roster moves take precedence over unrelated signings in a
+        # multi-player transaction announcement.
+        if ('active roster' in context_text and
+                any(word in context_text for word in ('placed', 'added', 'activated', 'returned', 'recalled'))):
             return 'activated'
-        elif 'reassigned' in context_text:
-            return 'reassigned'
-        elif 'retired' in context_text:
+
+        # Other transaction types
+        if 'traded' in context_text or 'trade' in context_text:
+            return 'traded'
+        elif 'released' in context_text or 'removed from the active roster' in context_text:
+            return 'released'
+        elif 'activated' in context_text or 'recalled' in context_text or 'returned' in context_text:
+            return 'activated'
+        elif 'retired' in context_text or 'retirement' in context_text:
             return 'retired'
+        elif 'signed' in context_text or 're-signed' in context_text or 'agreed to terms' in context_text:
+            return 'signed'
     
     # Fallback to general extraction
     return extract_transaction_type(text)
@@ -365,30 +362,25 @@ def extract_transaction_type(text):
     
     # Check for different transaction types in order of specificity
     # For placed transactions, check what comes AFTER "placed"
-    if 'placed' in text_lower:
-        # "placed ON the Active Roster FROM the Injured Reserve" = activation
-        if 'placed' in text_lower and 'on the active roster' in text_lower:
-            return 'activated'
-        # "placed ON the Injured Reserve FROM the Active Roster" = injured reserve
-        elif 'placed' in text_lower and ('on the injured reserve' in text_lower or 'on injured reserve' in text_lower):
-            return 'injured_reserve'
+    if (('injured reserve' in text_lower or 'injured-reserve' in text_lower) and
+            ('on the injured reserve' in text_lower or 'on injured reserve' in text_lower) and
+            any(word in text_lower for word in ('placed', 'added', 'assigned'))):
+        return 'injured_reserve'
+    if 'active roster' in text_lower and any(word in text_lower for word in ('placed', 'added', 'activated', 'returned', 'recalled')):
+        return 'activated'
     
     # Check for other activation keywords
     if any(word in text_lower for word in ['activated', 'recalled', 'returned', 'restored to active']):
         return 'activated'
     
     # Other transaction types
-    if 'released' in text_lower:
+    if 'released' in text_lower or 'removed from the active roster' in text_lower:
         return 'released'
-    elif 'traded' in text_lower:
+    elif 'traded' in text_lower or 'trade' in text_lower:
         return 'traded'
-    elif 'waived' in text_lower:
-        return 'waived'
-    elif 'reassigned' in text_lower or ('placed' in text_lower and 'nhl' in text_lower):
-        return 'reassigned'
-    elif 'retired' in text_lower:
+    elif 'retired' in text_lower or 'retirement' in text_lower:
         return 'retired'
-    elif 'signed' in text_lower:
+    elif 'signed' in text_lower or 're-signed' in text_lower or 'agreed to terms' in text_lower:
         return 'signed'
     else:
         return 'other'
@@ -425,9 +417,27 @@ class Command(BaseCommand):
     help = 'Scrape NLL transactions from nll.com'
 
     def add_arguments(self, parser):
-        pass  # No arguments needed
+        parser.add_argument(
+            '--reclassify',
+            action='store_true',
+            help='Reclassify saved transactions using their details text.',
+        )
 
     def handle(self, *args, **options):
+        if options['reclassify']:
+            updated_count = 0
+            for transaction in NLLTransaction.objects.exclude(details__isnull=True).exclude(details=''):
+                transaction_type = extract_transaction_type_for_player(
+                    transaction.details,
+                    transaction.player_name,
+                )
+                if transaction.transaction_type != transaction_type:
+                    transaction.transaction_type = transaction_type
+                    transaction.save(update_fields=['transaction_type'])
+                    updated_count += 1
+            self.stdout.write(self.style.SUCCESS(f'Reclassified {updated_count} transaction(s).'))
+            return
+
         self.stdout.write(self.style.SUCCESS('Starting NLL transactions scrape...'))
         
         try:

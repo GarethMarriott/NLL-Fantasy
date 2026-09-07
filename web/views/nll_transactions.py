@@ -16,8 +16,16 @@ def nll_transactions(request):
     # Get all transactions, ordered by most recent first
     transactions = NLLTransaction.objects.all().order_by('-transaction_date')
     
+    visible_transaction_types = [
+        choice for choice in NLLTransaction.TRANSACTION_TYPE_CHOICES
+        if choice[0] not in {'waived', 'reassigned'}
+    ]
+    visible_type_values = {value for value, _ in visible_transaction_types}
+
     # Filter by type if specified
     trans_type = request.GET.get('type', '')
+    if trans_type not in visible_type_values:
+        trans_type = ''
     if trans_type:
         transactions = transactions.filter(transaction_type=trans_type)
     
@@ -39,12 +47,9 @@ def nll_transactions(request):
     page = request.GET.get('page', 1)
     transactions_page = paginator.get_page(page)
     
-    # Get distinct transaction types for filter dropdown
-    transaction_types = NLLTransaction.TRANSACTION_TYPE_CHOICES
-    
     context = {
         'transactions': transactions_page,
-        'transaction_types': transaction_types,
+        'transaction_types': visible_transaction_types,
         'selected_type': trans_type,
         'selected_team': team_search,
         'selected_player': player_search,
