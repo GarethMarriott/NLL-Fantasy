@@ -678,7 +678,7 @@
             <h3 class="text-lg font-semibold">Stats & Schedule</h3>
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <span>Year</span>
-              <select id="statsSeasonSelector" onchange="showPlayerModal(currentModalPlayerId, currentModalPlayerName, this.value)" class="border border-gray-300 rounded-md bg-white px-2 py-1 text-sm text-gray-900"></select>
+              <select id="statsSeasonSelector" onchange="showPlayerModal(currentModalPlayerId, currentModalPlayerName, this.value, 'stats')" class="border border-gray-300 rounded-md bg-white px-2 py-1 text-sm text-gray-900"></select>
             </label>
           </div>
           <div id="weekStatsContainer" class="space-y-4 max-h-96 overflow-y-auto">
@@ -711,7 +711,7 @@
     let currentModalPlayerId = null;
     let currentModalPlayerName = '';
 
-    function showPlayerModal(playerId, playerName, season = '') {
+    function showPlayerModal(playerId, playerName, season = '', activeTab = 'info') {
       currentModalPlayerId = playerId;
       currentModalPlayerName = playerName;
       // Fetch player data from AJAX endpoint
@@ -778,77 +778,7 @@
           const headerElement = document.getElementById('playerModalHeader');
           headerElement.className = `${getPositionColor(positionLetter)} px-6 py-4 flex justify-between items-center`;
           
-          // Populate week stats and upcoming schedule
-          const container = document.getElementById('weekStatsContainer');
-          container.innerHTML = '';
-          
-          if (data.week_stats && data.week_stats.length > 0) {
-            data.week_stats.forEach(week => {
-              const weekDiv = document.createElement('div');
-              weekDiv.className = 'bg-gray-50 rounded p-4 border border-gray-200';
-              
-              if (week.is_upcoming) {
-                // Upcoming week - show schedule
-                let scheduleHTML = `<div class="font-semibold text-gray-800 mb-2">${week.week}`;
-                if (week.games_count === 0) {
-                  scheduleHTML += ` <span class="text-orange-600 font-semibold">(BYE)</span>`;
-                } else {
-                  scheduleHTML += ` <span class="text-green-600 font-semibold">(${week.games_count} Game${week.games_count !== 1 ? 's' : ''})</span>`;
-                }
-                scheduleHTML += '</div>';
-                
-                if (week.games && week.games.length > 0) {
-                  scheduleHTML += '<div class="text-sm space-y-1">';
-                  week.games.forEach(game => {
-                    scheduleHTML += `<div class="text-gray-600">${game.opponent}</div>`;
-                  });
-                  scheduleHTML += '</div>';
-                }
-                weekDiv.innerHTML = scheduleHTML;
-              } else {
-                // Past week - show stats or bye
-                if (week.is_bye) {
-                  // Team had a bye this week
-                  let byeHTML = `<div class="font-semibold text-gray-800">${week.week}</div>`;
-                  byeHTML += `<div class="text-orange-600 font-semibold text-lg mt-2">BYE WEEK</div>`;
-                  weekDiv.innerHTML = byeHTML;
-                } else if (week.is_no_stats) {
-                  // Player didn't play this week (but team did have games)
-                  let noStatsHTML = `<div class="font-semibold text-gray-800">${week.week}</div>`;
-                  noStatsHTML += `<div class="text-gray-500 italic text-sm mt-2">No stats</div>`;
-                  weekDiv.innerHTML = noStatsHTML;
-                } else {
-                  // Normal stats display
-                  let statsHTML = `<div class="flex justify-between items-center mb-2"><h4 class="font-semibold text-gray-800">${week.week} (${week.games_count} game${week.games_count !== 1 ? 's' : ''})</h4><span class="text-lg font-bold text-blue-600">${week.fantasy_points} pts</span></div>`;
-                  statsHTML += '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">';
-                  
-                  // Show different stats based on position (infer from content)
-                  if (week.wins > 0 || week.saves > 0) {
-                    // Goalie stats
-                    statsHTML += `<div><span class="font-semibold">W:</span> ${week.wins}</div>`;
-                    statsHTML += `<div><span class="font-semibold">SV:</span> ${week.saves}</div>`;
-                    statsHTML += `<div><span class="font-semibold">GA:</span> ${week.goals_against}</div>`;
-                    statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
-                    statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
-                  } else {
-                    // Field player stats
-                    statsHTML += `<div><span class="font-semibold">G:</span> ${week.goals}</div>`;
-                    statsHTML += `<div><span class="font-semibold">A:</span> ${week.assists}</div>`;
-                    statsHTML += `<div><span class="font-semibold">LB:</span> ${week.loose_balls}</div>`;
-                    statsHTML += `<div><span class="font-semibold">CT:</span> ${week.caused_turnovers}</div>`;
-                    statsHTML += `<div><span class="font-semibold">BS:</span> ${week.blocked_shots}</div>`;
-                    statsHTML += `<div><span class="font-semibold">TO:</span> ${week.turnovers}</div>`;
-                  }
-                  
-                  statsHTML += '</div>';
-                  weekDiv.innerHTML = statsHTML;
-                }
-              }
-              container.appendChild(weekDiv);
-            });
-          } else {
-            container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';
-          }
+          renderWeekStatsTable(data);
           
           // Populate transaction history
           const transContainer = document.getElementById('transactionsContainer');
@@ -887,7 +817,7 @@
           }
           
           // Show modal
-          switchPlayerTab('info');
+          switchPlayerTab(activeTab);
           document.getElementById('playerModal').classList.remove('hidden');
           document.getElementById('playerModal').classList.add('flex');
         })
@@ -895,6 +825,34 @@
           console.error('Error:', error);
           alert('Failed to load player details');
         });
+    }
+
+    function renderWeekStatsTable(data) {
+      const container = document.getElementById('weekStatsContainer');
+      const isGoalie = data.player.position === 'Goalie';
+      const statHeaders = isGoalie ? ['W', 'SV', 'GA', 'G', 'A'] : ['G', 'A', 'LB', 'CT', 'BS', 'TO'];
+      const statValues = isGoalie
+        ? game => [game.wins, game.saves, game.goals_against, game.goals, game.assists]
+        : game => [game.goals, game.assists, game.loose_balls, game.caused_turnovers, game.blocked_shots, game.turnovers];
+      let rows = '';
+
+      (data.week_stats || []).forEach(week => {
+        if (week.is_upcoming) {
+          const games = week.games || [];
+          rows += games.length
+            ? games.map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-gray-700" colspan="${statHeaders.length + 1}">${game.opponent}</td></tr>`).join('')
+            : `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${week.week}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-orange-600 font-medium" colspan="${statHeaders.length + 1}">BYE</td></tr>`;
+        } else if (week.is_bye || week.is_no_stats) {
+          const status = week.is_bye ? 'BYE WEEK' : 'No stats recorded';
+          rows += `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${week.week}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 ${week.is_bye ? 'text-orange-600 font-medium' : 'text-gray-500'}" colspan="${statHeaders.length + 1}">${status}</td></tr>`;
+        } else {
+          rows += (week.game_details || []).map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium whitespace-nowrap">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 font-bold text-blue-600">${game.fantasy_points}</td><td class="px-3 py-2 text-gray-700 whitespace-nowrap">${game.opponent}</td>${statValues(game).map(value => `<td class="px-3 py-2 text-center">${value}</td>`).join('')}</tr>`).join('');
+        }
+      });
+
+      container.innerHTML = rows
+        ? `<div class="overflow-x-auto border border-gray-200 rounded-md"><table class="w-full text-sm text-left"><thead class="bg-gray-100 text-xs uppercase text-gray-600"><tr><th class="px-3 py-2">Week</th><th class="px-3 py-2">Pts</th><th class="px-3 py-2">Game</th>${statHeaders.map(header => `<th class="px-3 py-2 text-center">${header}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
+        : '<p class="text-gray-500 text-sm">No stats available</p>';
     }
 
     function switchPlayerTab(tabName) {

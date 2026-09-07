@@ -2987,11 +2987,26 @@ def player_detail_modal(request, player_id):
             games = stats_by_week[week_key]
             # Calculate fantasy points for each game
             game_points = []
+            game_details = []
             for stat in game_stats:
                 if f"Week {stat.game.week.week_number} (S{stat.game.week.season})" == week_key:
                     pts = calculate_fantasy_points(stat, player, league)
                     if pts is not None:
                         game_points.append(pts)
+                    game_details.append({
+                        'date': stat.game.date.strftime('%Y-%m-%d'),
+                        'opponent': f"{stat.game.away_team} @ {stat.game.home_team}",
+                        'goals': stat.goals,
+                        'assists': stat.assists,
+                        'loose_balls': stat.loose_balls,
+                        'caused_turnovers': stat.caused_turnovers,
+                        'blocked_shots': stat.blocked_shots,
+                        'turnovers': stat.turnovers,
+                        'wins': stat.wins,
+                        'saves': stat.saves,
+                        'goals_against': stat.goals_against,
+                        'fantasy_points': round(pts or 0, 1),
+                    })
             
             # Calculate weekly total (sum of all games that week)
             weekly_fpts = sum(game_points) if game_points else 0
@@ -3010,6 +3025,7 @@ def player_detail_modal(request, player_id):
                 'saves': sum(g['saves'] for g in games),
                 'goals_against': sum(g['goals_against'] for g in games),
                 'fantasy_points': round(weekly_fpts, 1),
+                'game_details': game_details,
                 'is_upcoming': is_upcoming,
                 'games': games
             }

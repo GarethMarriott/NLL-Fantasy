@@ -862,7 +862,7 @@
             <h3 class="text-lg font-semibold">Stats & Schedule</h3>
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <span>Year</span>
-              <select id="statsSeasonSelector" onchange="showPlayerModal(currentModalPlayerId, currentModalPlayerName, this.value)" class="border border-gray-300 rounded-md bg-white px-2 py-1 text-sm text-gray-900"></select>
+              <select id="statsSeasonSelector" onchange="showPlayerModal(currentModalPlayerId, currentModalPlayerName, this.value, 'stats')" class="border border-gray-300 rounded-md bg-white px-2 py-1 text-sm text-gray-900"></select>
             </label>
           </div>
           <div id="weekStatsContainer" class="space-y-4 max-h-96 overflow-y-auto">
@@ -1356,7 +1356,7 @@ function getPositionColor(position) {
   return colors[position] || 'bg-gray-300';
 }
 
-function showPlayerModal(playerId, playerName, season = '') {
+function showPlayerModal(playerId, playerName, season = '', activeTab = 'info') {
   currentModalPlayerId = playerId;
   currentModalPlayerName = playerName;
   const teamId = new URL(window.location.href).pathname.split('/')[2];
@@ -1480,6 +1480,8 @@ function showPlayerModal(playerId, playerName, season = '') {
         container.innerHTML = '<p class="text-gray-500 text-sm">No stats available</p>';
       }
       
+      renderWeekStatsTable(data);
+
       // Populate transaction history
       const transContainer = document.getElementById('transactionsContainer');
       if (data.transactions && data.transactions.length > 0) {
@@ -1517,7 +1519,7 @@ function showPlayerModal(playerId, playerName, season = '') {
       }
       
       // Show modal
-      switchPlayerTab('info');
+      switchPlayerTab(activeTab);
       document.getElementById('playerModal').classList.remove('hidden');
       document.getElementById('playerModal').classList.add('flex');
     })
@@ -1525,6 +1527,34 @@ function showPlayerModal(playerId, playerName, season = '') {
       console.error('Error:', error);
       alert('Failed to load player details');
     });
+}
+
+function renderWeekStatsTable(data) {
+  const container = document.getElementById('weekStatsContainer');
+  const isGoalie = data.player.position === 'Goalie';
+  const statHeaders = isGoalie ? ['W', 'SV', 'GA', 'G', 'A'] : ['G', 'A', 'LB', 'CT', 'BS', 'TO'];
+  const statValues = isGoalie
+    ? game => [game.wins, game.saves, game.goals_against, game.goals, game.assists]
+    : game => [game.goals, game.assists, game.loose_balls, game.caused_turnovers, game.blocked_shots, game.turnovers];
+  let rows = '';
+
+  (data.week_stats || []).forEach(week => {
+    if (week.is_upcoming) {
+      const games = week.games || [];
+      rows += games.length
+        ? games.map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-gray-700" colspan="${statHeaders.length + 1}">${game.opponent}</td></tr>`).join('')
+        : `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${week.week}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 text-orange-600 font-medium" colspan="${statHeaders.length + 1}">BYE</td></tr>`;
+    } else if (week.is_bye || week.is_no_stats) {
+      const status = week.is_bye ? 'BYE WEEK' : 'No stats recorded';
+      rows += `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium">${week.week}</td><td class="px-3 py-2 text-gray-500">-</td><td class="px-3 py-2 ${week.is_bye ? 'text-orange-600 font-medium' : 'text-gray-500'}" colspan="${statHeaders.length + 1}">${status}</td></tr>`;
+    } else {
+      rows += (week.game_details || []).map((game, index) => `<tr class="border-t border-gray-200"><td class="px-3 py-2 font-medium whitespace-nowrap">${index === 0 ? week.week : ''}</td><td class="px-3 py-2 font-bold text-blue-600">${game.fantasy_points}</td><td class="px-3 py-2 text-gray-700 whitespace-nowrap">${game.opponent}</td>${statValues(game).map(value => `<td class="px-3 py-2 text-center">${value}</td>`).join('')}</tr>`).join('');
+    }
+  });
+
+  container.innerHTML = rows
+    ? `<div class="overflow-x-auto border border-gray-200 rounded-md"><table class="w-full text-sm text-left"><thead class="bg-gray-100 text-xs uppercase text-gray-600"><tr><th class="px-3 py-2">Week</th><th class="px-3 py-2">Pts</th><th class="px-3 py-2">Game</th>${statHeaders.map(header => `<th class="px-3 py-2 text-center">${header}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
+    : '<p class="text-gray-500 text-sm">No stats available</p>';
 }
 
 function switchPlayerTab(tabName) {
