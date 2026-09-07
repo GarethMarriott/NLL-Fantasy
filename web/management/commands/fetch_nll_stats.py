@@ -300,15 +300,18 @@ class Command(BaseCommand):
                 away_team = convert_team_id_to_name(away_team)
                 
                 try:
-                    game_obj, _ = Game.objects.get_or_create(
-                        week=week,
+                    game_obj, created = Game.objects.get_or_create(
                         nll_game_id=str(game_id),
                         defaults={
+                            'week': week,
                             'date': game_date,
                             'home_team': home_team,
                             'away_team': away_team,
                         }
                     )
+                    if not created and game_obj.week_id != week.id:
+                        game_obj.week = week
+                        game_obj.save(update_fields=['week'])
                 except Exception as e:
                     # If game already exists with same date/teams, try to get it by those fields
                     try:

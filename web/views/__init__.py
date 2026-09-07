@@ -2967,7 +2967,10 @@ def player_detail_modal(request, player_id):
     if season not in available_seasons:
         available_seasons.insert(0, season)
     
-    all_weeks_in_season = Week.objects.filter(season=season).order_by('week_number')
+    all_weeks_in_season = Week.objects.filter(
+        season=season,
+        week_number__lte=20,
+    ).order_by('week_number')
     
     # Sort by week number (numerically, not alphabetically)
     # week_key format: "Week 1 (S2026)" -> extract week number
