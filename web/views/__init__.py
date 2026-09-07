@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -9,7 +11,7 @@ from django.db import models, transaction
 from django.db.models import Prefetch, Q
 from django.urls import reverse_lazy
 
-from ..models import Player, PlayerNLLTeam, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
+from ..models import Player, PlayerNLLTeam, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer, NLLTransaction
 from ..forms import UserRegistrationForm, LeagueCreateForm, TeamCreateForm, LeagueSettingsForm, TeamSettingsForm, PasswordResetForm, SetPasswordForm
 from ..tasks import send_password_reset_email
 from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME, TEAM_ABBREVIATIONS
@@ -2447,6 +2449,28 @@ def players(request):
         Prefetch('game_stats', queryset=game_stats_queryset)
     )
 
+    players = list(qs)
+    if seasons:
+        current_season = seasons[0]
+        season_start = date(current_season - 1, 11, 1)
+        season_end = date(current_season, 12, 31)
+        player_names = {
+            f"{player.first_name} {player.last_name}" for player in players
+        }
+        latest_transactions = {}
+        for transaction_record in NLLTransaction.objects.filter(
+            player_name__in=player_names,
+            transaction_date__range=(season_start, season_end),
+        ).order_by('player_name', '-transaction_date', '-scraped_at'):
+            latest_transactions.setdefault(
+                transaction_record.player_name,
+                transaction_record.transaction_type,
+            )
+        for player in players:
+            player._is_on_ir_cache = latest_transactions.get(
+                f"{player.first_name} {player.last_name}"
+            ) == 'injured_reserve'
+
     # Pre-fetch all roster entries to avoid N+1 queries
     # This will be used in the loop below to check player roster status
     rosters_by_player = {}
@@ -2477,7 +2501,7 @@ def players(request):
     sort_dir = request.GET.get("dir", "asc")
 
     players_with_stats = []
-    for p in qs:
+    for p in players:
         game_stats = list(p.game_stats.all())
         
         # Calculate stats based on selection
