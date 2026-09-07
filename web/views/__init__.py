@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.urls import reverse_lazy
 
 from ..models import Player, PlayerNLLTeam, Team, Week, Game, ChatMessage, FantasyTeamOwner, League, Roster, PlayerGameStat, WaiverClaim, Draft, DraftPosition, DraftPick, Trade, TradePlayer
@@ -2405,6 +2405,19 @@ def players(request):
                 if team_owner:
                     user_team = team_owner.team
     
+    # Resolve the stats scope before loading players so historical game stats
+    # that cannot appear in this view are not prefetched.
+    selected_season = request.GET.get("season")
+    selected_week_num = request.GET.get("week")
+    selected_stat_type = request.GET.get("stat_type", "regular")  # regular, playoff, or all
+    seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
+    if not selected_season and seasons:
+        selected_season = str(seasons[0])
+
+    game_stats_queryset = PlayerGameStat.objects.select_related('game__week')
+    if selected_season:
+        game_stats_queryset = game_stats_queryset.filter(game__week__season=int(selected_season))
+
     qs = Player.objects.filter(active=True)
     
     # Apply search filter
@@ -2430,7 +2443,9 @@ def players(request):
         # Exclude goalies from "All Positions" view
         qs = qs.exclude(position="G")
     
-    qs = qs.order_by("last_name", "first_name").prefetch_related("game_stats__game__week")
+    qs = qs.order_by("last_name", "first_name").prefetch_related(
+        Prefetch('game_stats', queryset=game_stats_queryset)
+    )
 
     # Pre-fetch all roster entries to avoid N+1 queries
     # This will be used in the loop below to check player roster status
@@ -2445,18 +2460,6 @@ def players(request):
         for roster_entry in all_roster_entries:
             rosters_by_player[roster_entry.player_id] = roster_entry
 
-    # Get season and week selection
-    selected_season = request.GET.get("season")
-    selected_week_num = request.GET.get("week")
-    selected_stat_type = request.GET.get("stat_type", "regular")  # regular, playoff, or all
-    
-    # Get available seasons
-    seasons = Week.objects.values_list('season', flat=True).distinct().order_by('-season')
-    
-    # Default to most recent season if none selected
-    if not selected_season and seasons:
-        selected_season = str(seasons[0])
-    
     # Get weeks for selected season
     week_options = []
     if selected_season:
