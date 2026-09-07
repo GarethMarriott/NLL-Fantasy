@@ -2976,7 +2976,7 @@ def player_detail_modal(request, player_id):
     
     all_weeks_in_season = Week.objects.filter(
         season=season,
-        week_number__lte=20,
+        is_playoff=False,
     ).order_by('week_number')
     
     # Sort by week number (numerically, not alphabetically)
