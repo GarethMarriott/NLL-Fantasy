@@ -5165,6 +5165,54 @@ def cancel_waiver_claim(request, claim_id):
 
 
 @login_required
+@require_POST
+def create_draft_preview(request):
+    """Create a pending draft that can be reviewed before it is activated."""
+    selected_league_id = request.session.get('selected_league_id')
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+
+    league = get_object_or_404(League, id=selected_league_id)
+    if league.commissioner != request.user:
+        messages.error(request, "Only the commissioner can create a draft.")
+        return redirect('draft_room')
+    if hasattr(league, 'draft'):
+        messages.error(request, "A draft preview already exists for this league.")
+        return redirect('draft_room')
+
+    teams = list(Team.objects.filter(league=league, season_year=league.season).order_by('id'))
+    if not teams:
+        teams = list(Team.objects.filter(league=league, season_year__isnull=True).order_by('id'))
+    if len(teams) != league.max_teams:
+        messages.error(request, "The league must be full before creating a draft preview.")
+        return redirect('draft_room')
+
+    order_type = request.POST.get('order_type', Draft.DraftOrderType.RANDOM)
+    draft_style = request.POST.get('draft_style', Draft.DraftStyle.SNAKE)
+    if order_type not in Draft.DraftOrderType.values or draft_style not in Draft.DraftStyle.values:
+        messages.error(request, "Invalid draft settings.")
+        return redirect('draft_room')
+
+    if order_type == Draft.DraftOrderType.RANDOM:
+        import random
+        random.shuffle(teams)
+
+    draft = Draft.objects.create(
+        league=league,
+        draft_order_type=order_type,
+        draft_style=draft_style,
+        total_rounds=league.roster_size,
+    )
+    DraftPosition.objects.bulk_create([
+        DraftPosition(draft=draft, team=team, position=index)
+        for index, team in enumerate(teams, start=1)
+    ])
+    messages.success(request, "Draft preview created. Review the board, then select Start Draft when ready.")
+    return redirect('draft_room')
+
+
+@login_required
 def draft_room(request):
     """View the draft room for the selected league"""
     selected_league_id = request.session.get('selected_league_id')
@@ -5242,6 +5290,7 @@ def draft_room(request):
     )
 
     excluded_ids = set(drafted_player_ids + rostered_player_ids)
+    previous_season = league.season - 1
     
     # Get sort parameters
     sort_by = request.GET.get('sort_by', 'prev_year_points')
@@ -5294,7 +5343,7 @@ def draft_room(request):
                     ),
                     output_field=FloatField()
                 ),
-                filter=Q(game_stats__game__week__season=2025)
+                filter=Q(game_stats__game__week__season=previous_season)
             ),
             Value(0.0),
             output_field=FloatField()
@@ -5353,35 +5402,6 @@ def draft_room(request):
             player__isnull=False
         ).select_related('player').order_by('round', 'pick_number')
     
-    # Build mock draft grid for offseason (when draft exists but not active)
-    mock_draft_grid = []
-    if draft and not draft.is_active and not draft.completed:
-        draft_positions = draft.get_draft_order()
-        if draft_positions:
-            team_count_draft = len(draft_positions)
-            
-            for round_num in range(1, draft.total_rounds + 1):
-                round_picks = []
-                for position in draft_positions:
-                    # Determine pick number in round based on draft style
-                    if draft.draft_style == 'SNAKE':
-                        if round_num % 2 == 1:  # Odd round
-                            pick_in_round = position.position
-                        else:  # Even round
-                            pick_in_round = team_count_draft - position.position + 1
-                    else:  # LINEAR
-                        pick_in_round = position.position
-                    
-                    round_picks.append({
-                        'team': position.team,
-                        'position': pick_in_round,
-                        'pick_label': f"{round_num}.{pick_in_round:02d}",
-                    })
-                mock_draft_grid.append({
-                    'round': round_num,
-                    'picks': round_picks
-                })
-    
     # Get future picks organized by year
     future_picks_by_year = {}
     if getattr(league, 'use_future_rookie_picks', False):
@@ -5407,7 +5427,7 @@ def draft_room(request):
         'current_team': current_team,
         'is_user_turn': is_user_turn,
         'draft_board': draft_board,
-        'mock_draft_grid': mock_draft_grid,
+        'previous_season': previous_season,
         'sort_by': sort_by,
         'sort_dir': sort_dir,
         'user_picks': user_picks,

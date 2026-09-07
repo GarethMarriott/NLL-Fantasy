@@ -3,7 +3,7 @@ from .views import (
     home, about, players, player_detail_modal, schedule, matchups, standings, team_detail, assign_player, move_transition_player, trade_center, propose_trade, accept_trade, reject_trade, cancel_trade,
     login_view, logout_view, chat_view, chat_post_message, chat_get_messages,
     register_view, league_list, league_create, league_detail, team_create, select_league, league_settings, team_settings, renew_league, delete_league, remove_team_from_league,
-    submit_waiver_claim, cancel_waiver_claim, my_team, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
+    submit_waiver_claim, cancel_waiver_claim, my_team, create_draft_preview, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks,
     nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500, current_user_api, upload_team_logo,
     league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion, toggle_offseason_rosters
@@ -83,6 +83,7 @@ urlpatterns = [
     
     # Draft
     path("draft/", draft_room, name="draft_room"),
+    path("draft/create/", create_draft_preview, name="create_draft_preview"),
     path("draft/settings/", draft_settings, name="draft_settings"),
     path("draft/cancel/", cancel_draft, name="cancel_draft"),
     path("draft/reorder/", reorder_draft_picks, name="reorder_draft_picks"),

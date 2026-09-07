@@ -28,9 +28,9 @@
           </div>
         {% elif league_is_full %}
           <p class="text-yellow-700 mb-4">
-            The league is full ({{ team_count }}/{{ league.max_teams }} teams). You can now start the draft!
+            The league is full ({{ team_count }}/{{ league.max_teams }} teams). Create the draft preview when ready.
           </p>
-          <form method="post" action="{% url 'start_draft' %}">
+          <form method="post" action="{% url 'create_draft_preview' %}">
             {% csrf_token %}
             <div class="mb-4">
               <label class="block text-sm font-medium mb-2">Draft Order Type:</label>
@@ -47,7 +47,7 @@
               </select>
             </div>
             <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600" {% if draft_locked %}disabled style="opacity:0.5;cursor:not-allowed;"{% endif %}>
-              Start Draft
+              Create Draft Preview
             </button>
           </form>
         {% else %}
@@ -117,52 +117,6 @@
           {% endif %}
         </div>
         
-        <!-- Mock Draft Grid Preview -->
-        {% if mock_draft_grid %}
-        <div class="mt-6 bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <h4 class="font-semibold mb-4 text-gray-800">📊 Draft Order Preview</h4>
-          
-          <!-- Teams Header (Horizontal) -->
-          <div class="overflow-x-auto">
-            <div class="min-w-max">
-              <!-- Column headers: Round + Team names -->
-              <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
-                <div class="font-semibold text-gray-700 text-sm p-2 bg-gray-100 rounded">Round</div>
-                {% for position in draft.draft_positions.all %}
-                <div class="font-semibold text-gray-700 text-center text-sm p-2 bg-blue-50 rounded border border-blue-200">
-                  <div class="text-xs text-gray-600">#{{ position.position }}</div>
-                  <div class="text-sm font-medium truncate">{{ position.team.name }}</div>
-                </div>
-                {% endfor %}
-              </div>
-              
-              <!-- Rounds and picks -->
-              {% for round_data in mock_draft_grid %}
-              <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
-                <div class="font-semibold text-gray-700 text-sm p-2 bg-gray-100 rounded text-center">
-                  Rd {{ round_data.round }}
-                </div>
-                {% for pick_data in round_data.picks %}
-                <div class="text-sm p-2 rounded border border-gray-200 text-center bg-white hover:bg-blue-50 transition">
-                  <div class="font-semibold text-gray-700">{{ pick_data.pick_label }}</div>
-                </div>
-                {% endfor %}
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-          
-          <p class="text-xs text-gray-500 mt-4">
-            💡 This preview shows where each team will pick in each round based on the current draft order.
-            {% if draft.draft_style == 'SNAKE' %}
-            <br>🔄 Snake Draft: Odd rounds follow the order above, even rounds reverse.
-            {% else %}
-            <br>🔄 Linear Draft: Same order for every round.
-            {% endif %}
-          </p>
-        </div>
-        {% endif %}
-        
         {% if is_commissioner and draft.draft_order_type == 'MANUAL' %}
         <div class="mt-4">
           <h4 class="font-semibold mb-2">Drag to Reorder Teams:</h4>
@@ -179,10 +133,12 @@
             </div>
             {% endfor %}
           </div>
-          <button type="button" onclick="activateDraft()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-            Activate Draft with This Order
-          </button>
         </div>
+        {% endif %}
+        {% if is_commissioner %}
+        <button type="button" onclick="activateDraft()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          Start Draft
+        </button>
         {% endif %}
       </div>
     {% endif %}
@@ -217,7 +173,7 @@
                     Number {% if sort_by == 'number' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
                   </th>
                   <th class="p-2 cursor-pointer hover:bg-gray-300" onclick="sortTable('prev_year_points')">
-                    2025 Pts {% if sort_by == 'prev_year_points' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    {{ previous_season }} Pts {% if sort_by == 'prev_year_points' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
                   </th>
                   {% if is_user_turn %}
                   <th class="p-2">Action</th>
@@ -482,7 +438,7 @@ function sortTable(column) {
 }
 </script>
 
-{% if is_commissioner and draft and draft.draft_order_type == 'MANUAL' and not draft.is_active %}
+{% if is_commissioner and draft and not draft.is_active and not draft.completed %}
 <script>
 // Drag and drop functionality for team ordering
 let draggedItem = null;
@@ -534,9 +490,11 @@ function updatePositionNumbers() {
 
 function activateDraft() {
   const teamItems = document.querySelectorAll('.team-item');
-  const teamOrder = Array.from(teamItems).map(item => item.dataset.teamId);
+  const teamOrder = teamItems.length
+    ? Array.from(teamItems).map(item => item.dataset.teamId)
+    : [{% for position in draft.draft_positions.all %}{{ position.team.id }}{% if not forloop.last %}, {% endif %}{% endfor %}];
   
-  if (!confirm('Activate draft with this team order?')) {
+  if (!confirm('Start the draft with this team order?')) {
     return;
   }
   
