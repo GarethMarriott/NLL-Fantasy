@@ -14,7 +14,7 @@ import zipfile
 from datetime import datetime, timedelta
 import pytz
 from django.core.management.base import BaseCommand
-from web.models import Player, Week, Game, PlayerGameStat
+from web.models import Player, PlayerNLLTeam, Week, Game, PlayerGameStat
 
 
 class Command(BaseCommand):
@@ -37,11 +37,21 @@ class Command(BaseCommand):
             action='store_true',
             help='Show what would be imported without saving to database'
         )
+        parser.add_argument(
+            '--historical',
+            action='store_true',
+            help='Import every available completed NLLStats season from 2005 through 2025'
+        )
 
     def handle(self, *args, **options):
         season = options['season']
         week_filter = options['week']
         dry_run = options['dry_run']
+        historical = options['historical']
+
+        if historical and week_filter:
+            self.stdout.write(self.style.ERROR('--week cannot be used with --historical'))
+            return
 
         if dry_run:
             self.stdout.write(self.style.WARNING('DRY RUN MODE - No changes will be saved'))
@@ -79,24 +89,38 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR('Required data files not found in ZIP'))
                 return
 
-            # Process the stats
-            stats_result = self.process_stats(data, season, week_filter, dry_run)
-            
-            # Process schedule (upcoming games)
-            schedule_result = self.process_schedule(data, season, week_filter, dry_run)
-            
-            # Process game scores from games.json
-            scores_result = self.process_game_scores(data, season, week_filter, dry_run)
-            
-            self.stdout.write(self.style.SUCCESS(
-                f'\nStats - Created: {stats_result["created"]}, Updated: {stats_result["updated"]}, Skipped: {stats_result["skipped"]}'
-            ))
-            self.stdout.write(self.style.SUCCESS(
-                f'Schedule - Created: {schedule_result["created"]}, Updated: {schedule_result["updated"]}'
-            ))
-            self.stdout.write(self.style.SUCCESS(
-                f'Scores - Updated: {scores_result["updated"]}'
-            ))
+            available_seasons = sorted({
+                game.get('season')
+                for game in data['games']
+                if isinstance(game.get('season'), int)
+            })
+            seasons_to_import = (
+                [year for year in available_seasons if 2005 <= year <= 2025]
+                if historical else [season]
+            )
+            if not seasons_to_import:
+                self.stdout.write(self.style.ERROR('No matching seasons found in the NLLStats archive'))
+                return
+
+            for season_to_import in seasons_to_import:
+                self.stdout.write(self.style.MIGRATE_HEADING(
+                    f'\nImporting {season_to_import} ({"historical" if historical else "requested"})...'
+                ))
+                stats_result = self.process_stats(
+                    data, season_to_import, week_filter, dry_run, preserve_current_player_profile=historical
+                )
+                schedule_result = self.process_schedule(data, season_to_import, week_filter, dry_run)
+                scores_result = self.process_game_scores(data, season_to_import, week_filter, dry_run)
+
+                self.stdout.write(self.style.SUCCESS(
+                    f'Stats - Created: {stats_result["created"]}, Updated: {stats_result["updated"]}, Skipped: {stats_result["skipped"]}'
+                ))
+                self.stdout.write(self.style.SUCCESS(
+                    f'Schedule - Created: {schedule_result["created"]}, Updated: {schedule_result["updated"]}'
+                ))
+                self.stdout.write(self.style.SUCCESS(
+                    f'Scores - Updated: {scores_result["updated"]}'
+                ))
 
         except requests.RequestException as e:
             self.stdout.write(self.style.ERROR(f'Error fetching data: {e}'))
@@ -107,7 +131,7 @@ class Command(BaseCommand):
             import traceback
             traceback.print_exc()
 
-    def process_stats(self, data, season_filter, week_filter, dry_run):
+    def process_stats(self, data, season_filter, week_filter, dry_run, preserve_current_player_profile=False):
         """Process game and player data to create weekly stats"""
         stats_created = 0
         stats_updated = 0
@@ -369,11 +393,19 @@ class Command(BaseCommand):
                     seasons_played,
                     season_filter,
                     dry_run,
+                    preserve_current_player_profile,
                 )
                 
                 if not player:
                     stats_skipped += 1
                     continue
+
+                if not dry_run and team_name:
+                    PlayerNLLTeam.objects.update_or_create(
+                        player=player,
+                        season=season_filter,
+                        defaults={'nll_team': team_name},
+                    )
 
                 if not dry_run and not game_obj:
                     stats_skipped += 1
@@ -412,7 +444,7 @@ class Command(BaseCommand):
             'skipped': stats_skipped
         }
 
-    def find_or_create_player(self, player_data, stat, jersey_number, team_name, is_rookie, rookie_season, seasons_played, season, dry_run):
+    def find_or_create_player(self, player_data, stat, jersey_number, team_name, is_rookie, rookie_season, seasons_played, season, dry_run, preserve_current_player_profile=False):
         """Find a player in our database by NLL stats ID, or create if not found"""
         # Get NLL stats player ID
         nll_player_id = player_data.get('id')
@@ -440,6 +472,9 @@ class Command(BaseCommand):
         # Try to find by external_id first (most reliable)
         try:
             player = Player.objects.get(external_id=external_id)
+
+            if preserve_current_player_profile:
+                return player
             
             # Update name, jersey number, or team if changed
             needs_update = False
