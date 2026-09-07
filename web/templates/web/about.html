@@ -10,13 +10,15 @@
     time—helping fans get more involved, grow the game of lacrosse, and bring new fans to the NLL.
   </p>
 
-  <div class="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-8">
-    <p class="text-black dark:text-gray-100">
-      <strong>💡 Pro Tip:</strong> We recommend a league size of <strong>8 teams</strong> to ensure every 
-      manager has access to quality goalies. With only 14 NLL teams total, larger leagues may face goalie 
-      scarcity. However, as league commissioner, you can customize roster sizes and league settings to match 
-      your league's preferences.
+  <aside class="border-l-4 border-blue-600 bg-blue-50 dark:bg-blue-950/40 rounded-lg p-5 mb-8" aria-labelledby="pro-tip-heading">
+    <h2 id="pro-tip-heading" class="text-base font-bold text-blue-950 dark:text-blue-100 mb-2">💡 Pro Tip</h2>
+    <p class="text-base leading-relaxed text-gray-800 dark:text-gray-100">
+      We recommend a league size of <strong class="font-bold text-gray-950 dark:text-white">8 teams</strong> to ensure every
+      manager has access to quality goalies. With only 14 NLL teams total, larger leagues may face goalie
+      scarcity. As league commissioner, you can customize roster sizes and league settings to match your
+      league's preferences.
     </p>
+  </aside>
   </div>
 
   <!-- Scoring Dropdown -->
@@ -25,21 +27,36 @@
       <span>📊 How Scoring Works</span>
       <span id="scoring-arrow" class="ml-auto">▼</span>
     </button>
-    <div id="scoring" class="hidden bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
-      <h3 class="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Best Ball Scoring Format</h3>
-      <p class="text-gray-700 dark:text-gray-300 mb-4">
-        NLL Fantasy uses a Best Ball scoring format. Each week, only the highest-scoring players 
-        at each position contribute to your team's total score:
-      </p>
-      <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-2">
-        <li>Top 3 Forwards</li>
-        <li>Top 3 Defence</li>
-        <li>Top 1 Goalie</li>
-      </ul>
-      <p class="text-gray-700 dark:text-gray-300 mt-4">
-        <strong>Transition Players:</strong> Listed as Transition may count as either a Forward or Defence, 
-        depending on which position slot you have assigned them on your roster for that week.
-      </p>
+    <div id="scoring" class="hidden bg-gray-50 dark:bg-gray-800 p-5 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">Default Scoring Settings</h3>
+      <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 mb-5">Points are awarded for each recorded statistic.</p>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <section aria-labelledby="skater-scoring-heading">
+          <h4 id="skater-scoring-heading" class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Skaters</h4>
+          <dl class="divide-y divide-gray-200 dark:divide-gray-700 border-y border-gray-200 dark:border-gray-700 text-sm">
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Goal</dt><dd class="font-bold text-gray-950 dark:text-white">+4</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Assist</dt><dd class="font-bold text-gray-950 dark:text-white">+2</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Loose ball</dt><dd class="font-bold text-gray-950 dark:text-white">+2</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Caused turnover</dt><dd class="font-bold text-gray-950 dark:text-white">+3</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Blocked shot</dt><dd class="font-bold text-gray-950 dark:text-white">+2</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Turnover</dt><dd class="font-bold text-red-700 dark:text-red-300">-1</dd></div>
+          </dl>
+        </section>
+
+        <section aria-labelledby="goalie-scoring-heading">
+          <h4 id="goalie-scoring-heading" class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Goalies</h4>
+          <dl class="divide-y divide-gray-200 dark:divide-gray-700 border-y border-gray-200 dark:border-gray-700 text-sm">
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Win</dt><dd class="font-bold text-gray-950 dark:text-white">+4</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Save</dt><dd class="font-bold text-gray-950 dark:text-white">+1</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Goal against</dt><dd class="font-bold text-red-700 dark:text-red-300">-1.25</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Goal</dt><dd class="font-bold text-gray-950 dark:text-white">+5</dd></div>
+            <div class="flex items-center justify-between py-2"><dt class="text-gray-700 dark:text-gray-300">Assist</dt><dd class="font-bold text-gray-950 dark:text-white">+2</dd></div>
+          </dl>
+        </section>
+      </div>
+
+      <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300 mt-5">League commissioners can customize these settings for their league.</p>
     </div>
   </section>
 
