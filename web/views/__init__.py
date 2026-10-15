@@ -6271,19 +6271,13 @@ def get_available_slots(request, team_id):
         print(f"DEBUG: get_available_slots - current_player_id={current_player_id}, player_position={player_position}", file=sys.stderr)
         
         # Determine which positions this player can move to
-        # O and T players can move to O slots
-        # D and T players can move to D slots
-        # G and T players can move to G slots
+        # O and T players can move to O slots.
+        # Defenders, goalies, and transition players share D slots.
         can_move_to = set()
         if player_position in ['O', 'T']:
             can_move_to.add('O')
-        if player_position in ['D', 'T']:
+        if player_position in ['D', 'G', 'T']:
             can_move_to.add('D')
-        if player_position in ['G', 'T']:
-            # For T players, check if league allows T in G slots
-            allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
-            if player_position == 'G' or allow_t_in_g:
-                can_move_to.add('G')
         
         # DEBUG: Log can_move_to
         try:
@@ -6522,7 +6516,7 @@ def get_available_slots(request, team_id):
                             can_swap = False
                             if slot_type == 'O' and swap_player_pos in ['O', 'T']:
                                 can_swap = True
-                            elif slot_type == 'D' and swap_player_pos in ['D', 'T']:
+                            elif slot_type == 'D' and swap_player_pos in ['D', 'G', 'T']:
                                 can_swap = True
                             elif slot_type == 'G':
                                 allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
@@ -6551,7 +6545,7 @@ def get_available_slots(request, team_id):
                             can_fill_slot = False
                             if slot_type == 'O' and bench_player_pos in ['O', 'T']:
                                 can_fill_slot = True
-                            elif slot_type == 'D' and bench_player_pos in ['D', 'T']:
+                            elif slot_type == 'D' and bench_player_pos in ['D', 'G', 'T']:
                                 can_fill_slot = True
                             elif slot_type == 'G' and (bench_player_pos == 'G' or (bench_player_pos == 'T' and allow_t_in_g)):
                                 can_fill_slot = True
@@ -6608,7 +6602,7 @@ def get_available_slots(request, team_id):
                             can_swap = False
                             if current_slot_type == 'O' and swap_player_pos in ['O', 'T']:
                                 can_swap = True
-                            elif current_slot_type == 'D' and swap_player_pos in ['D', 'T']:
+                            elif current_slot_type == 'D' and swap_player_pos in ['D', 'G', 'T']:
                                 can_swap = True
                             elif current_slot_type == 'G':
                                 allow_t_in_g = league.allow_transition_in_goalies if hasattr(league, 'allow_transition_in_goalies') else False
