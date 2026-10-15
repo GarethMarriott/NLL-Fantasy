@@ -1079,6 +1079,7 @@ def assign_player(request, team_id):
     # Get action early to check if it's a drop (which bypasses waiver redirect)
     action = request.POST.get("action")
     player_id = request.POST.get("player_id")
+    is_ir_move = action == "move_to_empty_slot" and request.POST.get("target_slot") == "ir"
     
     if not player_id:
         error_msg = "No player specified."
@@ -1152,19 +1153,24 @@ def assign_player(request, team_id):
     
     # If rosters are locked and waivers are enabled, redirect to waiver claim process
     # EXCEPT for drop actions, which should always be allowed
-    if not offseason_roster_moves_open and rosters_are_locked and use_waivers and action != "drop":
+    if not offseason_roster_moves_open and rosters_are_locked and action != "drop" and not is_ir_move:
         # Redirect to waiver claim submission instead
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'Roster moves are locked. Submit a waiver claim to add a player.'
+            }, status=400)
         return redirect('submit_waiver_claim', team_id=team_id)
     
     # If rosters are locked and waivers are NOT enabled, prevent any roster moves (except drops)
-    if not offseason_roster_moves_open and rosters_are_locked and not use_waivers and action != "drop":
+    if not offseason_roster_moves_open and rosters_are_locked and not use_waivers and action != "drop" and not is_ir_move:
         error_msg = "Roster Moves not Allowed While Rosters are Locked"
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
-    if not offseason_roster_moves_open and not next_unlocked_week:
+    if not offseason_roster_moves_open and not next_unlocked_week and not is_ir_move:
         # No unlocked weeks available and no waivers enabled
         error_msg = "All weeks are currently locked. No roster changes allowed."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1174,19 +1180,25 @@ def assign_player(request, team_id):
     
     # Verify changes are allowed for this week
     can_change, message, locked_until = team.can_make_roster_changes(next_unlocked_week)
-    if not offseason_roster_moves_open and not can_change:
+    if not offseason_roster_moves_open and not can_change and not is_ir_move:
         # Use custom message for locked rosters
         if "locked" in message.lower():
-            messages.error(request, "Roster Moves not Allowed While Rosters are Locked")
+            error_msg = "Roster Moves not Allowed While Rosters are Locked"
         else:
-            messages.error(request, f"Roster changes not allowed: {message}")
+            error_msg = f"Roster changes not allowed: {message}"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
     
     # Check if team is over roster limit - if so, only allow drops
     current_count, is_over_limit = team.is_over_roster_limit()
-    if is_over_limit and action != "drop":
+    if is_over_limit and action != "drop" and not is_ir_move:
         roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
-        messages.error(request, f"Your roster is OVER the limit ({current_count}/{roster_limit}). You can only DROP players until you're back under the limit.")
+        error_msg = f"Your roster is OVER the limit ({current_count}/{roster_limit}). You can only DROP players until you're back under the limit."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
 
     player_id = request.POST.get("player_id")
@@ -1202,7 +1214,7 @@ def assign_player(request, team_id):
         last_week = all_weeks.last()
         next_week_number = 22 if team.league.status == 'season_complete' or (last_week and last_week.week_number >= 21 and today > last_week.end_date) else 1
     else:
-        next_week_number = next_unlocked_week.week_number
+        next_week_number = next_unlocked_week.week_number if next_unlocked_week else 1
     slot_group = request.POST.get("slot_group")
     
     if action == "swap":
