@@ -6827,15 +6827,14 @@ def toggle_offseason_rosters(request, league_id):
 @transaction.atomic
 def offseason_renew_league(request, league_id):
     """
-    DEPRECATED: Old renewal endpoint. Use the POST endpoint at /renew_league/{league_id} instead.
-    
-    This endpoint is kept for backward compatibility only and directs users to the new UI flow.
+    Renew a completed league through the legacy JSON endpoint.
+
+    This route remains in use by the offseason UI, so it delegates to the
+    unified renewal implementation rather than returning a deprecation error.
     """
-    return JsonResponse({
-        'success': False, 
-        'error': 'This endpoint has been deprecated. Please use the renewal interface at /leagues/{league_id}/renew/',
-        'deprecation': 'Use the HTML form-based renewal at /leagues/{league_id}/renew/ instead'
-    }, status=410)
+    from .offseason import offseason_renew_league as renew_league_json
+
+    return renew_league_json(request, league_id)
 
 
 @login_required

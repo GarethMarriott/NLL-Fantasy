@@ -193,7 +193,9 @@ def league_history_standings(request, league_id, year):
     if not user_teams.exists() and league.commissioner != request.user:
         return JsonResponse({'error': 'Not a member of this league'}, status=403)
     
-    teams = list(league.teams.order_by("name"))
+    teams = list(league.teams.filter(season_year=year).order_by("name"))
+    if not teams:
+        teams = list(league.teams.filter(season_year__isnull=True).order_by("name"))
     if not teams:
         context = {'league': league, 'year': year, 'standings': [], 'is_historical': True}
         return render(request, 'web/league_history_standings.html', context)
@@ -332,8 +334,10 @@ def league_history_matchups(request, league_id, year):
     if not user_teams.exists() and league.commissioner != request.user:
         return JsonResponse({'error': 'Not a member of this league'}, status=403)
     
-    # Get all Fantasy teams in the league
-    teams = list(Team.objects.filter(league=league).order_by('id'))
+    # Use the season's team identities so renewed teams do not appear as zero-score duplicates.
+    teams = list(Team.objects.filter(league=league, season_year=year).order_by('id'))
+    if not teams:
+        teams = list(Team.objects.filter(league=league, season_year__isnull=True).order_by('id'))
     if not teams:
         context = {
             'league': league,
