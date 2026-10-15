@@ -1113,10 +1113,16 @@ def assign_player(request, team_id):
 
     if offseason_roster_moves_open:
         if action not in {'add', 'drop', 'swap', 'swap_slots', 'move_to_empty_slot'}:
-            messages.error(request, "Only player adds and drops are available while offseason rosters are open.")
+            error_msg = "Only player adds, drops, and lineup moves are available while offseason rosters are open."
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg}, status=400)
+            messages.error(request, error_msg)
             return redirect("team_detail", team_id=team.id)
-        if player.is_rookie:
-            messages.error(request, "Rookies cannot be added or dropped while offseason rosters are open.")
+        if player.is_rookie and action in {'add', 'drop'}:
+            error_msg = "Rookies cannot be added or dropped while offseason rosters are open."
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg}, status=400)
+            messages.error(request, error_msg)
             return redirect("team_detail", team_id=team.id)
     
     # Check if roster changes are allowed - find the next unlocked week
