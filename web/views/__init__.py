@@ -97,6 +97,7 @@ def check_roster_capacity(team, position, exclude_player=None):
         Tuple of (can_add: bool, current_count: int, max_allowed: int)
     """
     is_best_ball = team.league.roster_format == 'bestball'
+    position = 'D' if position == 'G' else position
     
     # For IR slots in best ball, check IR capacity separately
     if is_best_ball and position == 'IR':
@@ -135,15 +136,16 @@ def check_roster_capacity(team, position, exclude_player=None):
         # Use assigned_side if set (for transition players), otherwise use natural position
         player_assigned = roster.player.assigned_side if roster.player.assigned_side else roster.player.position
         
-        # Count if this player is assigned to the target position
+        # Goalies share the defense allocation in all league formats.
+        if player_assigned == 'G':
+            player_assigned = 'D'
         if player_assigned == position:
             position_count += 1
     
     # Get max slots for this position
     max_slots = {
         'O': team.league.roster_forwards or 6,
-        'D': team.league.roster_defense or 6,
-        'G': team.league.roster_goalies or 2
+        'D': team.league.roster_defense or 8,
     }
     max_allowed = max_slots.get(position, 0)
     
@@ -165,22 +167,19 @@ def auto_assign_to_starter_slot(roster_entry):
     team = roster_entry.team
     
     # Determine which position this player occupies
-    if player.assigned_side:
-        position = player.assigned_side
-    else:
-        position = player.position
+    position = player.assigned_side or player.position
+    if position == 'G':
+        position = 'D'
     
     # Map position to slot prefix and max slots (use league configuration)
     slot_map = {
         'O': ('starter_o', league.roster_forwards or 6),
-        'D': ('starter_d', league.roster_defense or 6),
-        'G': ('starter_g', league.roster_goalies or 2),
-        'T': (None, 0),  # Transition players need assigned_side
+        'D': ('starter_d', league.roster_defense or 8),
     }
-    
-    if position not in slot_map or slot_map[position][0] is None:
+
+    if position not in slot_map:
         return
-    
+
     slot_prefix, max_slots = slot_map[position]
     
     # Find which starter slots are already filled for this position
@@ -195,21 +194,15 @@ def auto_assign_to_starter_slot(roster_entry):
     for entry in existing_roster:
         if entry.slot_assignment.startswith(slot_prefix):
             try:
-                if slot_prefix == 'starter_g':
-                    filled_slots.add(1)
-                else:
-                    slot_num = int(entry.slot_assignment.replace(slot_prefix, ''))
-                    filled_slots.add(slot_num)
+                slot_num = int(entry.slot_assignment.replace(slot_prefix, ''))
+                filled_slots.add(slot_num)
             except ValueError:
                 pass
     
     # Find first available slot
     for slot_num in range(1, max_slots + 1):
         if slot_num not in filled_slots:
-            if slot_prefix == 'starter_g':
-                roster_entry.slot_assignment = slot_prefix
-            else:
-                roster_entry.slot_assignment = f"{slot_prefix}{slot_num}"
+            roster_entry.slot_assignment = f"{slot_prefix}{slot_num}"
             roster_entry.save()
             break
 
@@ -512,6 +505,8 @@ def team_detail(request, team_id):
         pos = getattr(p, "position", None)
         side = getattr(p, "assigned_side", None)
         target = side or ("O" if pos == "T" else pos)
+        if target == "G":
+            target = "D"
         if target in players_by_position:
             players_by_position[target].append(entry)
         else:
@@ -554,7 +549,7 @@ def team_detail(request, team_id):
     if league.roster_format == 'traditional':
         num_offence = league.roster_forwards or 6
         num_defence = league.roster_defense or 6
-        num_goalie = league.roster_goalies or 2
+        num_goalie = 0
     else:
         # Best ball: dynamically size slots based on actual roster composition
         # This allows teams to have any distribution (e.g., 7 O, 4 D, 1 G)
@@ -1015,9 +1010,9 @@ def manage_lineup(request, team_id):
             slot_assignment__startswith='starter_'
         ).count()
         
-        required_starters = league.roster_forwards + league.roster_defense + league.roster_goalies
+        required_starters = league.roster_forwards + league.roster_defense
         if starter_slots != required_starters:
-            messages.error(request, f"You must have exactly {required_starters} starters ({league.roster_forwards} Offense, {league.roster_defense} Defense, {league.roster_goalies} Goalie).")
+            messages.error(request, f"You must have exactly {required_starters} starters ({league.roster_forwards} Offense and {league.roster_defense} Defense/Goalie).")
             return redirect('manage_lineup', team_id=team_id)
         
         messages.success(request, "Lineup updated successfully!")
@@ -1032,7 +1027,6 @@ def manage_lineup(request, team_id):
     
     starter_offense = roster_items.filter(slot_assignment__in=offense_slots)
     starter_defense = roster_items.filter(slot_assignment__in=defense_slots)
-    starter_goalie = roster_items.filter(slot_assignment='starter_g')
     bench_players = roster_items.filter(slot_assignment='bench')
     
     context = {
@@ -1040,7 +1034,6 @@ def manage_lineup(request, team_id):
         'league': league,
         'starter_offense': starter_offense,
         'starter_defense': starter_defense,
-        'starter_goalie': starter_goalie,
         'bench_players': bench_players,
         'all_roster': roster_items,
         'slot_choices': Roster.SLOT_CHOICES,
@@ -3640,7 +3633,7 @@ def matchups(request):
             # Get league's starter counts
             num_starter_offense = league.roster_forwards or 6
             num_starter_defense = league.roster_defense or 6
-            num_starter_goalie = league.roster_goalies or 2
+            num_starter_goalie = 0
             
             # Get assigned starters from slots
             starter_offense = [slot for slot in offence_slots if slot and player_to_slot.get(slot['player'].id, '').startswith('starter_o')][:num_starter_offense]

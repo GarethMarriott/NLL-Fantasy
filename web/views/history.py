@@ -410,29 +410,26 @@ def league_history_matchups(request, league_id, year):
             
             num_starter_o = getattr(league, 'roster_forwards', 6) or 6
             num_starter_d = getattr(league, 'roster_defense', 6) or 6
-            num_starter_g = getattr(league, 'roster_goalies', 2) or 2
             
             starters_o = [s for s in player_scores if slot_assignments.get(s[0].id, '').startswith('starter_o')][:num_starter_o]
             starters_d = [s for s in player_scores if slot_assignments.get(s[0].id, '').startswith('starter_d')][:num_starter_d]
-            starters_g = [s for s in player_scores if slot_assignments.get(s[0].id, '').startswith('starter_g')][:num_starter_g]
             
-            total = sum(s[1] for s in starters_o + starters_d + starters_g if s[1])
+            total = sum(s[1] for s in starters_o + starters_d if s[1])
         else:
-            # For best_ball: top 3 O, top 3 D, top 1 G
+            # For best ball: goalies compete in the shared defense allocation.
             players_by_side = defaultdict(list)
             for player, points in player_scores:
                 side = getattr(player, 'assigned_side', None) or (
                     'D' if getattr(player, 'position', None) == 'D' else 'O'
                 )
                 if getattr(player, 'position', None) == 'G':
-                    side = 'G'
+                    side = 'D'
                 players_by_side[side].append(points)
             
             off_scores = sorted(players_by_side.get('O', []), reverse=True)[:3]
-            def_scores = sorted(players_by_side.get('D', []), reverse=True)[:3]
-            goal_scores = sorted(players_by_side.get('G', []), reverse=True)[:1]
+            def_scores = sorted(players_by_side.get('D', []), reverse=True)[:4]
             
-            total = sum(off_scores) + sum(def_scores) + sum(goal_scores)
+            total = sum(off_scores) + sum(def_scores)
         
         return total
     

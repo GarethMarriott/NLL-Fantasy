@@ -24,6 +24,7 @@ def check_roster_capacity(team, position, exclude_player=None):
         Tuple of (can_add: bool, current_count: int, max_allowed: int)
     """
     is_best_ball = team.league.roster_format == 'bestball'
+    position = 'D' if position == 'G' else position
     
     # For best ball, only check total roster size (not position-specific)
     if is_best_ball and position != 'IR':
@@ -78,6 +79,8 @@ def check_roster_capacity(team, position, exclude_player=None):
         player_assigned = roster.player.assigned_side if roster.player.assigned_side else roster.player.position
         
         # Count if this player is assigned to the target position
+        if player_assigned == 'G':
+            player_assigned = 'D'
         if player_assigned == position:
             position_count += 1
     
@@ -85,7 +88,6 @@ def check_roster_capacity(team, position, exclude_player=None):
     max_slots = {
         'O': team.league.roster_forwards,
         'D': team.league.roster_defense,
-        'G': team.league.roster_goalies
     }
     max_allowed = max_slots.get(position, 0)
     

@@ -97,10 +97,10 @@ class LeagueSettingsForm(forms.ModelForm):
         model = League
         fields = [
             'name', 'description', 'max_teams', 'is_public',
-            'roster_forwards', 'roster_defense', 'roster_goalies', 'roster_bench', 'roster_size', 'use_taxi_squad', 'taxi_squad_size',
+            'roster_forwards', 'roster_defense', 'roster_bench', 'roster_size', 'use_taxi_squad', 'taxi_squad_size',
             'allow_ir_slots', 'ir_slots',
             'use_future_rookie_picks',
-            'playoff_teams', 'playoff_reseed', 'use_waivers', 'allow_transition_in_goalies',
+            'playoff_teams', 'playoff_reseed', 'use_waivers',
             'multigame_scoring',
             'scoring_goals', 'scoring_assists', 'scoring_loose_balls', 
             'scoring_caused_turnovers', 'scoring_blocked_shots', 'scoring_turnovers',
@@ -121,7 +121,6 @@ class LeagueSettingsForm(forms.ModelForm):
             'roster_size': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 6, 'max': 20}),
             'roster_forwards': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_defense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
-            'roster_goalies': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'roster_bench': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'use_taxi_squad': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'taxi_squad_size': forms.Select(choices=[
@@ -140,7 +139,6 @@ class LeagueSettingsForm(forms.ModelForm):
             ], attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'playoff_reseed': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'use_waivers': forms.CheckboxInput(attrs={'class': 'rounded'}),
-            'allow_transition_in_goalies': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'multigame_scoring': forms.Select(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md'}),
             'scoring_goals': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),
             'scoring_assists': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'step': '0.25'}),

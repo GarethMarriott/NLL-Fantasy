@@ -16,7 +16,7 @@ class League(models.Model):
     """Fantasy league that contains multiple teams"""
     ROSTER_FORMAT_CHOICES = [
         ("bestball", "Best Ball (no lineup management)"),
-        ("traditional", "Traditional (starter slots: 3O, 3D, 1G)"),
+        ("traditional", "Traditional (starter slots: Offense and Defense)"),
     ]
     roster_format = models.CharField(
         max_length=15,
@@ -71,14 +71,14 @@ class League(models.Model):
         help_text="Number of forward (O) roster spots"
     )
     roster_defense = models.PositiveSmallIntegerField(
-        default=6,
+        default=8,
         validators=[MinValueValidator(0), MaxValueValidator(20)],
-        help_text="Number of defense (D) roster spots"
+        help_text="Number of defense slots, shared by defenders and goalies"
     )
     roster_goalies = models.PositiveSmallIntegerField(
-        default=2,
+        default=0,
         validators=[MinValueValidator(0), MaxValueValidator(20)],
-        help_text="Number of goalie (G) roster spots"
+        help_text="Deprecated: goalie capacity is included in defense slots"
     )
     roster_bench = models.PositiveSmallIntegerField(
         default=6,
@@ -142,12 +142,6 @@ class League(models.Model):
         choices=PLAYOFF_RESEED_CHOICES,
         default="fixed",
         help_text="Semifinal matchup: 1 seed plays winner of 3 vs 6 (fixed) or lowest remaining seed (reseed)"
-    )
-    
-    # Transition Player Rules
-    allow_transition_in_goalies = models.BooleanField(
-        default=False,
-        help_text="Allow Transition (T) players to be placed in Goalie (G) roster slots"
     )
     
     # Custom Scoring Settings
@@ -265,7 +259,7 @@ class League(models.Model):
     def calculate_roster_size(self):
         """Calculate roster size for traditional leagues from allocation slots, including taxi squad for dynasty leagues"""
         if self.roster_format == 'traditional':
-            size = self.roster_forwards + self.roster_defense + self.roster_goalies + self.roster_bench
+            size = self.roster_forwards + self.roster_defense + self.roster_bench
             # Include taxi squad size for dynasty traditional leagues
             if self.league_type == 'dynasty':
                 size += self.taxi_squad_size
@@ -413,7 +407,6 @@ class Roster(models.Model):
         ('starter_d1', 'Starter Defense 1'),
         ('starter_d2', 'Starter Defense 2'),
         ('starter_d3', 'Starter Defense 3'),
-        ('starter_g', 'Starter Goalie'),
         ('bench', 'Bench'),
         ('ir', 'Injured Reserve'),
     ]
