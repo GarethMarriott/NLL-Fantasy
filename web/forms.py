@@ -299,6 +299,10 @@ class DraftSettingsForm(forms.Form):
         })
     )
 
+    def __init__(self, *args, league=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.league = league
+
 
 class TeamLogoForm(forms.ModelForm):
     """Form for team owners to upload a team logo"""
