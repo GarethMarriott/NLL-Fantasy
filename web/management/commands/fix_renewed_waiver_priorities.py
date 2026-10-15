@@ -17,16 +17,41 @@ class Command(BaseCommand):
 
         updated = 0
         for league in leagues.order_by("id"):
-            current_teams = Team.objects.filter(
+            current_teams = list(Team.objects.filter(
                 league=league,
                 season_year=league.season,
+            ).order_by("created_at", "id"))
+            if not current_teams:
+                continue
+
+            current_priorities = {team.waiver_priority for team in current_teams}
+            if len(current_priorities) == 1:
+                total_teams = len(current_teams)
+                for index, team in enumerate(current_teams, start=1):
+                    priority = total_teams - index + 1
+                    if team.waiver_priority != priority:
+                        self.stdout.write(
+                            f"{league.name}: {team.name} {team.waiver_priority} -> {priority}"
+                        )
+                        if not options["dry_run"]:
+                            team.waiver_priority = priority
+                            team.save(update_fields=["waiver_priority"])
+                        updated += 1
+                continue
+
+            previous_team_queryset = Team.objects.filter(
+                league=league,
+                season_year=league.season - 1,
             )
+            if not previous_team_queryset.exists():
+                previous_team_queryset = Team.objects.filter(
+                    league=league,
+                    season_year__isnull=True,
+                )
+
             previous_teams = {
                 team.name: team
-                for team in Team.objects.filter(
-                    league=league,
-                    season_year=league.season - 1,
-                )
+                for team in previous_team_queryset
             }
 
             for team in current_teams:
