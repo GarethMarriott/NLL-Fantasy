@@ -327,11 +327,16 @@ def cache_get_waiver_priority_order(league_id):
         return cached_order
     
     # Not in cache, query database
-    from web.models import Team
-    teams = Team.objects.filter(league_id=league_id).order_by(
-        'waiver_priority'
-    ).values_list('id', flat=True)
-    team_ids = list(teams)
+    from web.models import League, Team
+
+    league = League.objects.only('season').get(id=league_id)
+    teams = Team.objects.filter(
+        league_id=league_id,
+        season_year=league.season,
+    )
+    if not teams.exists():
+        teams = Team.objects.filter(league_id=league_id, season_year__isnull=True)
+    team_ids = list(teams.order_by('waiver_priority').values_list('id', flat=True))
     
     # Cache for 1 hour (waiver priority changes during processing)
     cache.set(cache_key, team_ids, CACHE_TTL.get('team_roster', 1800))

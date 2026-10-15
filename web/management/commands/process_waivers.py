@@ -151,7 +151,10 @@ class Command(BaseCommand):
                 next_week_number = current_week.week_number + 1
             
             # Initialize waiver priorities if not set (first time setup)
-            teams_without_priority = league.teams.filter(waiver_priority=0)
+            current_teams = league.teams.filter(season_year=league.season)
+            if not current_teams.exists():
+                current_teams = league.teams.filter(season_year__isnull=True)
+            teams_without_priority = current_teams.filter(waiver_priority=0)
             if teams_without_priority.exists():
                 self.stdout.write(f"  Initializing waiver priorities for {teams_without_priority.count()} teams")
                 teams_list = list(teams_without_priority.order_by('created_at'))
@@ -334,7 +337,12 @@ class Command(BaseCommand):
                 claim.save()
                 
                 # Move this team to the back of the waiver line
-                league_teams = claim.league.teams.all().order_by('waiver_priority')
+                league_teams = claim.league.teams.filter(
+                    season_year=claim.league.season,
+                )
+                if not league_teams.exists():
+                    league_teams = claim.league.teams.filter(season_year__isnull=True)
+                league_teams = league_teams.order_by('waiver_priority')
                 max_priority = league_teams.count()
                 # Teams after this one in priority move up (get better priority)
                 teams_to_adjust = league_teams.filter(waiver_priority__gt=claim.team.waiver_priority)
