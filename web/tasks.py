@@ -372,7 +372,9 @@ def renew_league(league_id):
                     league=league,
                     name=old_team.name,
                     season_year=new_season,
-                    defaults={'waiver_priority': 12 if league.use_waivers else 0},
+                    defaults={
+                        'waiver_priority': old_team.waiver_priority if league.use_waivers else 0,
+                    },
                 )
                 
                 # Link the new team to the same owner as the old team
