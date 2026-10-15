@@ -50,6 +50,19 @@ def dynasty_offseason_rosters_are_open(league):
     return league.offseason_rosters_open and is_dynasty_offseason(league)
 
 
+def rookie_draft_is_pending(league, player):
+    """Return whether a dynasty rookie must be acquired through that league's rookie draft."""
+    if league.league_type != 'dynasty' or not player.is_rookie or not player.rookie_season:
+        return False
+
+    from ..models import RookieDraft
+    return not RookieDraft.objects.filter(
+        league=league,
+        season_year=player.rookie_season,
+        completed=True,
+    ).exists()
+
+
 def post_league_message(league, message_text):
     """Post a system message to league chat"""
     ChatMessage.objects.create(
@@ -1098,6 +1111,13 @@ def assign_player(request, team_id):
         return redirect("team_detail", team_id=team.id)
     except (ValueError, TypeError):
         error_msg = "Invalid player ID."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
+        return redirect("team_detail", team_id=team.id)
+
+    if rookie_draft_is_pending(team.league, player):
+        error_msg = f"{player.first_name} {player.last_name} is available only through this league's {player.rookie_season} rookie draft."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
         messages.error(request, error_msg)
@@ -5158,6 +5178,13 @@ def submit_waiver_claim(request, team_id):
         player = Player.objects.get(id=int(player_id))
     except Player.DoesNotExist:
         messages.error(request, "Player not found.")
+        return redirect('team_detail', team_id=team.id)
+
+    if rookie_draft_is_pending(team.league, player):
+        messages.error(
+            request,
+            f"{player.first_name} {player.last_name} is available only through this league's {player.rookie_season} rookie draft.",
+        )
         return redirect('team_detail', team_id=team.id)
 
     if Roster.objects.filter(
