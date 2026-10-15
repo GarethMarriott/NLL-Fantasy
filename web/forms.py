@@ -299,9 +299,21 @@ class DraftSettingsForm(forms.Form):
         })
     )
 
+    num_rounds = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        initial=3,
+        widget=forms.NumberInput(attrs={
+            'class': 'w-full px-3 py-2 border border-gray-300 rounded-md',
+        })
+    )
+
     def __init__(self, *args, league=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.league = league
+        draft = getattr(league, 'draft', None) if league else None
+        if draft:
+            self.fields['num_rounds'].initial = draft.total_rounds
 
 
 class TeamLogoForm(forms.ModelForm):
