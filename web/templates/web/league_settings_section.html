@@ -1,0 +1,46 @@
+{% extends "web/base.html" %}
+{% block title %}{{ section_title }} - {{ league.name }}{% endblock %}
+{% block content %}
+<div class="container max-w-3xl mx-auto p-4 sm:p-6 text-gray-800">
+  <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <a href="{% url 'league_settings' league.id %}" class="text-sm text-blue-700 hover:underline">League Settings</a>
+      <h1 class="mt-2 text-2xl font-semibold">{{ section_title }}</h1>
+      <p class="mt-1 text-sm text-gray-600">{{ league.name }}</p>
+    </div>
+    <a href="{% url 'league_detail' league.id %}" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">Back to League</a>
+  </div>
+
+  {% if not is_commissioner %}<div class="mb-5 p-3 text-sm text-amber-900 border border-amber-200 bg-amber-50 rounded-md">Read-only access. Only the commissioner can change these settings.</div>{% endif %}
+
+  <form method="post" class="bg-white border border-gray-200 rounded-md p-5 space-y-5">
+    {% csrf_token %}
+    {% if section == 'general' %}
+      <div class="grid gap-4 sm:grid-cols-2 text-sm"><div><span class="block text-xs text-gray-500">League Type</span><span class="font-medium">{{ league.get_league_type_display }}</span></div><div><span class="block text-xs text-gray-500">Roster Format</span><span class="font-medium">{{ league.get_roster_format_display }}</span></div></div>
+    {% elif section == 'playoffs' %}
+      <div class="p-3 text-sm text-blue-800 border border-blue-200 bg-blue-50 rounded-md">Fantasy playoffs run in Weeks {{ league.get_playoff_start_week }}-20.</div>
+    {% elif section == 'draft' and league.league_type != 'dynasty' %}
+      <div class="p-3 text-sm text-gray-700 border border-gray-200 bg-gray-50 rounded-md">This redraft league does not use taxi squads or future rookie picks.</div>
+    {% endif %}
+
+    {% for field in form.visible_fields %}
+      <div>
+        {% if field.field.widget.input_type == 'checkbox' %}
+          <label class="flex items-center gap-2 text-sm font-medium">{{ field }} {{ field.label }}</label>
+        {% else %}
+          <label for="{{ field.id_for_label }}" class="block text-sm font-medium mb-2">{{ field.label }}</label>
+          {{ field }}
+        {% endif %}
+        {% if field.help_text %}<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
+        {% for error in field.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+
+    <div class="flex items-center justify-between pt-3 border-t border-gray-200">
+      <a href="{% url 'league_settings' league.id %}" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md">Back to Settings</a>
+      {% if is_commissioner %}<button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md">Save {{ section_title }}</button>{% endif %}
+    </div>
+  </form>
+</div>
+{% if not is_commissioner %}<script>document.querySelectorAll('form input, form select, form textarea').forEach(function (input) { input.disabled = true; });</script>{% endif %}
+{% endblock %}

@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.utils import timezone
 from django.db import models, transaction
 from django.db.models import Prefetch, Q
@@ -4872,7 +4872,7 @@ def select_league(request, league_id):
 
 @login_required
 def league_settings(request, league_id):
-    """League settings page - view for all, edit for commissioner only"""
+    """League settings hub for members and commissioners."""
     league = get_object_or_404(League, id=league_id)
     
     # Check if user is in this league
@@ -4888,12 +4888,40 @@ def league_settings(request, league_id):
         messages.error(request, "You must be a member of this league to view settings.")
         return redirect("league_detail", league_id=league.id)
     
-    # Only commissioner can edit
+    return render(request, "web/league_settings_hub.html", {
+        "league": league,
+        "is_commissioner": is_commissioner,
+    })
+
+
+@login_required
+def league_settings_section(request, league_id, section):
+    """View and update one focused group of league settings."""
+    section_titles = {
+        'general': 'General & Roster',
+        'scoring': 'Scoring',
+        'playoffs': 'Playoffs',
+        'draft': 'Draft & Dynasty',
+        'operations': 'League Operations',
+    }
+    if section not in section_titles:
+        raise Http404("Unknown league settings section")
+
+    league = get_object_or_404(League, id=league_id)
+    user_in_league = FantasyTeamOwner.objects.filter(
+        user=request.user,
+        team__league=league,
+    ).exists()
+    is_commissioner = league.commissioner == request.user
+    if not is_commissioner and not user_in_league:
+        messages.error(request, "You must be a member of this league to view settings.")
+        return redirect("league_detail", league_id=league.id)
+
     if request.method == "POST":
         if not is_commissioner:
             messages.error(request, "Only the league commissioner can edit settings.")
-            return redirect("league_settings", league_id=league.id)
-        form = LeagueSettingsForm(request.POST, instance=league)
+            return redirect("league_settings_section", league_id=league.id, section=section)
+        form = LeagueSettingsForm(request.POST, instance=league, section=section)
         if form.is_valid():
             league_obj = form.save(commit=False)
             # Force correct playoff weeks for 4 or 6 playoff teams
@@ -4905,39 +4933,25 @@ def league_settings(request, league_id):
             if league_obj.roster_format == 'bestball':
                 league_obj.roster_size = (
                     (league_obj.roster_forwards or 0) +
-                    (league_obj.roster_defense or 0) +
-                    (league_obj.roster_goalies or 0)
+                    (league_obj.roster_defense or 0)
                 )
             league_obj.save()
             form.save_m2m() if hasattr(form, 'save_m2m') else None
-            
-            # Note: Schedule cache has 24-hour TTL and will auto-refresh when settings change
-            # This is acceptable since league settings don't change frequently
-            
-            return redirect("league_detail", league_id=league.id)
+            messages.success(request, f"{section_titles[section]} settings saved.")
+            return redirect("league_settings_section", league_id=league.id, section=section)
         else:
-            # Form is not valid - show the errors
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f"{field}: {error}")
     else:
-        form = LeagueSettingsForm(instance=league)
-
-    active_teams = league.teams.filter(
-        season_year=league.season,
-    ).select_related('owner__user')
-    if not active_teams.exists():
-        active_teams = league.teams.filter(
-            season_year__isnull=True,
-        ).select_related('owner__user')
+        form = LeagueSettingsForm(instance=league, section=section)
     
-    return render(request, "web/league_settings.html", {
+    return render(request, "web/league_settings_section.html", {
         "form": form,
         "league": league,
-        "active_teams": active_teams,
-        "active_team_count": active_teams.count(),
         "is_commissioner": is_commissioner,
-        "can_renew": league.status == 'season_complete' and is_commissioner,
+        "section": section,
+        "section_title": section_titles[section],
         "is_dynasty_offseason": is_dynasty_offseason(league),
     })
 

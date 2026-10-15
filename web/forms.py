@@ -93,6 +93,25 @@ class TeamSettingsForm(forms.ModelForm):
 
 class LeagueSettingsForm(forms.ModelForm):
     """Form for commissioner to update league settings"""
+    SECTION_FIELDS = {
+        'general': {
+            'name', 'description', 'max_teams', 'roster_forwards',
+            'roster_defense', 'roster_bench', 'roster_size',
+            'allow_ir_slots', 'ir_slots',
+        },
+        'scoring': {
+            'multigame_scoring', 'scoring_goals', 'scoring_assists',
+            'scoring_loose_balls', 'scoring_caused_turnovers',
+            'scoring_blocked_shots', 'scoring_turnovers',
+            'scoring_goalie_wins', 'scoring_goalie_saves',
+            'scoring_goalie_goals_against', 'scoring_goalie_goals',
+            'scoring_goalie_assists',
+        },
+        'playoffs': {'playoff_teams', 'playoff_reseed'},
+        'draft': {'use_taxi_squad', 'taxi_squad_size', 'use_future_rookie_picks'},
+        'operations': {'is_public', 'use_waivers'},
+    }
+
     class Meta:
         model = League
         fields = [
@@ -171,8 +190,13 @@ class LeagueSettingsForm(forms.ModelForm):
             'ir_slots': "Number of Injured Reserve slots each team can use (0-5).",
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, section=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if section:
+            allowed_fields = self.SECTION_FIELDS[section]
+            for field_name in list(self.fields):
+                if field_name not in allowed_fields:
+                    self.fields.pop(field_name)
         # Remove playoff_weeks from form fields entirely
         if 'playoff_weeks' in self.fields:
             self.fields.pop('playoff_weeks')

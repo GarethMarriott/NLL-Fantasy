@@ -1,0 +1,35 @@
+{% extends "web/base.html" %}
+{% block title %}League Settings - {{ league.name }}{% endblock %}
+{% block content %}
+<div class="container max-w-5xl mx-auto p-4 sm:p-6 text-gray-800">
+  <div class="flex flex-col gap-3 mb-7 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <p class="text-xs font-semibold tracking-wide uppercase text-blue-700">League Control</p>
+      <h1 class="mt-1 text-2xl font-semibold">{{ league.name }}</h1>
+      <p class="mt-1 text-sm text-gray-600">{% if is_commissioner %}Choose a settings group to review or update.{% else %}Settings are available to review. Only the commissioner can edit them.{% endif %}</p>
+    </div>
+    <a href="{% url 'league_detail' league.id %}" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">Back to League</a>
+  </div>
+
+  <nav class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3" aria-label="League settings sections">
+    <a href="{% url 'league_settings_section' league.id 'general' %}" class="p-5 bg-white border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50">
+      <span class="block text-sm font-semibold">General & Roster</span><span class="block mt-1 text-xs text-gray-600">League type, format, teams, roster and IR slots</span>
+    </a>
+    <a href="{% url 'league_settings_section' league.id 'scoring' %}" class="p-5 bg-white border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50">
+      <span class="block text-sm font-semibold">Scoring</span><span class="block mt-1 text-xs text-gray-600">Field player, goalie and multi-game scoring</span>
+    </a>
+    <a href="{% url 'league_settings_section' league.id 'playoffs' %}" class="p-5 bg-white border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50">
+      <span class="block text-sm font-semibold">Playoffs</span><span class="block mt-1 text-xs text-gray-600">Qualifying teams, weeks and bracket format</span>
+    </a>
+    <a href="{% url 'league_settings_section' league.id 'draft' %}" class="p-5 bg-white border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50">
+      <span class="block text-sm font-semibold">Draft & Dynasty</span><span class="block mt-1 text-xs text-gray-600">Taxi squad and future rookie picks</span>
+    </a>
+    <a href="{% url 'league_history' league.id %}" class="p-5 bg-white border border-gray-200 rounded-md hover:border-green-500 hover:bg-green-50">
+      <span class="block text-sm font-semibold">League History</span><span class="block mt-1 text-xs text-gray-600">Archived seasons, standings, matchups and playoffs</span>
+    </a>
+    <a href="{% url 'league_settings_section' league.id 'operations' %}" class="p-5 bg-white border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50">
+      <span class="block text-sm font-semibold">League Operations</span><span class="block mt-1 text-xs text-gray-600">Public access and waiver claims</span>
+    </a>
+  </nav>
+</div>
+{% endblock %}
