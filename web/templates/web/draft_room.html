@@ -5,7 +5,7 @@
   <div class="mb-4">
     <div class="flex justify-between items-start">
       <div>
-        <h2 class="text-2xl font-semibold leading-tight">Draft Room</h2>
+        <h2 class="text-2xl font-semibold leading-tight">{% if is_rookie_draft %}Rookie Draft Room{% else %}Draft Room{% endif %}</h2>
         <p class="text-gray-600">{{ league.name }}</p>
       </div>
       {% if league.league_type == 'dynasty' or not draft or not draft.is_active %}
@@ -75,7 +75,7 @@
           <div>
             <h3 class="text-lg font-semibold text-blue-800">Draft In Progress</h3>
             <p class="text-blue-700">
-              Round {{ draft.current_round }} of {{ draft.total_rounds }}
+              Round {{ draft.current_round }} of {{ draft_total_rounds }}
               {% if current_team %}
                 — <span class="font-semibold">{{ current_team.name }}</span> is on the clock
               {% endif %}
@@ -98,6 +98,20 @@
         </div>
       </div>
     {% else %}
+      {% if is_rookie_draft %}
+      <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">Rookie Draft Ready</h3>
+        <p class="text-gray-700 mt-1">Review the generated order and the {{ draft.season_year }} rookie class below.</p>
+        {% if is_commissioner %}
+        <form method="post" action="{% url 'start_rookie_draft' draft.id %}" class="mt-4">
+          {% csrf_token %}
+          <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            Start Rookie Draft
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
       <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
         <div class="flex justify-between items-start">
           <div>
@@ -141,13 +155,14 @@
         </button>
         {% endif %}
       </div>
+      {% endif %}
     {% endif %}
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <!-- Available Players -->
       <div class="lg:col-span-2">
         <div class="bg-white dark:bg-gray-50 rounded-lg shadow p-4">
-          <h3 class="text-lg font-semibold mb-3">Available Players</h3>
+          <h3 class="text-lg font-semibold mb-3">{% if is_rookie_draft %}Available {{ draft.season_year }} Rookies{% else %}Available Players{% endif %}</h3>
           
           {% if is_user_turn %}
           <form method="post" action="{% url 'make_draft_pick' draft.id %}" id="draftPickForm">
@@ -160,6 +175,12 @@
             <table class="min-w-full text-xs">
               <thead class="bg-gray-200 sticky top-0">
                 <tr class="text-left">
+                  {% if is_rookie_draft %}
+                  <th class="p-2">Entry Pick</th>
+                  <th class="p-2">Name</th>
+                  <th class="p-2">Pos</th>
+                  <th class="p-2">NLL Team</th>
+                  {% else %}
                   <th class="p-2 cursor-pointer hover:bg-gray-300" onclick="sortTable('name')">
                     Name {% if sort_by == 'name' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
                   </th>
@@ -175,6 +196,7 @@
                   <th class="p-2 cursor-pointer hover:bg-gray-300" onclick="sortTable('prev_year_points')">
                     {{ previous_season }} Pts {% if sort_by == 'prev_year_points' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
                   </th>
+                  {% endif %}
                   {% if is_user_turn %}
                   <th class="p-2">Action</th>
                   {% endif %}
@@ -183,6 +205,20 @@
               <tbody>
                 {% for player in available_players %}
                 <tr class="border-b hover:bg-gray-50">
+                  {% if is_rookie_draft %}
+                  <td class="p-2 font-semibold">#{{ player.entry_draft_pick }}</td>
+                  <td class="p-2">{{ player.first_name }} {{ player.last_name }}</td>
+                  <td class="p-2">
+                    <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
+                      {% if player.position == 'O' %}bg-green-100 text-green-800
+                      {% elif player.position == 'D' %}bg-orange-100 text-orange-800
+                      {% elif player.position == 'T' %}bg-purple-100 text-purple-800
+                      {% else %}bg-blue-100 text-blue-800{% endif %}">
+                      {{ player.position }}
+                    </span>
+                  </td>
+                  <td class="p-2">{{ player.nll_team|default:"—" }}</td>
+                  {% else %}
                   <td class="p-2">{{ player.first_name }} {{ player.last_name }}</td>
                   <td class="p-2">
                     <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
@@ -196,6 +232,7 @@
                   <td class="p-2">{{ player.nll_team|default:"—" }}</td>
                   <td class="p-2">{{ player.number|default:"—" }}</td>
                   <td class="p-2 font-semibold">{{ player.prev_year_points|floatformat:1 }}</td>
+                  {% endif %}
                   {% if is_user_turn %}
                   <td class="p-2">
                     <button type="button" 
@@ -218,6 +255,20 @@
         <div class="bg-white dark:bg-gray-50 rounded-lg shadow p-4">
           <h3 class="text-lg font-semibold mb-3">Draft Board</h3>
           <div class="max-h-96 overflow-auto text-xs">
+            {% if is_rookie_draft %}
+            <table class="min-w-full">
+              <thead class="bg-gray-200 sticky top-0"><tr class="text-left"><th class="p-2">Pick</th><th class="p-2">Team</th><th class="p-2">Selection</th></tr></thead>
+              <tbody>
+                {% for pick in rookie_draft_picks %}
+                <tr class="border-b {% if current_team and pick.team.id == current_team.id and draft.is_active and pick.round == draft.current_round and pick.pick_number == draft.current_pick %}bg-yellow-100{% endif %}">
+                  <td class="p-2 font-semibold">{{ pick.overall_pick }}</td>
+                  <td class="p-2">{{ pick.team.name }}</td>
+                  <td class="p-2">{% if pick.player %}{{ pick.player.first_name }} {{ pick.player.last_name }}{% else %}<span class="text-gray-400">—</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
             <div class="min-w-max">
               <div class="grid gap-2 mb-2" style="grid-template-columns: 4.5rem repeat({{ draft.draft_positions.count }}, minmax(9rem, 1fr));">
                 <div class="font-semibold text-gray-700 p-2 bg-gray-100 rounded">Round</div>
@@ -247,6 +298,7 @@
             </div>
             {% endfor %}
             </div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -438,7 +490,7 @@ function sortTable(column) {
 }
 </script>
 
-{% if is_commissioner and draft and not draft.is_active and not draft.completed %}
+{% if is_commissioner and draft and not is_rookie_draft and not draft.is_active and not draft.completed %}
 <script>
 // Drag and drop functionality for team ordering
 let draggedItem = null;

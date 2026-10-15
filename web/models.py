@@ -566,6 +566,11 @@ class Player(models.Model):
         blank=True,
         help_text="NLL team that drafted the player"
     )
+    entry_draft_pick = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Overall NLL Entry Draft selection number"
+    )
     birthdate = models.DateField(
         null=True,
         blank=True,
@@ -1398,25 +1403,11 @@ class RookieDraft(models.Model):
     
     def get_current_team(self):
         """Get the team that should pick next based on draft style"""
-        teams = list(Team.objects.filter(league=self.league).order_by('id'))
-        num_teams = len(teams)
-        
-        if num_teams == 0:
-            return None
-        
-        # Get draft order from RookieDraftPick
-        if self.draft_style == 'snake' and self.current_round == 2:
-            # Round 2 is reversed in snake draft
-            round_teams = list(reversed(teams))
-        else:
-            # Round 1 or linear draft: normal order
-            round_teams = teams
-        
-        # current_pick is 1-indexed
-        if 1 <= self.current_pick <= len(round_teams):
-            return round_teams[self.current_pick - 1]
-        
-        return None
+        current_pick = self.picks.filter(
+            round=self.current_round,
+            pick_number=self.current_pick,
+        ).select_related('team').first()
+        return current_pick.team if current_pick else None
     
     def advance_pick(self):
         """Move to the next pick"""

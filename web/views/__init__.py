@@ -5348,15 +5348,27 @@ def draft_room(request):
     
     league = get_object_or_404(League, id=selected_league_id)
     
-    # Get or check draft
-    try:
-        draft = Draft.objects.prefetch_related(
-            'draft_positions__team',
-            'picks__team',
-            'picks__player'
-        ).get(league=league)
-    except Draft.DoesNotExist:
-        draft = None
+    # Dynasty leagues use their current-season rookie draft in this room.
+    from ..models import RookieDraft, RookieDraftPick
+    rookie_draft = None
+    if league.league_type == 'dynasty':
+        rookie_draft = RookieDraft.objects.filter(
+            league=league,
+            season_year=league.season,
+        ).prefetch_related('picks__team', 'picks__player').first()
+
+    is_rookie_draft = rookie_draft is not None
+    if is_rookie_draft:
+        draft = rookie_draft
+    else:
+        try:
+            draft = Draft.objects.prefetch_related(
+                'draft_positions__team',
+                'picks__team',
+                'picks__player'
+            ).get(league=league)
+        except Draft.DoesNotExist:
+            draft = None
     
     # Prefer the renewed team's ownership record, with a legacy fallback for
     # leagues whose teams predate season tracking.
@@ -5402,9 +5414,11 @@ def draft_room(request):
     # Get available players (not on any roster in this league and not drafted)
     drafted_player_ids = []
     if draft:
-        drafted_player_ids = list(
-            DraftPick.objects.filter(draft=draft, player__isnull=False).values_list('player_id', flat=True)
-        )
+        draft_pick_model = RookieDraftPick if is_rookie_draft else DraftPick
+        drafted_player_ids = list(draft_pick_model.objects.filter(
+            draft=draft,
+            player__isnull=False,
+        ).values_list('player_id', flat=True))
     
     rostered_player_ids = list(
         Roster.objects.filter(
@@ -5417,32 +5431,32 @@ def draft_room(request):
     excluded_ids = set(drafted_player_ids + rostered_player_ids)
     previous_season = league.season - 1
     
-    # Get sort parameters
+    # Rookies are ordered by their official NLL Entry Draft selection number.
     sort_by = request.GET.get('sort_by', 'prev_year_points')
     sort_dir = request.GET.get('sort_dir', 'desc')
-    
-    # Map sort fields
-    sort_field_map = {
-        'name': 'last_name',
-        'position': 'position',
-        'nll_team': 'nll_team',
-        'number': 'number',
-        'prev_year_points': 'prev_year_points'
-    }
-    
-    sort_field = sort_field_map.get(sort_by, 'last_name')
-    if sort_dir == 'desc':
-        sort_field = '-' + sort_field
-    
-    from django.db.models import Sum, Q, F, Value, FloatField, DecimalField, Case, When
-    from django.db.models.functions import Coalesce, Cast
-    
-    # Calculate fantasy points based on league scoring settings
-    # For non-goalies: goals, assists, loose balls, caused turnovers, blocked shots, turnovers
-    # For goalies: wins, saves, goals against, goals, assists
-    available_players = Player.objects.exclude(
-        id__in=excluded_ids
-    ).annotate(
+    if is_rookie_draft:
+        available_players = Player.objects.filter(
+            is_rookie=True,
+            rookie_season=draft.season_year,
+        ).exclude(id__in=excluded_ids).order_by('entry_draft_pick', 'last_name', 'first_name')
+    else:
+        sort_field_map = {
+            'name': 'last_name',
+            'position': 'position',
+            'nll_team': 'nll_team',
+            'number': 'number',
+            'prev_year_points': 'prev_year_points'
+        }
+        sort_field = sort_field_map.get(sort_by, 'last_name')
+        if sort_dir == 'desc':
+            sort_field = '-' + sort_field
+
+        from django.db.models import Sum, Q, F, Value, FloatField, Case, When
+        from django.db.models.functions import Coalesce
+
+        available_players = Player.objects.exclude(
+            id__in=excluded_ids
+        ).annotate(
         prev_year_points=Coalesce(
             Sum(
                 Case(
@@ -5473,7 +5487,7 @@ def draft_room(request):
             Value(0.0),
             output_field=FloatField()
         )
-    ).order_by(sort_field, 'last_name', 'first_name')
+        ).order_by(sort_field, 'last_name', 'first_name')
     
     # Get current pick team
     current_team = None
@@ -5485,7 +5499,10 @@ def draft_room(request):
     
     # Get draft board data
     draft_board = []
-    if draft:
+    rookie_draft_picks = []
+    if is_rookie_draft:
+        rookie_draft_picks = draft.picks.select_related('team', 'player').order_by('overall_pick')
+    elif draft:
         draft_positions = draft.get_draft_order()
         for round_num in range(1, draft.total_rounds + 1):
             round_picks = []
@@ -5521,7 +5538,8 @@ def draft_room(request):
     # Get user's draft picks so far
     user_picks = []
     if draft and user_team:
-        user_picks = DraftPick.objects.filter(
+        draft_pick_model = RookieDraftPick if is_rookie_draft else DraftPick
+        user_picks = draft_pick_model.objects.filter(
             draft=draft,
             team=user_team,
             player__isnull=False
@@ -5543,6 +5561,8 @@ def draft_room(request):
     context = {
         'league': league,
         'draft': draft,
+        'is_rookie_draft': is_rookie_draft,
+        'draft_total_rounds': 2 if is_rookie_draft else (draft.total_rounds if draft else 0),
         'user_team': user_team,
         'is_commissioner': is_commissioner,
         'teams': teams,
@@ -5552,6 +5572,7 @@ def draft_room(request):
         'current_team': current_team,
         'is_user_turn': is_user_turn,
         'draft_board': draft_board,
+        'rookie_draft_picks': rookie_draft_picks,
         'previous_season': previous_season,
         'sort_by': sort_by,
         'sort_dir': sort_dir,
@@ -5561,6 +5582,29 @@ def draft_room(request):
     }
     
     return render(request, 'web/draft_room.html', context)
+
+
+@login_required
+@require_POST
+def start_rookie_draft(request, draft_id):
+    """Start a pending rookie draft after the commissioner reviews its generated order."""
+    from ..models import RookieDraft
+
+    draft = get_object_or_404(RookieDraft, id=draft_id)
+    if draft.league.commissioner != request.user:
+        messages.error(request, "Only the commissioner can start the rookie draft.")
+    elif draft.completed or draft.is_active:
+        messages.error(request, "This rookie draft cannot be started.")
+    elif not draft.picks.exists():
+        messages.error(request, "The rookie draft has no picks to start.")
+    else:
+        draft.is_active = True
+        draft.order_locked = True
+        draft.started_at = timezone.now()
+        draft.save(update_fields=['is_active', 'order_locked', 'started_at'])
+        post_league_message(draft.league, f"Rookie draft for {draft.season_year} has started.")
+        messages.success(request, "Rookie draft started.")
+    return redirect('draft_room')
 
 
 @login_required
@@ -5758,6 +5802,9 @@ def make_draft_pick(request, draft_id):
     # Get the current pick and update it
     if is_rookie_draft:
         from ..models import RookieDraftPick
+        if not player.is_rookie or player.rookie_season != draft.season_year:
+            messages.error(request, "Only eligible rookies can be selected in this draft.")
+            return redirect('draft_room')
         # Check if player is already drafted
         if RookieDraftPick.objects.filter(draft=draft, player=player).exists():
             messages.error(request, "Player has already been drafted.")

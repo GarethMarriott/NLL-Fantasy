@@ -80,6 +80,7 @@ class Command(BaseCommand):
             player.nll_team = nll_team
             player.draft_year = 2026
             player.draft_team = nll_team
+            player.entry_draft_pick = pick
             player.is_rookie = True
             player.rookie_season = 2027
             player.seasons_played = 0
