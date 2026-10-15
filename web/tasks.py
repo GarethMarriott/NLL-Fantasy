@@ -406,6 +406,15 @@ def renew_league(league_id):
         elif league.league_type == 'dynasty':
             logger.info(f"[RENEWAL] Dynasty league: Transferring rosters to new season")
             try:
+                # A player may have only one active roster assignment per league.
+                # Close the completed season at the postseason boundary before
+                # creating the carried-over assignment for the new season.
+                Roster.objects.filter(
+                    league=league,
+                    season=current_season,
+                    week_dropped__isnull=True,
+                ).update(week_dropped=22)
+
                 # Copy all rosters from current season teams to new season teams
                 for old_team in old_teams:
                     new_team = Team.objects.get(league=league, season_year=new_season, name=old_team.name)
