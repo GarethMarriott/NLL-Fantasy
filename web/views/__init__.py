@@ -1116,7 +1116,7 @@ def assign_player(request, team_id):
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
 
-    if rookie_draft_is_pending(team.league, player):
+    if action in {'add', 'swap'} and rookie_draft_is_pending(team.league, player):
         error_msg = f"{player.first_name} {player.last_name} is available only through this league's {player.rookie_season} rookie draft."
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'error': error_msg}, status=400)
