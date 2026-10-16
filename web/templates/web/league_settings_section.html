@@ -18,7 +18,7 @@
     {% if section == 'general' %}
       <div class="grid gap-4 sm:grid-cols-2 text-sm"><div><span class="block text-xs text-gray-500">League Type</span><span class="font-medium">{{ league.get_league_type_display }}</span></div><div><span class="block text-xs text-gray-500">Roster Format</span><span class="font-medium">{{ league.get_roster_format_display }}</span></div></div>
     {% elif section == 'playoffs' %}
-      <div class="p-3 text-sm text-blue-800 border border-blue-200 bg-blue-50 rounded-md">Fantasy playoffs run in Weeks {{ league.get_playoff_start_week }}-20.</div>
+      <div class="p-3 text-sm text-blue-800 border border-blue-200 bg-blue-50 rounded-md">Fantasy playoffs run in Weeks {{ league.get_playoff_start_week }}-21.</div>
     {% elif section == 'draft' and league.league_type != 'dynasty' %}
       <div class="p-3 text-sm text-gray-700 border border-gray-200 bg-gray-50 rounded-md">This redraft league does not use taxi squads or future rookie picks.</div>
     {% endif %}

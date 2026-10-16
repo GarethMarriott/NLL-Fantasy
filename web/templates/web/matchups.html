@@ -18,7 +18,9 @@
               data-week="{{ wk.week_number }}" 
               class="px-3 py-2 whitespace-nowrap rounded-md border-2 font-medium text-sm transition-colors {% if selected_week_number == wk.week_number %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-gray-50{% endif %}"
             >
-              {% if wk.is_playoff %}
+              {% if wk.no_games %}
+                Week {{ wk.week_number }}: No Games
+              {% elif wk.is_playoff %}
                 Playoffs {{ wk.week_number }}
               {% else %}
                 Week {{ wk.week_number }}
@@ -33,10 +35,18 @@
           <h3 class="text-xl font-semibold mb-4">
             {% if selected_week.is_playoff %}
               {{ selected_week.games.0.round_name }} - Week {{ selected_week.week_number }}
+            {% elif selected_week.no_games %}
+              Week {{ selected_week.week_number }}: No Games
             {% else %}
               Week {{ selected_week.week_number }}
             {% endif %}
           </h3>
+
+          {% if selected_week.no_games %}
+            <div class="mb-6 border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center text-3xl font-bold text-slate-600">
+              No Games
+            </div>
+          {% endif %}
           
           {% for game in selected_week.games %}
             <div class="mb-6 border border-gray-300 rounded-lg bg-white shadow-sm overflow-hidden">

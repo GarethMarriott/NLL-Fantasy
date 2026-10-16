@@ -306,7 +306,7 @@ def team_detail(request, team_id):
     
     # Get all available weeks for dropdown - filter by league's season
     league_season = league.season
-    fantasy_championship_week = 20
+    fantasy_championship_week = 21
     fantasy_playoff_start_week = league.get_playoff_start_week()
     available_weeks = list(
         Week.objects.filter(
@@ -317,7 +317,7 @@ def team_detail(request, team_id):
     for week in available_weeks:
         week.is_fantasy_playoff = fantasy_playoff_start_week <= week.week_number <= fantasy_championship_week
     
-    # Add future week placeholders (up to week 20 for NLL season)
+    # Add future week placeholders through the fantasy championship.
     if available_weeks:
         max_week = available_weeks[-1].week_number
         for future_week_num in range(max_week + 1, fantasy_championship_week + 1):
@@ -329,7 +329,7 @@ def team_detail(request, team_id):
                 'is_fantasy_playoff': fantasy_playoff_start_week <= future_week_num <= fantasy_championship_week,
             })
     else:
-        # No weeks exist yet, create placeholders for weeks 1-20
+        # No weeks exist yet, create placeholders through the championship.
         for week_num in range(1, fantasy_championship_week + 1):
             available_weeks.append({
                 'week_number': week_num,
@@ -460,8 +460,8 @@ def team_detail(request, team_id):
             games_by_team_name[game.away_team] = game
     
     # Determine the maximum week number to calculate points for
-    # Support up to week 20 for playoffs
-    max_week_to_calculate = 20
+    # Support scoring through the Week 21 championship.
+    max_week_to_calculate = 21
     if selected_week_obj:
         # If viewing a specific week, ensure we calculate up to that week
         max_week_to_calculate = max(max_week_to_calculate, selected_week_obj.week_number)
@@ -477,7 +477,7 @@ def team_detail(request, team_id):
         game_stats = stats_by_player_week_num.get((p.id, 0), [])  # Placeholder for all stats
         # For latest stat, we need all stats regardless of week, so collect them
         all_player_stats = []
-        for week_num in range(1, 19):
+        for week_num in range(1, max_week_to_calculate + 1):
             all_player_stats.extend(stats_by_player_week_num.get((p.id, week_num), []))
         # Find latest stat (most recent game)
         latest = max(all_player_stats, key=lambda s: (s.game.date, s.game.id), default=None)
@@ -678,7 +678,7 @@ def team_detail(request, team_id):
             
             # Get stats from index instead of filtering/looping
             all_player_stats = []
-            for week_num in range(1, 19):
+            for week_num in range(1, max_week_to_calculate + 1):
                 all_player_stats.extend(stats_by_player_week_num.get((p.id, week_num), []))
             # Find latest stat (most recent game)
             latest = max(all_player_stats, key=lambda s: (s.game.date, s.game.id), default=None)
@@ -2786,7 +2786,7 @@ def players(request):
 
 
 def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="fixed"):
-    """Build 18-week regular season schedule + playoff bracket.
+    """Build the official 2027 fantasy calendar plus a playoff bracket.
     
     Args:
         team_ids: List of team IDs
@@ -2821,11 +2821,15 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="
             rot = [rot[-1]] + rot[:-1]
         return weeks
 
-    # Build 18 regular season weeks
-    # For 4 teams: round robin is 3 weeks, so repeat 6 times = 18 weeks
+    # The NLL calendar has 22 official weeks, but Week 3 has no games and the
+    # fantasy championship is fixed to Week 21. This leaves 18 regular-season
+    # matchup weeks: 1, 2, and 4 through 19.
+    regular_season_weeks = [1, 2, *range(4, 20)]
+
+    # For 4 teams: round robin is 3 weeks, so repeat 6 times = 18 matchups.
     round1 = one_round(anchor, rotate)
-    rounds_needed = 18 // len(round1)
-    remainder = 18 % len(round1)
+    rounds_needed = len(regular_season_weeks) // len(round1)
+    remainder = len(regular_season_weeks) % len(round1)
     
     regular_season = []
     for _ in range(rounds_needed):
@@ -2833,13 +2837,19 @@ def _build_schedule(team_ids, playoff_weeks=2, playoff_teams=4, playoff_reseed="
     if remainder > 0:
         regular_season.extend(round1[:remainder])
     
-    schedule = regular_season[:18]  # Ensure exactly 18 weeks
+    matchup_rounds = iter(regular_season[:len(regular_season_weeks)])
+    schedule = [
+        next(matchup_rounds) if week_number in regular_season_weeks else []
+        for week_number in range(1, 22)
+    ]
     
     # Always use 3 weeks for 6-team playoffs (with byes for 1/2 seeds)
     if playoff_teams == 6:
         playoff_weeks = 3
-    # Add playoff weeks if configured
+    # Add playoff weeks so the championship always occurs in Week 21.
     if playoff_weeks > 0 and playoff_teams >= 2:
+        playoff_start_week = 22 - playoff_weeks
+        schedule = schedule[:playoff_start_week - 1]
         # Generate playoff bracket based on seeding
         # For now, use placeholder seeds that will be filled from standings
         
@@ -3441,7 +3451,7 @@ def matchups(request):
         all_weeks = get_cached_schedule(team_ids)
     
     # Include both regular season and playoff weeks in matchups
-    weeks = [w for w in all_weeks if w]
+    weeks = all_weeks
 
     id_to_team = {t.id: t for t in teams}
     
@@ -3833,6 +3843,7 @@ def matchups(request):
         week_data = {
             "week_number": idx,
             "is_playoff": idx >= playoff_start_week,
+            "no_games": not games,
             "games": [],
         }
         
@@ -3973,7 +3984,12 @@ def standings(request):
             continue
             
         team_ids = [t.id for t in teams]
-        all_weeks = get_cached_schedule(team_ids)
+        all_weeks = get_cached_schedule(
+            team_ids,
+            league.playoff_weeks,
+            league.playoff_teams,
+            getattr(league, 'playoff_reseed', 'fixed'),
+        )
         
         # Use the league's configured season and only process completed weeks.
         league_season = league.season
@@ -4081,9 +4097,9 @@ def standings(request):
         standings_list.sort(key=lambda r: (-r["wins"], -r["ties"], -r["total_points"], r["team"].name))
         
         # Determine if regular season has ended and which teams made playoffs
-        # Regular season = weeks 1 through (21 - playoff_weeks - 1)
-        # Playoffs = weeks (21 - playoff_weeks) through 20
-        regular_season_end_week = 21 - league.playoff_weeks - 1
+        # The championship is Week 21. Week 3 has no games and is ignored
+        # naturally because its generated matchup list is empty.
+        regular_season_end_week = league.get_playoff_start_week() - 1
         season_ended = max_week >= regular_season_end_week
         playoff_info = {}
         playoff_bracket = {}
@@ -4161,7 +4177,7 @@ def standings(request):
             winner_index = 1
             
             # First pass: Build playoff_winners and playoff_losers dict from all playoff weeks
-            # Use all_weeks (full schedule) instead of weeks (truncated) so we can see week 20 playoff structure
+            # Use all_weeks (full schedule) instead of weeks (truncated) to include the championship structure.
             for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
                 week_matchups = all_weeks[week_idx]
                 actual_week_num = week_idx + 1  # Convert 0-indexed to 1-indexed
@@ -4202,7 +4218,7 @@ def standings(request):
                             winner_index += 1
             
             # Second pass: Build bracket display with resolved teams and scores
-            # Use all_weeks (full schedule) to include week 20 games
+            # Use all_weeks (full schedule) to include championship-week games.
             winner_index = 1  # Reset for second pass
             for week_idx in range(playoff_start_week - 1, min(21, len(all_weeks))):
                 week_matchups = all_weeks[week_idx]
@@ -6998,7 +7014,7 @@ def crown_champion(request, league_id):
     try:
         from web.views import get_cached_schedule, Week
         
-        playoff_start_week = 21 - league.playoff_weeks
+        playoff_start_week = league.get_playoff_start_week()
         latest_week = Week.objects.order_by('-season', '-week_number').first()
         season = latest_week.season if latest_week else timezone.now().year
         

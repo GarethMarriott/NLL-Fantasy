@@ -149,7 +149,7 @@ def crown_champion(request, league_id):
     try:
         from web.views import get_cached_schedule, Week
         
-        playoff_start_week = 21 - league.playoff_weeks
+        playoff_start_week = league.get_playoff_start_week()
         latest_week = Week.objects.order_by('-season', '-week_number').first()
         season = latest_week.season if latest_week else timezone.now().year
         

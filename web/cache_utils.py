@@ -141,7 +141,7 @@ def get_fantasy_points_cache_key(stat_id, player_id, league_id):
 def invalidate_league_cache(league_id):
     """Invalidate all cached data for a league"""
     # Clear standings for all weeks
-    for week in range(0, 19):
+    for week in range(0, 22):
         cache_key = get_standings_cache_key(league_id, week)
         cache.delete(cache_key)
     
@@ -156,14 +156,14 @@ def invalidate_team_cache(team_id):
     cache.delete(get_team_roster_cache_key(team_id))
     
     # Clear team detail for all weeks
-    for week in range(0, 19):
+    for week in range(0, 22):
         cache_key = get_team_detail_cache_key(team_id, week)
         cache.delete(cache_key)
 
 
 def invalidate_matchups_cache(league_id):
     """Invalidate matchups cache for a league"""
-    for week in range(0, 19):
+    for week in range(0, 22):
         cache_key = get_matchups_cache_key(league_id, week)
         cache.delete(cache_key)
 
@@ -291,7 +291,7 @@ def cache_schedule_generation(team_ids, playoff_weeks=2, playoff_teams=4, playof
     Creates a hash of parameters to use as cache key.
     """
     # Create deterministic hash of parameters
-    params = f"{sorted(team_ids)}:{playoff_weeks}:{playoff_teams}:{playoff_reseed}"
+    params = f"2027-week-calendar:{sorted(team_ids)}:{playoff_weeks}:{playoff_teams}:{playoff_reseed}"
     param_hash = hashlib.md5(params.encode()).hexdigest()[:8]
     return f"schedule:{param_hash}"
 
