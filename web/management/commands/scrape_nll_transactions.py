@@ -141,8 +141,11 @@ def scrape_nll_transactions_task():
                                             'source_transaction': transaction,
                                         },
                                     )
-                                    if player.nll_team != to_team:
-                                        player.nll_team = to_team
+                                    current_assignment = PlayerNLLTeam.objects.filter(
+                                        player=player,
+                                    ).order_by('-season').first()
+                                    if current_assignment and player.nll_team != current_assignment.nll_team:
+                                        player.nll_team = current_assignment.nll_team
                                         player.save(update_fields=['nll_team'])
                     
                     next_elem = next_elem.find_next_sibling()
