@@ -1591,11 +1591,23 @@ def assign_player(request, team_id):
                 target_position = target_slot
             elif target_slot == 'ir':
                 target_position = 'IR'
+            elif target_slot == 'bench':
+                target_position = 'bench'
         
         # Check capacity for target position (excluding current player)
         if target_position:
             # Check IR slots capacity (works for both traditional and best ball)
-            if target_position == 'IR' or target_slot == 'ir':
+            if target_position == 'bench' and team.league.roster_format == 'bestball':
+                active_roster_count = Roster.objects.filter(
+                    team=team,
+                    league=team.league,
+                    season=league_season,
+                    week_dropped__isnull=True,
+                ).exclude(player=player).exclude(slot_assignment='ir').count()
+                max_allowed = team.league.roster_size
+                can_add = active_roster_count < max_allowed
+                current_pos_count = active_roster_count
+            elif target_position == 'IR' or target_slot == 'ir':
                 # Check if IR slots are enabled for this league
                 allow_ir_slots = team.league.allow_ir_slots if hasattr(team.league, 'allow_ir_slots') else False
                 if not allow_ir_slots:
@@ -1716,6 +1728,10 @@ def assign_player(request, team_id):
                 player_roster.slot_assignment = 'ir'
                 player_roster.save()
                 logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - moved to IR slot")
+            elif target_slot == 'bench':
+                player_roster.slot_assignment = 'bench'
+                player_roster.save()
+                logger.warning(f"MOVE_TO_EMPTY_SLOT: Best ball - moved from IR to bench")
             elif target_slot in ['O', 'D', 'G']:
                 # For position moves (O, D, G), update assigned_side but not slot_assignment
                 if player.position == 'T':
@@ -6511,6 +6527,11 @@ def get_available_slots(request, team_id):
                 if allow_t_in_g:
                     response_data['empty_slot_options']['G'] = ['G']
                 print(f"    Added O, D slot options for T player, G={'included' if allow_t_in_g else 'excluded'}", file=sys.stderr)
+
+            current_roster = all_active_roster.filter(player_id=current_player_id).first()
+            active_roster_count = all_active_roster.exclude(slot_assignment='ir').count()
+            if current_roster and current_roster.slot_assignment == 'ir' and active_roster_count < league.roster_size:
+                response_data['empty_slot_options']['Bench'] = ['bench']
             
             # Add IR slots support for best ball if enabled
             if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
