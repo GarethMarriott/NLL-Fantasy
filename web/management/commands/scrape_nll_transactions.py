@@ -84,7 +84,11 @@ def scrape_nll_transactions_task():
                                 seen_urls.add(url_unique)
                                 
                                 # Get team info
-                                from_team, to_team = extract_teams_from_text(transaction_text, team_names)
+                                from_team, to_team = extract_teams_from_text(
+                                    transaction_text,
+                                    team_names,
+                                    transaction_type,
+                                )
                                 
                                 # Extract player-specific details
                                 player_details = extract_player_details(transaction_text, player_name)
@@ -268,15 +272,24 @@ def extract_team_names(transaction_text):
     return found_teams
 
 
-def extract_teams_from_text(transaction_text, team_list):
+def extract_teams_from_text(transaction_text, team_list, transaction_type):
     """Extract from_team and to_team based on context"""
     from_team = ''
     to_team = ''
+    transaction_text_lower = transaction_text.lower()
+    team_list = sorted(
+        team_list,
+        key=lambda team: transaction_text_lower.find(team.lower()),
+    )
     
     if not team_list:
         return from_team, to_team
     
-    # First team mentioned is usually the source team
+    # A signing announcement typically names only the club the player joined.
+    if transaction_type == 'signed' and len(team_list) == 1:
+        return from_team, team_list[0]
+
+    # First team mentioned is usually the source team for multi-team moves.
     if team_list:
         from_team = team_list[0]
     
