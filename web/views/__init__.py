@@ -5461,13 +5461,14 @@ def draft_room(request):
             'position': 'position',
             'nll_team': 'nll_team',
             'number': 'number',
-            'prev_year_points': 'prev_year_points'
+            'prev_year_points': 'prev_year_points',
+            'prev_year_ppg': 'prev_year_ppg',
         }
         sort_field = sort_field_map.get(sort_by, 'last_name')
         if sort_dir == 'desc':
             sort_field = '-' + sort_field
 
-        from django.db.models import Sum, Q, F, Value, FloatField, Case, When
+        from django.db.models import Count, Sum, Q, F, Value, FloatField, Case, When, ExpressionWrapper
         from django.db.models.functions import Coalesce
 
         available_players = Player.objects.exclude(
@@ -5498,11 +5499,33 @@ def draft_room(request):
                     ),
                     output_field=FloatField()
                 ),
-                filter=Q(game_stats__game__week__season=previous_season)
+                filter=Q(
+                    game_stats__game__week__season=previous_season,
+                    game_stats__game__week__is_playoff=False,
+                )
             ),
             Value(0.0),
             output_field=FloatField()
+        ),
+        prev_year_games=Count(
+            'game_stats',
+            filter=Q(
+                game_stats__game__week__season=previous_season,
+                game_stats__game__week__is_playoff=False,
+            ),
         )
+        ).annotate(
+            prev_year_ppg=Case(
+                When(
+                    prev_year_games__gt=0,
+                    then=ExpressionWrapper(
+                        F('prev_year_points') / F('prev_year_games'),
+                        output_field=FloatField(),
+                    ),
+                ),
+                default=Value(0.0),
+                output_field=FloatField(),
+            )
         ).order_by(sort_field, 'last_name', 'first_name')
     
     # Get current pick team

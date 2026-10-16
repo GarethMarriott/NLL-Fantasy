@@ -194,7 +194,10 @@
                     Number {% if sort_by == 'number' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
                   </th>
                   <th class="p-2 cursor-pointer hover:bg-gray-300" onclick="sortTable('prev_year_points')">
-                    {{ previous_season }} Pts {% if sort_by == 'prev_year_points' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    {{ previous_season }} Reg Pts {% if sort_by == 'prev_year_points' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                  </th>
+                  <th class="p-2 cursor-pointer hover:bg-gray-300" onclick="sortTable('prev_year_ppg')">
+                    {{ previous_season }} Reg PPG {% if sort_by == 'prev_year_ppg' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
                   </th>
                   {% endif %}
                   {% if is_user_turn %}
@@ -232,6 +235,7 @@
                   <td class="p-2">{{ player.nll_team|default:"—" }}</td>
                   <td class="p-2">{{ player.number|default:"—" }}</td>
                   <td class="p-2 font-semibold">{{ player.prev_year_points|floatformat:1 }}</td>
+                  <td class="p-2">{{ player.prev_year_ppg|floatformat:2 }}</td>
                   {% endif %}
                   {% if is_user_turn %}
                   <td class="p-2">
