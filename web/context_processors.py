@@ -1,4 +1,5 @@
-from .models import League, FantasyTeamOwner, ChatMessage, TeamChatMessage
+from .models import League, FantasyTeamOwner, ChatMessage
+from .chat_utils import get_team_unread_counts
 from datetime import datetime, timedelta
 
 
@@ -84,34 +85,14 @@ def selected_league(request):
             available_team_chats = Team.objects.filter(
                 league_id=selected_league_id
             ).exclude(id=user_team.id)
-            
-            for other_team in available_team_chats:
-                team1_id = min(user_team.id, other_team.id)
-                team2_id = max(user_team.id, other_team.id)
-                chat_key = f"team_{team1_id}_{team2_id}"
-                
-                last_read = chat_last_read.get(chat_key)
-                if last_read:
-                    try:
-                        last_read_dt = datetime.fromisoformat(last_read)
-                        unread = TeamChatMessage.objects.filter(
-                            team1_id=team1_id,
-                            team2_id=team2_id,
-                            created_at__gt=last_read_dt
-                        ).count()
-                    except (ValueError, TypeError):
-                        unread = 0
-                else:
-                    # Count recent messages (last 7 days)
-                    cutoff = datetime.now() - timedelta(days=7)
-                    unread = TeamChatMessage.objects.filter(
-                        team1_id=team1_id,
-                        team2_id=team2_id,
-                        created_at__gt=cutoff
-                    ).count()
-                
-                if unread > 0:
-                    total_unread_chats += 1
+            team_unread_counts = get_team_unread_counts(
+                user_team.id,
+                list(available_team_chats.values_list('id', flat=True)),
+                chat_last_read,
+            )
+            total_unread_chats += sum(
+                count > 0 for count in team_unread_counts.values()
+            )
     
     return {
         'selected_league': league,

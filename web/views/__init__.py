@@ -17,6 +17,7 @@ from ..tasks import send_password_reset_email
 from ..constants import TEAM_NAME_TO_ID, TEAM_ID_TO_NAME, EXTENDED_TEAM_ID_TO_NAME, TEAM_ABBREVIATIONS
 from ..scoring import calculate_fantasy_points
 from ..cache_utils import cache_view_result, cache_view_with_request, get_standings_cache_key, get_standings_cache_key_from_request, get_team_detail_cache_key, get_matchups_cache_key, get_matchups_cache_key_from_request, get_nll_schedule_cache_key, get_players_cache_key, get_league_detail_cache_key, invalidate_team_cache, invalidate_league_cache
+from ..chat_utils import get_team_unread_counts
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 
@@ -525,20 +526,8 @@ def team_detail(request, team_id):
         else:
             players_by_position["O"].append(entry)
 
-    # Get roster entries with slot assignments for proper ordering
-    # CRITICAL: Must filter by league since team can have rosters in multiple leagues
-    roster_with_slots = team.roster_entries.select_related('player').filter(
-        league=league,
-        season=league_season,
-    )
-    if is_viewing_current_roster:
-        roster_with_slots = roster_with_slots.filter(week_dropped__isnull=True)
-    else:
-        roster_with_slots = roster_with_slots.filter(
-            Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
-        ).filter(
-            Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
-        )
+    # The roster queryset above already includes the current view's exact roster.
+    roster_with_slots = roster
     
     # Create a mapping of player_id to slot_assignment
     player_to_slot = {entry.player_id: entry.slot_assignment for entry in roster_with_slots}
@@ -655,21 +644,11 @@ def team_detail(request, team_id):
     ir_slots_count = league.ir_slots if allow_ir_slots and hasattr(league, 'ir_slots') else 0
     
     if allow_ir_slots and ir_slots_count > 0:
-        # Get IR players directly from database using slot_assignment='ir' 
-        # This is more reliable than trying to derive from remaining position players
-        ir_roster_entries = team.roster_entries.select_related('player').filter(
-            league=league,
-            season=league_season,
-            slot_assignment='ir'
-        )
-        if is_viewing_current_roster:
-            ir_roster_entries = ir_roster_entries.filter(week_dropped__isnull=True)
-        else:
-            ir_roster_entries = ir_roster_entries.filter(
-                Q(week_dropped__isnull=True) | Q(week_dropped__gt=selected_week_num)
-            ).filter(
-                Q(week_added__isnull=True) | Q(week_added__lte=selected_week_num)
-            )
+        ir_roster_entries = [
+            roster_entry
+            for roster_entry in roster
+            if roster_entry.slot_assignment == 'ir'
+        ]
         
         # Build IR slot entries similar to starter slots
         ir_slots = []
@@ -846,22 +825,6 @@ def team_detail(request, team_id):
         
         overall_total += week_total_all
 
-    # Get all players with their team assignment in this league (if any) - CURRENT ROSTER ONLY
-    players_with_teams = []
-    all_players = Player.objects.filter(active=True).order_by("last_name", "first_name")
-    for player in all_players:
-        roster_entry = Roster.objects.filter(
-            player=player,
-            league=team.league,
-            season=league_season,
-            week_dropped__isnull=True  # Only check current roster assignments
-        ).select_related('team').first()
-        players_with_teams.append({
-            'player': player,
-            'team_in_league': roster_entry.team if roster_entry else None
-        })
-
-
     # Only show pending waivers/trades to the team owner
     if user_owns_team:
         pending_waiver_claims = team.waiver_claims.filter(
@@ -962,7 +925,6 @@ def team_detail(request, team_id):
             "current_week": default_week_num,
             "selected_week_total": selected_week_total,
             "overall_total": overall_total,
-            "players_for_select": players_with_teams,
             "roster_status": roster_status,
             "offseason_roster_moves_open": offseason_roster_moves_open,
             "is_viewing_past_week": is_viewing_past_week,
@@ -4411,6 +4373,8 @@ def chat_view(request):
             league_id=selected_league_id
         ).select_related(
             'sender', 'player', 'team', 'league'
+        ).prefetch_related(
+            'sender__fantasyteamowner_set__team'
         ).all()[:100]  # Last 100 messages
         chat_key_viewed = f"league_{selected_league_id}"
     
@@ -4426,6 +4390,8 @@ def chat_view(request):
             team2_id=team2_id
         ).select_related(
             'sender', 'team1', 'team2', 'trade'
+        ).prefetch_related(
+            'sender__fantasyteamowner_set__team'
         ).all()[:100]  # Last 100 messages
         
         # Get the other team
@@ -4455,31 +4421,11 @@ def chat_view(request):
                 id=user_team.id
             ).order_by('name')
         
-        # Calculate unread counts for each team chat
-        for other_team in available_team_chats:
-            team1_id = min(user_team.id, other_team.id)
-            team2_id = max(user_team.id, other_team.id)
-            chat_key = f"team_{team1_id}_{team2_id}"
-            
-            last_read = request.session['chat_last_read'].get(chat_key)
-            if last_read:
-                # Count messages after last read time
-                last_read_dt = datetime.fromisoformat(last_read)
-                unread = TeamChatMessage.objects.filter(
-                    team1_id=team1_id,
-                    team2_id=team2_id,
-                    created_at__gt=last_read_dt
-                ).count()
-            else:
-                # No read history, count recent messages (last 7 days)
-                cutoff = datetime.now() - timedelta(days=7)
-                unread = TeamChatMessage.objects.filter(
-                    team1_id=team1_id,
-                    team2_id=team2_id,
-                    created_at__gt=cutoff
-                ).count()
-            
-            team_unread_counts[other_team.id] = unread
+        team_unread_counts = get_team_unread_counts(
+            user_team.id,
+            [other_team.id for other_team in available_team_chats],
+            request.session['chat_last_read'],
+        )
     else:
         available_team_chats = []
     
@@ -6455,21 +6401,21 @@ def get_available_slots(request, team_id):
         }
         
         # Get all roster entries for this team and league (active only)
-        all_active_roster = Roster.objects.filter(
+        all_active_roster = list(Roster.objects.filter(
             team=team,
             league=league,
             season=league.season,
             week_dropped__isnull=True
-        ).select_related('player')
+        ).select_related('player'))
         
-        logger.warning(f"GET_AVAILABLE_SLOTS START: player_id={current_player_id}, position={player_position}, is_dynasty={is_dynasty}, is_best_ball={is_best_ball}, all_active_roster.count()={all_active_roster.count()}")
+        logger.warning(f"GET_AVAILABLE_SLOTS START: player_id={current_player_id}, position={player_position}, is_dynasty={is_dynasty}, is_best_ball={is_best_ball}, roster_count={len(all_active_roster)}")
         
         # DEBUG: Write to file to bypass logging issues
         import os
         debug_file = '/tmp/nfl_fantasy_debug.log'
         try:
             with open(debug_file, 'a') as f:
-                f.write(f"[GET_AVAIL] START: player_id={current_player_id}, pos={player_position}, is_dyn={is_dynasty}, is_bb={is_best_ball}, roster={all_active_roster.count()}\n")
+                f.write(f"[GET_AVAIL] START: player_id={current_player_id}, pos={player_position}, is_dyn={is_dynasty}, is_bb={is_best_ball}, roster={len(all_active_roster)}\n")
         except:
             pass
         
@@ -6516,20 +6462,31 @@ def get_available_slots(request, team_id):
                 # Capacity: 3 for O, 3 for D, 1 for G
                 
                 # Count O position players: pure O players + T players assigned to O
-                from django.db.models import Q
-                o_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                    Q(player__position='O') | Q(player__position='T', player__assigned_side='O')
-                ).count()
+                o_count = sum(
+                    roster_entry.player_id != current_player_id and (
+                        roster_entry.player.position == 'O' or
+                        (roster_entry.player.position == 'T' and roster_entry.player.assigned_side == 'O')
+                    )
+                    for roster_entry in all_active_roster
+                )
                 
                 # Count D position players: pure D players + T players assigned to D
-                d_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                    Q(player__position='D') | Q(player__position='T', player__assigned_side='D')
-                ).count()
+                d_count = sum(
+                    roster_entry.player_id != current_player_id and (
+                        roster_entry.player.position == 'D' or
+                        (roster_entry.player.position == 'T' and roster_entry.player.assigned_side == 'D')
+                    )
+                    for roster_entry in all_active_roster
+                )
                 
                 # Count G position players: pure G players + T players assigned to G
-                g_count = all_active_roster.exclude(player_id=current_player_id).filter(
-                    Q(player__position='G') | Q(player__position='T', player__assigned_side='G')
-                ).count()
+                g_count = sum(
+                    roster_entry.player_id != current_player_id and (
+                        roster_entry.player.position == 'G' or
+                        (roster_entry.player.position == 'T' and roster_entry.player.assigned_side == 'G')
+                    )
+                    for roster_entry in all_active_roster
+                )
                 
                 
                 print(f"DEBUG best ball (dynasty): T player, o_count={o_count}, d_count={d_count}, g_count={g_count}", file=sys.stderr)
@@ -6561,8 +6518,13 @@ def get_available_slots(request, team_id):
                     response_data['empty_slot_options']['G'] = ['G']
                 print(f"    Added O, D slot options for T player, G={'included' if allow_t_in_g else 'excluded'}", file=sys.stderr)
 
-            current_roster = all_active_roster.filter(player_id=current_player_id).first()
-            active_roster_count = all_active_roster.exclude(slot_assignment='ir').count()
+            current_roster = next(
+                (roster_entry for roster_entry in all_active_roster if roster_entry.player_id == current_player_id),
+                None,
+            )
+            active_roster_count = sum(
+                roster_entry.slot_assignment != 'ir' for roster_entry in all_active_roster
+            )
             if current_roster and current_roster.slot_assignment == 'ir' and active_roster_count < league.roster_size:
                 response_data['empty_slot_options']['Bench'] = ['bench']
             
@@ -6570,7 +6532,7 @@ def get_available_slots(request, team_id):
             if hasattr(league, 'allow_ir_slots') and league.allow_ir_slots and hasattr(league, 'ir_slots'):
                 if current_player.is_on_injured_reserve:
                     # Player WITH IR badge can move to IR if there's space
-                    ir_count = all_active_roster.filter(slot_assignment='ir').count()
+                    ir_count = sum(roster_entry.slot_assignment == 'ir' for roster_entry in all_active_roster)
                     max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
                         response_data['empty_slot_options']['IR'] = ['ir']
@@ -6588,18 +6550,15 @@ def get_available_slots(request, team_id):
             # - If player has IR designation: IR slots also appear as option
             
             # First, determine what slot the moving player is currently in
-            player_roster_all = Roster.objects.filter(
-                player=current_player,
-                team=team,
-                league=league,
-                season=league.season,
-                week_dropped__isnull=True
-            )
-            logger.warning(f"GET_AVAILABLE_SLOTS: player_id={current_player_id}, found {player_roster_all.count()} active roster entries")
+            player_roster_all = [
+                roster_entry for roster_entry in all_active_roster
+                if roster_entry.player_id == current_player_id
+            ]
+            logger.warning(f"GET_AVAILABLE_SLOTS: player_id={current_player_id}, found {len(player_roster_all)} active roster entries")
             for r in player_roster_all:
                 logger.warning(f"  - Roster: slot={r.slot_assignment}, id={r.id}")
             
-            player_roster = player_roster_all.first()
+            player_roster = next(iter(player_roster_all), None)
             
             logger.warning(f"GET_AVAILABLE_SLOTS: player_id={current_player_id}, roster_entry={player_roster}, slot_assignment={player_roster.slot_assignment if player_roster else 'NO ROSTER FOUND'}")
             
@@ -6658,17 +6617,21 @@ def get_available_slots(request, team_id):
                 print(f"  {slot_type}: num_slots={num_slots}, designations={slot_designations}, is_dynasty={is_dynasty}", file=sys.stderr)
                 
                 # Get players currently in these slots
-                roster_in_slots = all_active_roster.filter(
-                    slot_assignment__in=slot_designations
-                ).order_by('slot_assignment')
+                roster_in_slots = sorted(
+                    (
+                        roster_entry for roster_entry in all_active_roster
+                        if roster_entry.slot_assignment in slot_designations
+                    ),
+                    key=lambda roster_entry: roster_entry.slot_assignment,
+                )
                 
                 logger.warning(f"GET_AVAILABLE_SLOTS Case2: {slot_type} query - designations={slot_designations}, is_dynasty={is_dynasty}")
-                logger.warning(f"  roster_in_slots count: {roster_in_slots.count()}")
-                logger.warning(f"  all_active_roster total: {all_active_roster.count()}")
+                logger.warning(f"  roster_in_slots count: {len(roster_in_slots)}")
+                logger.warning(f"  all_active_roster total: {len(all_active_roster)}")
                 for re in roster_in_slots:
                     logger.warning(f"    Found {slot_type} player: {re.player.last_name} (id={re.player.id}, pos={re.player.position}) in {re.slot_assignment}")
                 
-                print(f"  {slot_type} slots: found {roster_in_slots.count()} players", file=sys.stderr)
+                print(f"  {slot_type} slots: found {len(roster_in_slots)} players", file=sys.stderr)
                 
                 # Add swap options based on player position and current location
                 # Case 1: Player is in a starter slot - can swap with compatible players in same slot type or bench
@@ -6701,9 +6664,12 @@ def get_available_slots(request, team_id):
                                 print(f"    Swap option: {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment} - can fill {slot_type}")
                     
                     # NEW: Also add bench players who are eligible for this position
-                    bench_roster = all_active_roster.filter(slot_assignment='bench')
-                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 1 - Looking for {slot_type} bench players, found {bench_roster.count()} total bench players")
-                    print(f"    Case 1: Found {bench_roster.count()} bench players total", file=sys.stderr)
+                    bench_roster = [
+                        roster_entry for roster_entry in all_active_roster
+                        if roster_entry.slot_assignment == 'bench'
+                    ]
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 1 - Looking for {slot_type} bench players, found {len(bench_roster)} total bench players")
+                    print(f"    Case 1: Found {len(bench_roster)} bench players total", file=sys.stderr)
                     for roster_entry in bench_roster:
                         if str(roster_entry.player.id) != str(current_player_id):
                             # Check if bench player can fill this position
@@ -6732,11 +6698,11 @@ def get_available_slots(request, team_id):
                 # Case 2: T players on bench can swap with players in any eligible position
                 # NEW: Check backwards compatibility - player in slot must be able to move back to bench
                 elif current_player.position == 'T' and current_slot_type is None:
-                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {roster_in_slots.count()} players, dynasty={is_dynasty}")
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 2 (T on bench) - {slot_type} slot, found {len(roster_in_slots)} players, dynasty={is_dynasty}")
                     # DEBUG: File logging
                     try:
                         with open('/tmp/nfl_fantasy_debug.log', 'a') as f:
-                            f.write(f"  CASE 2 ({slot_type}): {roster_in_slots.count()} players in {slot_type} slots\n")
+                            f.write(f"  CASE 2 ({slot_type}): {len(roster_in_slots)} players in {slot_type} slots\n")
                     except:
                         pass
                     # T player is on bench - can swap with players in starter slots (not bench)
@@ -6787,7 +6753,10 @@ def get_available_slots(request, team_id):
                                 print(f"    Swap option (T in {current_slot_type}): {roster_entry.player.last_name} ({swap_player_pos}) in {roster_entry.slot_assignment}")
                     
                     # Also show compatible bench players as swap options
-                    bench_roster = all_active_roster.filter(slot_assignment='bench')
+                    bench_roster = [
+                        roster_entry for roster_entry in all_active_roster
+                        if roster_entry.slot_assignment == 'bench'
+                    ]
                     for roster_entry in bench_roster:
                         if str(roster_entry.player.id) != str(current_player_id):
                             # Bench players can always fill the T player's current position
@@ -6802,7 +6771,7 @@ def get_available_slots(request, team_id):
                 
                 # Case 3: Bench players (non-T) can swap with any starter position
                 elif current_slot_type is None and current_player.position != 'T':
-                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 3 (non-T bench) - {slot_type} slot, found {roster_in_slots.count()} players")
+                    logger.warning(f"GET_AVAILABLE_SLOTS: Case 3 (non-T bench) - {slot_type} slot, found {len(roster_in_slots)} players")
                     for roster_entry in roster_in_slots:
                         if str(roster_entry.player.id) != str(current_player_id):
                             response_data['swap_options'].append({
@@ -6858,7 +6827,6 @@ def get_available_slots(request, team_id):
                 response_data['empty_slot_options']['Bench'] = ['bench']
                 print(f"  IR player: only bench available")
             elif current_slot_type is not None:  # Player is not on bench
-                bench_roster_count = all_active_roster.filter(slot_assignment='bench').count()
                 response_data['empty_slot_options']['Bench'] = ['bench']
             else:
                 print(f"  Skipping bench (player is already on bench)")
@@ -6869,7 +6837,7 @@ def get_available_slots(request, team_id):
                 # Check if current player has IR designation (is on injured reserve)
                 if current_player.is_on_injured_reserve:
                     # Player WITH IR badge can move into IR if there's space
-                    ir_count = all_active_roster.filter(slot_assignment='ir').count()
+                    ir_count = sum(roster_entry.slot_assignment == 'ir' for roster_entry in all_active_roster)
                     max_ir = league.ir_slots if hasattr(league, 'ir_slots') else 0
                     if ir_count < max_ir:
                         response_data['empty_slot_options']['IR'] = ['ir']
