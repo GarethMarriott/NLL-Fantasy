@@ -5639,15 +5639,50 @@ def draft_room(request):
 
 @login_required
 @require_POST
+def create_rookie_draft_preview(request):
+    """Create a dynasty rookie draft board before the league is full."""
+    selected_league_id = request.session.get('selected_league_id')
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+
+    league = get_object_or_404(League, id=selected_league_id)
+    if league.league_type != 'dynasty':
+        messages.error(request, "Rookie drafts are available only in dynasty leagues.")
+    elif league.commissioner != request.user:
+        messages.error(request, "Only the commissioner can create a rookie draft preview.")
+    else:
+        from ..tasks import create_rookie_draft
+        draft = create_rookie_draft(league.id, league.season)
+        if draft:
+            messages.success(request, "Rookie draft preview created. The draft can start once the league is full.")
+        else:
+            messages.error(request, "Add at least one team before creating the rookie draft preview.")
+    return redirect('draft_room')
+
+
+@login_required
+@require_POST
 def start_rookie_draft(request, draft_id):
     """Start a pending rookie draft after the commissioner reviews its generated order."""
     from ..models import RookieDraft
 
     draft = get_object_or_404(RookieDraft, id=draft_id)
+    team_count = Team.objects.filter(
+        league=draft.league,
+        season_year=draft.season_year,
+    ).count()
+    if not team_count:
+        team_count = Team.objects.filter(
+            league=draft.league,
+            season_year__isnull=True,
+        ).count()
     if draft.league.commissioner != request.user:
         messages.error(request, "Only the commissioner can start the rookie draft.")
     elif draft.completed or draft.is_active:
         messages.error(request, "This rookie draft cannot be started.")
+    elif team_count != draft.league.max_teams:
+        messages.error(request, "The league must be full before starting the rookie draft.")
     elif not draft.picks.exists():
         messages.error(request, "The rookie draft has no picks to start.")
     else:

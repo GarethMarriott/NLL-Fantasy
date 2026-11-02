@@ -622,7 +622,15 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
             return existing_draft
         
         # Get teams for this league
-        teams = list(Team.objects.filter(league=league).order_by('id'))
+        teams = list(Team.objects.filter(
+            league=league,
+            season_year=season_year,
+        ).order_by('id'))
+        if not teams:
+            teams = list(Team.objects.filter(
+                league=league,
+                season_year__isnull=True,
+            ).order_by('id'))
         num_teams = len(teams)
         
         if num_teams == 0:
