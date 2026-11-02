@@ -88,8 +88,8 @@ def scrape_nll_transactions_task():
                                 
                                 # Get team info
                                 from_team, to_team = extract_teams_from_text(
-                                    transaction_text,
-                                    team_names,
+                                    player_details,
+                                    extract_team_names(player_details),
                                     transaction_type,
                                 )
                                 
@@ -117,10 +117,10 @@ def scrape_nll_transactions_task():
                                     if transaction.transaction_type != transaction_type:
                                         transaction.transaction_type = transaction_type
                                         update_fields.append('transaction_type')
-                                    if not transaction.from_team and from_team:
+                                    if transaction.from_team != from_team:
                                         transaction.from_team = from_team
                                         update_fields.append('from_team')
-                                    if not transaction.to_team and to_team:
+                                    if transaction.to_team != to_team:
                                         transaction.to_team = to_team
                                         update_fields.append('to_team')
                                     if not transaction.player and player:
@@ -308,6 +308,23 @@ def extract_teams_from_text(transaction_text, team_list, transaction_type):
     # A signing announcement typically names only the club the player joined.
     if transaction_type == 'signed' and len(team_list) == 1:
         return from_team, team_list[0]
+
+    if transaction_type == 'traded':
+        team_pattern = '|'.join(re.escape(team) for team in team_list)
+        trade_match = re.search(
+            rf'(?P<from>{team_pattern}).*?\btraded\b.*?\bto\s+(?P<to>{team_pattern})\b',
+            transaction_text,
+            re.IGNORECASE,
+        )
+        if trade_match:
+            matched_teams = {
+                team.lower(): team
+                for team in team_list
+            }
+            return (
+                matched_teams[trade_match.group('from').lower()],
+                matched_teams[trade_match.group('to').lower()],
+            )
 
     # First team mentioned is usually the source team for multi-team moves.
     if team_list:
