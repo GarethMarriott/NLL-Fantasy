@@ -44,6 +44,21 @@
   </div>
   {% endif %}
 
+  {% if draft_archives %}
+  <div class="mt-12">
+    <h2 class="text-2xl font-bold mb-6">Draft Results</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for draft in draft_archives %}
+      <a href="{% url 'league_history_draft' league.id draft.id %}" class="block bg-white border border-gray-300 rounded-lg p-4 shadow-md hover:shadow-lg transition">
+        <h3 class="text-xl font-bold text-gray-800">{{ draft.season_year }} {{ draft.get_draft_type_display }} Draft</h3>
+        <p class="mt-2 text-sm text-gray-600">{{ draft.total_rounds }} rounds{% if draft.completed_at %} · Completed {{ draft.completed_at|date:"M j, Y" }}{% endif %}</p>
+        <p class="mt-4 font-semibold text-blue-600">View Draft Board</p>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Top Team Scores Table -->
   {% if top_team_scores %}
   <div class="mt-12">

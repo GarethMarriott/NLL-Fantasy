@@ -1,0 +1,42 @@
+{% extends "web/base.html" %}
+{% block title %}{{ league.name }} - {{ draft_history.season_year }} Draft Results{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+  <div class="mb-6">
+    <a href="{% url 'league_history' league.id %}" class="text-blue-600 hover:text-blue-800">&larr; Back to League History</a>
+  </div>
+
+  <h1 class="text-3xl font-bold">{{ draft_history.season_year }} {{ draft_history.get_draft_type_display }} Draft</h1>
+  <p class="mt-2 mb-6 text-gray-600">{{ draft_history.total_rounds }} rounds{% if draft_history.completed_at %} · Completed {{ draft_history.completed_at|date:"M j, Y" }}{% endif %}</p>
+
+  <div class="bg-white rounded-lg shadow-md overflow-x-auto">
+    <table class="w-full min-w-[640px]">
+      <thead class="bg-blue-600 text-white">
+        <tr>
+          <th class="px-4 py-3 text-left">Overall</th>
+          <th class="px-4 py-3 text-left">Round</th>
+          <th class="px-4 py-3 text-left">Team</th>
+          <th class="px-4 py-3 text-left">Player</th>
+          <th class="px-4 py-3 text-left">Position</th>
+          <th class="px-4 py-3 text-left">NLL Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pick in draft_history.results %}
+        <tr class="{% cycle 'bg-white' 'bg-gray-50' %} border-b border-gray-200">
+          <td class="px-4 py-3 font-semibold">{{ pick.overall_pick }}</td>
+          <td class="px-4 py-3">{{ pick.round }}.{{ pick.pick_number }}</td>
+          <td class="px-4 py-3">{{ pick.team_name }}</td>
+          <td class="px-4 py-3 font-medium">{{ pick.player_name|default:"No selection" }}</td>
+          <td class="px-4 py-3">{{ pick.position|default:"-" }}</td>
+          <td class="px-4 py-3">{{ pick.nll_team|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="px-4 py-6 text-center text-gray-600">No draft picks were recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

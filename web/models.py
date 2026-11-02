@@ -1868,6 +1868,44 @@ class LeagueHistory(models.Model):
         return f"{self.league.name} - {self.season_year} (Champion: {champion_name})"
 
 
+class DraftHistory(models.Model):
+    """Immutable snapshot of a completed startup, rookie, or redraft board."""
+    class DraftType(models.TextChoices):
+        STARTUP = "startup", "Dynasty Start Up"
+        ROOKIE = "rookie", "Rookie"
+        REDRAFT = "redraft", "Re-Draft"
+
+    league = models.ForeignKey(
+        League,
+        on_delete=models.CASCADE,
+        related_name="draft_archives",
+    )
+    season_year = models.PositiveIntegerField()
+    draft_type = models.CharField(max_length=10, choices=DraftType.choices)
+    draft_style = models.CharField(max_length=10, blank=True)
+    total_rounds = models.PositiveSmallIntegerField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+    source_model = models.CharField(max_length=20)
+    source_draft_id = models.PositiveBigIntegerField()
+    results = models.JSONField(default=list)
+    archived_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-season_year", "-completed_at", "-id"]
+        indexes = [
+            models.Index(fields=["league", "-season_year"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["league", "source_model", "source_draft_id"],
+                name="unique_draft_history_source",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.league.name} {self.season_year} {self.get_draft_type_display()} Draft"
+
+
 class BugReport(models.Model):
     """User-submitted bug reports for tracking and monitoring application issues"""
     

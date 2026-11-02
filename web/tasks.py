@@ -505,7 +505,13 @@ def renew_league(league_id):
         if league.league_type == 'redraft':
             try:
                 from web.models import Draft, DraftPosition
+                from web.draft_history import archive_draft
                 
+                # Preserve the completed board before replacing the one-to-one draft.
+                previous_draft = Draft.objects.filter(league=league, completed=True).first()
+                if previous_draft:
+                    archive_draft(previous_draft, season_year=current_season)
+
                 # Delete any existing draft
                 Draft.objects.filter(league=league).delete()
                 

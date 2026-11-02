@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db.models import Q, Sum, Case, When, Value, IntegerField, F, Prefetch
 from django.views.decorators.cache import cache_page
-from web.models import League, Team, Roster, Week, Game, PlayerGameStat, LeagueHistory
+from web.models import DraftHistory, League, Team, Roster, Week, Game, PlayerGameStat, LeagueHistory
 from web.scoring import calculate_fantasy_points
 from web.cache_utils import get_standings_cache_key
 from web.views import get_cached_schedule  # Import schedule generation
@@ -59,6 +59,7 @@ def league_history(request, league_id):
     
     seasons = [s['season'] for s in available_seasons]
     current_season = league.season
+    draft_archives = DraftHistory.objects.filter(league=league)
     
     teams = list(league.teams.all())
     team_ids = [t.id for t in teams]
@@ -170,12 +171,28 @@ def league_history(request, league_id):
         'league': league,
         'seasons': seasons,
         'current_season': current_season,
+        'draft_archives': draft_archives,
         'is_commissioner': league.commissioner == request.user,
         'top_team_scores': top_team_scores,
         'top_player_scores': top_player_scores,
     }
     
     return render(request, 'web/league_history.html', context)
+
+
+@login_required
+def league_history_draft(request, league_id, draft_history_id):
+    """Display an immutable archived draft board."""
+    league = get_object_or_404(League, id=league_id)
+    user_teams = Team.objects.filter(league=league, owner__user=request.user)
+    if not user_teams.exists() and league.commissioner != request.user:
+        return JsonResponse({'error': 'Not a member of this league'}, status=403)
+
+    draft_history = get_object_or_404(DraftHistory, id=draft_history_id, league=league)
+    return render(request, 'web/league_history_draft.html', {
+        'league': league,
+        'draft_history': draft_history,
+    })
 
 
 @login_required

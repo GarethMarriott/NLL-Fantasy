@@ -5928,6 +5928,12 @@ def make_draft_pick(request, draft_id):
     
     # If draft is complete, add all players to rosters (or taxi squad for rookie drafts)
     if draft.completed:
+        from ..draft_history import archive_draft, archive_rookie_draft
+        if is_rookie_draft:
+            archive_rookie_draft(draft)
+        else:
+            archive_draft(draft)
+
         if is_rookie_draft:
             from ..models import RookieDraftPick, TaxiSquad
             all_picks = RookieDraftPick.objects.filter(draft=draft, player__isnull=False).select_related('team', 'player')
