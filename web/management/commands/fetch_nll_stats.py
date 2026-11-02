@@ -137,6 +137,18 @@ class Command(BaseCommand):
         stats_updated = 0
         stats_skipped = 0
 
+        # Rookie status applies only to the player's recorded rookie season.
+        expired_rookies = Player.objects.filter(
+            is_rookie=True,
+            rookie_season__lt=season_filter,
+        )
+        expired_rookie_count = expired_rookies.count()
+        if expired_rookie_count and not dry_run:
+            expired_rookies.update(is_rookie=False)
+        if expired_rookie_count:
+            action = 'Would clear' if dry_run else 'Cleared'
+            self.stdout.write(f'{action} rookie status for {expired_rookie_count} prior-season player(s)')
+
         # Filter games by season
         games = [g for g in data['games'] if g.get('season') == season_filter]
         self.stdout.write(f'\nProcessing {len(games)} games from {season_filter} season...')
