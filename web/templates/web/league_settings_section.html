@@ -24,6 +24,9 @@
     {% endif %}
 
     {% for field in form.visible_fields %}
+      {% if section == 'scoring' and field.name == 'bestball_starters_offense' %}
+        <div class="pt-2 border-t border-gray-200"><h2 class="text-base font-semibold text-gray-900">Best Ball Weekly Starters</h2><p class="mt-1 text-xs text-gray-500">Highest-scoring players at each position count automatically.</p></div>
+      {% endif %}
       {% if section == 'scoring' and field.name == 'scoring_goals' %}
         <div class="pt-2 border-t border-gray-200"><h2 class="text-base font-semibold text-gray-900">Player Scoring</h2><p class="mt-1 text-xs text-gray-500">Points for outfield player statistics.</p></div>
       {% elif section == 'scoring' and field.name == 'scoring_goalie_wins' %}

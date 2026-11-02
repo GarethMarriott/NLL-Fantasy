@@ -747,7 +747,7 @@ def team_detail(request, team_id):
                 slot['is_starter'] = slot_assignment.startswith('starter_') if slot_assignment else False
                 slot['slot_assignment'] = slot_assignment
 
-    # Aggregate weekly totals: top 3 offense, top 3 defense, top 1 goalie
+    # Aggregate weekly totals using the league's best-ball starter settings.
     # Also mark which stats count toward the total
     # Calculate for the selected week only
     week_idx = selected_week_num - 1  # Convert to 0-indexed
@@ -796,21 +796,23 @@ def team_detail(request, team_id):
         selected_week_total = sum(slot['selected_week_points'] for slot in starter_offense + starter_defense + starter_goalie 
                                   if slot and slot['selected_week_points'] is not None)
     else:
-        # For best ball, mark top 3 offense, top 3 defense, top 1 goalie as counting
-        for score, slot in offense_scores[:3]:
+        bestball_starters_offense = league.bestball_starters_offense
+        bestball_starters_defense = league.bestball_starters_defense
+        bestball_starters_goalie = league.bestball_starters_goalie
+        for score, slot in offense_scores[:bestball_starters_offense]:
             slot["counts_for_total"][week_idx] = True
             slot["selected_week_counts"] = True
         
-        for score, slot in defense_scores[:3]:
+        for score, slot in defense_scores[:bestball_starters_defense]:
             slot["counts_for_total"][week_idx] = True
             slot["selected_week_counts"] = True
         
-        for score, slot in goalie_scores[:1]:
+        for score, slot in goalie_scores[:bestball_starters_goalie]:
             slot["counts_for_total"][week_idx] = True
             slot["selected_week_counts"] = True
         
         # Calculate total for selected week only
-        selected_week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
+        selected_week_total = sum(x[0] for x in offense_scores[:bestball_starters_offense]) + sum(x[0] for x in defense_scores[:bestball_starters_defense]) + sum(x[0] for x in goalie_scores[:bestball_starters_goalie])
     
     # Calculate overall total across all weeks (for the Total column)
     overall_total = 0
@@ -823,7 +825,7 @@ def team_detail(request, team_id):
             
             week_total_all = sum(slot["weekly_points"][week_idx_all] for slot in starter_offense_all + starter_defense_all + starter_goalie_all)
         else:
-            # For best ball, top 3 of each position
+            # For best ball, use the league's configured scoring slots.
             offense_scores_all = []
             for slot in offence_slots:
                 if slot and slot.get("weekly_points") and week_idx_all < len(slot["weekly_points"]) and slot["weekly_points"][week_idx_all] is not None:
@@ -843,7 +845,7 @@ def team_detail(request, team_id):
             defense_scores_all.sort(reverse=True)
             goalie_scores_all.sort(reverse=True)
             
-            week_total_all = sum(offense_scores_all[:3]) + sum(defense_scores_all[:3]) + sum(goalie_scores_all[:1])
+            week_total_all = sum(offense_scores_all[:bestball_starters_offense]) + sum(defense_scores_all[:bestball_starters_defense]) + sum(goalie_scores_all[:bestball_starters_goalie])
         
         overall_total += week_total_all
 
@@ -3711,7 +3713,7 @@ def matchups(request):
             
             week_total = sum(s['fantasy_points'] for s in starter_offense + starter_defense + starter_goalie if s and s['fantasy_points'] is not None)
         else:
-            # For best-ball: top 3 offense, top 3 defense, top 1 goalie
+            # For best ball, select the league's configured top scorers.
             offense_scores = []
             for slot in offence_slots:
                 if slot and slot["fantasy_points"] is not None:
@@ -3733,14 +3735,14 @@ def matchups(request):
             goalie_scores.sort(key=lambda x: x[0], reverse=True)
             
             # Mark top scorers
-            for score, slot in offense_scores[:3]:
+            for score, slot in offense_scores[:league.bestball_starters_offense]:
                 slot['counts_for_total'] = True
-            for score, slot in defense_scores[:3]:
+            for score, slot in defense_scores[:league.bestball_starters_defense]:
                 slot['counts_for_total'] = True
-            for score, slot in goalie_scores[:1]:
+            for score, slot in goalie_scores[:league.bestball_starters_goalie]:
                 slot['counts_for_total'] = True
             
-            week_total = sum(x[0] for x in offense_scores[:3]) + sum(x[0] for x in defense_scores[:3]) + sum(x[0] for x in goalie_scores[:1])
+            week_total = sum(x[0] for x in offense_scores[:league.bestball_starters_offense]) + sum(x[0] for x in defense_scores[:league.bestball_starters_defense]) + sum(x[0] for x in goalie_scores[:league.bestball_starters_goalie])
         
         team_rosters[team.id] = {
             "offence_slots": offence_slots,
@@ -3800,12 +3802,12 @@ def matchups(request):
             
             total = sum(e["fantasy_points"] for e in starter_offense + starter_defense + starter_goalie if e["fantasy_points"] is not None)
         else:
-            # For best-ball: top 3 offense + top 3 defense + top 1 goalie
+            # For best ball, select the league's configured top scorers.
             offense_scores = sorted([e["fantasy_points"] for e in players_by_position["O"] if e["fantasy_points"] is not None], reverse=True)
             defense_scores = sorted([e["fantasy_points"] for e in players_by_position["D"] if e["fantasy_points"] is not None], reverse=True)
             goalie_scores = sorted([e["fantasy_points"] for e in players_by_position["G"] if e["fantasy_points"] is not None], reverse=True)
             
-            total = sum(offense_scores[:3]) + sum(defense_scores[:3]) + sum(goalie_scores[:1])
+            total = sum(offense_scores[:league.bestball_starters_offense]) + sum(defense_scores[:league.bestball_starters_defense]) + sum(goalie_scores[:league.bestball_starters_goalie])
         
         return total
     
@@ -4174,12 +4176,12 @@ def standings(request):
                     
                     total = sum(e["fantasy_points"] for e in starter_offense + starter_defense + starter_goalie if e["fantasy_points"] is not None)
                 else:
-                    # For best-ball: top 3 offense + top 3 defense + top 1 goalie
+                    # For best ball, select the league's configured top scorers.
                     offense_scores = sorted([e["fantasy_points"] for e in players_by_position["O"] if e["fantasy_points"] is not None], reverse=True)
                     defense_scores = sorted([e["fantasy_points"] for e in players_by_position["D"] if e["fantasy_points"] is not None], reverse=True)
                     goalie_scores = sorted([e["fantasy_points"] for e in players_by_position["G"] if e["fantasy_points"] is not None], reverse=True)
                     
-                    total = sum(offense_scores[:3]) + sum(defense_scores[:3]) + sum(goalie_scores[:1])
+                    total = sum(offense_scores[:league.bestball_starters_offense]) + sum(defense_scores[:league.bestball_starters_defense]) + sum(goalie_scores[:league.bestball_starters_goalie])
                 
                 return total
             

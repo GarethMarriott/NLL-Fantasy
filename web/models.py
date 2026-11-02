@@ -85,6 +85,21 @@ class League(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(20)],
         help_text="Number of bench roster spots (for traditional leagues)"
     )
+    bestball_starters_offense = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of top-scoring offense players counted weekly in best ball"
+    )
+    bestball_starters_defense = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of top-scoring defense players counted weekly in best ball"
+    )
+    bestball_starters_goalie = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Number of top-scoring goalies counted weekly in best ball"
+    )
     playoff_weeks = models.PositiveSmallIntegerField(
         default=2,
         validators=[MinValueValidator(0), MaxValueValidator(4)],

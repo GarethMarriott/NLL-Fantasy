@@ -416,20 +416,18 @@ def league_history_matchups(request, league_id, year):
             
             total = sum(s[1] for s in starters_o + starters_d if s[1])
         else:
-            # For best ball: goalies compete in the shared defense allocation.
+            # For best ball, select the configured top scorers by position.
             players_by_side = defaultdict(list)
             for player, points in player_scores:
-                side = getattr(player, 'assigned_side', None) or (
-                    'D' if getattr(player, 'position', None) == 'D' else 'O'
-                )
-                if getattr(player, 'position', None) == 'G':
-                    side = 'D'
+                position = getattr(player, 'position', None)
+                side = getattr(player, 'assigned_side', None) or ('O' if position == 'T' else position)
                 players_by_side[side].append(points)
             
-            off_scores = sorted(players_by_side.get('O', []), reverse=True)[:3]
-            def_scores = sorted(players_by_side.get('D', []), reverse=True)[:4]
+            off_scores = sorted(players_by_side.get('O', []), reverse=True)[:league.bestball_starters_offense]
+            def_scores = sorted(players_by_side.get('D', []), reverse=True)[:league.bestball_starters_defense]
+            goalie_scores = sorted(players_by_side.get('G', []), reverse=True)[:league.bestball_starters_goalie]
             
-            total = sum(off_scores) + sum(def_scores)
+            total = sum(off_scores) + sum(def_scores) + sum(goalie_scores)
         
         return total
     
@@ -746,25 +744,34 @@ def team_week_total_history(team_id, week_number, rosters_by_team, week_cache, y
     
     total = 0.0
     
-    active_players = []
+    player_scores = []
     team_rosters = rosters_by_team.get(team_id, [])
     for roster_entry in team_rosters:
         week_added = roster_entry.week_added or 0
         week_dropped = roster_entry.week_dropped or 999
         if week_added <= week_number < week_dropped:
-            if league.roster_format == 'traditional':
-                if roster_entry.slot_assignment and roster_entry.slot_assignment.startswith('starter_'):
-                    active_players.append(roster_entry.player)
-            else:
-                active_players.append(roster_entry.player)
-    
-    for p in active_players:
-        stat = None
-        if week_obj:
-            stat = next((s for s in p.game_stats.all() if s.game.week_id == week_obj.id), None)
-        pts = calculate_fantasy_points(stat, p, league)
-        if pts is not None:
-            total += pts
+            if league.roster_format == 'traditional' and not roster_entry.slot_assignment.startswith('starter_'):
+                continue
+            stat = None
+            if week_obj:
+                stat = next((s for s in roster_entry.player.game_stats.all() if s.game.week_id == week_obj.id), None)
+            points = calculate_fantasy_points(stat, roster_entry.player, league)
+            if points is not None:
+                player_scores.append((roster_entry.player, points))
+
+    if league.roster_format == 'traditional':
+        return sum(points for _, points in player_scores)
+
+    scores_by_position = defaultdict(list)
+    for player, points in player_scores:
+        position = player.assigned_side or ('O' if player.position == 'T' else player.position)
+        scores_by_position[position].append(points)
+
+    total = (
+        sum(sorted(scores_by_position['O'], reverse=True)[:league.bestball_starters_offense])
+        + sum(sorted(scores_by_position['D'], reverse=True)[:league.bestball_starters_defense])
+        + sum(sorted(scores_by_position['G'], reverse=True)[:league.bestball_starters_goalie])
+    )
     
     return total
 
