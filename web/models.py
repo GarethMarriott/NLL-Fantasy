@@ -653,10 +653,11 @@ class Player(models.Model):
         # This prevents counting old transactions from previous completed seasons
         season_end_date = date(current_season, 12, 31)
         
-        # Get the most recent IR transaction from current season only
+        # A player is IR-eligible when their latest current-season placement is
+        # either injured reserve or physically unable to perform.
         most_recent_ir = NLLTransaction.objects.filter(
             player_name=full_name,
-            transaction_type='injured_reserve',
+            transaction_type__in=['injured_reserve', 'pup'],
             transaction_date__gte=season_start_date,
             transaction_date__lte=season_end_date
         ).order_by('-transaction_date', '-scraped_at').first()
@@ -1720,6 +1721,7 @@ class NLLTransaction(models.Model):
         ('waived', 'Waived'),
         ('reassigned', 'Reassigned'),
         ('injured_reserve', 'Placed on Injured Reserve'),
+        ('pup', 'Physically Unable to Perform'),
         ('activated', 'Activated/Returned'),
         ('retired', 'Retired'),
         ('other', 'Other'),

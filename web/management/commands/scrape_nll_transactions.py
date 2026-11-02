@@ -113,6 +113,9 @@ def scrape_nll_transactions_task():
                                     transactions_saved += 1
                                 else:
                                     update_fields = []
+                                    if transaction.transaction_type != transaction_type:
+                                        transaction.transaction_type = transaction_type
+                                        update_fields.append('transaction_type')
                                     if not transaction.from_team and from_team:
                                         transaction.from_team = from_team
                                         update_fields.append('from_team')
@@ -331,6 +334,9 @@ def extract_transaction_type_for_player(text, player_name):
                 any(word in context_text for word in ('placed', 'added', 'assigned'))):
             return 'injured_reserve'
 
+        if ('physically unable to perform' in context_text or 'pup list' in context_text) and 'placed' in context_text:
+            return 'pup'
+
         if 'retired list' in context_text or 'retirement' in context_text or 'retired' in context_text:
             return 'retired'
 
@@ -385,6 +391,8 @@ def extract_transaction_type(text):
             ('on the injured reserve' in text_lower or 'on injured reserve' in text_lower) and
             any(word in text_lower for word in ('placed', 'added', 'assigned'))):
         return 'injured_reserve'
+    if ('physically unable to perform' in text_lower or 'pup list' in text_lower) and 'placed' in text_lower:
+        return 'pup'
     if 'retired list' in text_lower or 'retirement' in text_lower or 'retired' in text_lower:
         return 'retired'
     if 'active roster' in text_lower and any(word in text_lower for word in ('placed', 'added', 'activated', 'returned', 'recalled')):
