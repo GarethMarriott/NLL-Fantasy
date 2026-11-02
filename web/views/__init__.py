@@ -4387,7 +4387,27 @@ def chat_view(request):
     
     elif chat_type == 'team' and team_chat_id and user_team:
         # Display team-to-team chat
-        other_team_id = int(team_chat_id)
+        other_team = Team.objects.filter(
+            id=team_chat_id,
+            league=selected_league,
+            season_year=selected_league.season,
+        ).first()
+        if not other_team:
+            previous_team = Team.objects.filter(
+                id=team_chat_id,
+                league=selected_league,
+            ).only('name').first()
+            if previous_team:
+                other_team = Team.objects.filter(
+                    league=selected_league,
+                    season_year=selected_league.season,
+                    name=previous_team.name,
+                ).first()
+        if not other_team:
+            messages.warning(request, "That team chat is no longer available for this season.")
+            return redirect('chat')
+
+        other_team_id = other_team.id
         # Ensure consistent ordering (lower ID first)
         team1_id = min(user_team.id, other_team_id)
         team2_id = max(user_team.id, other_team_id)
@@ -4401,13 +4421,7 @@ def chat_view(request):
             'sender__fantasy_teams__team'
         ).all()[:100]  # Last 100 messages
         
-        # Get the other team
-        current_chat_with = get_object_or_404(
-            Team,
-            id=other_team_id,
-            league=selected_league,
-            season_year=selected_league.season,
-        )
+        current_chat_with = other_team
         chat_key_viewed = f"team_{team1_id}_{team2_id}"
     
     # Get all other teams in the league for chat options

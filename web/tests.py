@@ -141,3 +141,22 @@ class ChatViewTests(TestCase):
 
 		self.assertContains(response, "Chat prefetch works")
 		self.assertContains(response, "Chat Team")
+
+	def test_chat_view_resolves_a_prior_season_team_id(self):
+		user = get_user_model().objects.create_user(username="season-chat-user", password="test-password")
+		league = League.objects.create(name="Season Chat League", commissioner=user, season=2027)
+		user_team = Team.objects.create(name="Current User Team", league=league, season_year=2027)
+		previous_team = Team.objects.create(name="Other Team", league=league, season_year=2026)
+		current_team = Team.objects.create(name="Other Team", league=league, season_year=2027)
+		FantasyTeamOwner.objects.create(user=user, team=user_team)
+		self.client.force_login(user)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.get(reverse("chat"), {
+			"chat_type": "team",
+			"team_chat_id": previous_team.id,
+		})
+
+		self.assertContains(response, current_team.name)
