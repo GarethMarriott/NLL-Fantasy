@@ -5,6 +5,7 @@ import requests
 from django.core.management.base import BaseCommand
 from bs4 import BeautifulSoup
 import re
+from difflib import SequenceMatcher
 from datetime import datetime
 from web.models import NLLTransaction, Player, PlayerNLLTeam, nll_season_for_date
 
@@ -198,10 +199,23 @@ def find_player(player_name):
     name_parts = player_name.split(maxsplit=1)
     if len(name_parts) != 2:
         return None
-    return Player.objects.filter(
+    player = Player.objects.filter(
         first_name__iexact=name_parts[0],
         last_name__iexact=name_parts[1],
     ).first()
+    if player:
+        return player
+
+    surname_matches = list(Player.objects.filter(last_name__iexact=name_parts[1]))
+    close_matches = [
+        candidate for candidate in surname_matches
+        if SequenceMatcher(
+            None,
+            candidate.first_name.lower(),
+            name_parts[0].lower(),
+        ).ratio() >= 0.9
+    ]
+    return close_matches[0] if len(close_matches) == 1 else None
 
 
 def clean_and_validate_name(name_str):

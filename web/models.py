@@ -635,6 +635,7 @@ class Player(models.Model):
         
         # Import at function level to avoid circular import issues
         from django.apps import apps
+        from django.db.models import Q
         NLLTransaction = apps.get_model('web', 'NLLTransaction')
         Week = apps.get_model('web', 'Week')
         
@@ -655,8 +656,12 @@ class Player(models.Model):
         
         # A player is IR-eligible when their latest current-season placement is
         # injured reserve, physically unable to perform, or hold out.
-        most_recent_ir = NLLTransaction.objects.filter(
+        player_transaction_filter = Q(player=self) | Q(
+            player__isnull=True,
             player_name=full_name,
+        )
+        most_recent_ir = NLLTransaction.objects.filter(
+            player_transaction_filter,
             transaction_type__in=['injured_reserve', 'pup', 'hold_out'],
             transaction_date__gte=season_start_date,
             transaction_date__lte=season_end_date
@@ -669,7 +674,7 @@ class Player(models.Model):
         # Check if there's any transaction after this IR that would end the IR status
         # (activated, signed, traded, released)
         transactions_after_ir = NLLTransaction.objects.filter(
-            player_name=full_name,
+            player_transaction_filter,
             transaction_date__gt=most_recent_ir.transaction_date,
             transaction_date__gte=season_start_date,
             transaction_date__lte=season_end_date
@@ -683,7 +688,7 @@ class Player(models.Model):
         # If same date, need to check by scraped_at order too
         if not transactions_after_ir:
             transactions_same_date = NLLTransaction.objects.filter(
-                player_name=full_name,
+                player_transaction_filter,
                 transaction_date=most_recent_ir.transaction_date,
                 transaction_date__gte=season_start_date,
                 transaction_date__lte=season_end_date
