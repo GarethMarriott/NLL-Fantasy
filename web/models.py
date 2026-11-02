@@ -620,7 +620,7 @@ class Player(models.Model):
     def is_on_injured_reserve(self):
         """
         Check if player is currently on injured reserve.
-        Only checks transactions from the current NLL season (starts late November).
+        Only checks transactions from the current NLL season, including preseason.
         A player is on IR if their most recent IR transaction (in current season) 
         is not followed by: activation, signing, trade, or release.
         
@@ -645,9 +645,9 @@ class Player(models.Model):
             return False
         
         current_season = current_week.season
-        # NLL season starts in late November of the previous year
-        # For example, 2026 season starts November 2025
-        season_start_date = date(current_season - 1, 11, 1)
+        # Include October preseason roster designations for the upcoming season.
+        # For example, the 2027 season begins its eligibility window in October 2026.
+        season_start_date = date(current_season - 1, 10, 1)
         
         # Season ends roughly in June of the current year, but set to end of year to be safe
         # This prevents counting old transactions from previous completed seasons
