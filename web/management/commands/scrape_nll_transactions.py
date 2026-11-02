@@ -328,6 +328,9 @@ def extract_transaction_type_for_player(text, player_name):
         
         # Check for transaction types in the context around the player's name
         # Prioritize specific patterns with the player name
+
+        if ('hold out list' in context_text or 'holdout list' in context_text) and 'placed' in context_text:
+            return 'hold_out'
         
         if (('injured reserve' in context_text or 'injured-reserve' in context_text) and
                 ('on the injured reserve' in context_text or 'on injured reserve' in context_text) and
@@ -387,6 +390,8 @@ def extract_transaction_type(text):
     
     # Check for different transaction types in order of specificity
     # For placed transactions, check what comes AFTER "placed"
+    if ('hold out list' in text_lower or 'holdout list' in text_lower) and 'placed' in text_lower:
+        return 'hold_out'
     if (('injured reserve' in text_lower or 'injured-reserve' in text_lower) and
             ('on the injured reserve' in text_lower or 'on injured reserve' in text_lower) and
             any(word in text_lower for word in ('placed', 'added', 'assigned'))):

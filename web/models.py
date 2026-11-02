@@ -654,10 +654,10 @@ class Player(models.Model):
         season_end_date = date(current_season, 12, 31)
         
         # A player is IR-eligible when their latest current-season placement is
-        # either injured reserve or physically unable to perform.
+        # injured reserve, physically unable to perform, or hold out.
         most_recent_ir = NLLTransaction.objects.filter(
             player_name=full_name,
-            transaction_type__in=['injured_reserve', 'pup'],
+            transaction_type__in=['injured_reserve', 'pup', 'hold_out'],
             transaction_date__gte=season_start_date,
             transaction_date__lte=season_end_date
         ).order_by('-transaction_date', '-scraped_at').first()
@@ -1722,6 +1722,7 @@ class NLLTransaction(models.Model):
         ('reassigned', 'Reassigned'),
         ('injured_reserve', 'Placed on Injured Reserve'),
         ('pup', 'Physically Unable to Perform'),
+        ('hold_out', 'Hold Out'),
         ('activated', 'Activated/Returned'),
         ('retired', 'Retired'),
         ('other', 'Other'),
