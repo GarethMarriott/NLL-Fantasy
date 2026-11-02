@@ -75,8 +75,10 @@ def scrape_nll_transactions_task():
                             if not player_name:
                                 continue
                             
-                            # Extract transaction type specific to this player
-                            transaction_type = extract_transaction_type_for_player(transaction_text, player_name)
+                            # Classify only the player's sentence so nearby transactions
+                            # in the same source paragraph cannot affect its type.
+                            player_details = extract_player_details(transaction_text, player_name)
+                            transaction_type = extract_transaction_type_for_player(player_details, player_name)
                             
                             # Create unique URL for this transaction
                             url_unique = f"https://www.nll.com/news/transactions/#{transaction_date}_{player_name.replace(' ', '_')}"
@@ -91,8 +93,6 @@ def scrape_nll_transactions_task():
                                     transaction_type,
                                 )
                                 
-                                # Extract player-specific details
-                                player_details = extract_player_details(transaction_text, player_name)
                                 player = find_player(player_name)
                                 
                                 # Create or get transaction
