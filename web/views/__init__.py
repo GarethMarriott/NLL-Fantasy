@@ -4381,7 +4381,7 @@ def chat_view(request):
         ).select_related(
             'sender', 'player', 'team', 'league'
         ).prefetch_related(
-            'sender__fantasyteamowner_set__team'
+            'sender__fantasy_teams__team'
         ).all()[:100]  # Last 100 messages
         chat_key_viewed = f"league_{selected_league_id}"
     
@@ -4398,7 +4398,7 @@ def chat_view(request):
         ).select_related(
             'sender', 'team1', 'team2', 'trade'
         ).prefetch_related(
-            'sender__fantasyteamowner_set__team'
+            'sender__fantasy_teams__team'
         ).all()[:100]  # Last 100 messages
         
         # Get the other team

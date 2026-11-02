@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .draft_history import archive_draft, archive_rookie_draft
-from .models import Draft, DraftHistory, DraftPick, FantasyTeamOwner, League, Player, RookieDraft, RookieDraftPick, Team
+from .models import ChatMessage, Draft, DraftHistory, DraftPick, FantasyTeamOwner, League, Player, RookieDraft, RookieDraftPick, Team
 from .tasks import create_rookie_draft
 
 
@@ -123,3 +123,21 @@ class DraftHistoryTests(TestCase):
 		self.assertEqual(archive.draft_type, DraftHistory.DraftType.ROOKIE)
 		self.assertEqual(archive.season_year, 2027)
 		self.assertEqual(archive.total_rounds, 1)
+
+
+class ChatViewTests(TestCase):
+	def test_chat_view_prefetches_sender_fantasy_teams(self):
+		user = get_user_model().objects.create_user(username="chat-user", password="test-password")
+		league = League.objects.create(name="Chat League", commissioner=user)
+		team = Team.objects.create(name="Chat Team", league=league, season_year=league.season)
+		FantasyTeamOwner.objects.create(user=user, team=team)
+		ChatMessage.objects.create(league=league, sender=user, message="Chat prefetch works")
+		self.client.force_login(user)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.get(reverse("chat"))
+
+		self.assertContains(response, "Chat prefetch works")
+		self.assertContains(response, "Chat Team")

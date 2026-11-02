@@ -78,9 +78,9 @@
           <div class="flex items-baseline space-x-2">
             {% if msg.sender %}
               <span class="font-semibold text-gray-900 dark:text-white">{{ msg.sender.username }}</span>
-              {% if msg.sender.fantasyteamowner_set.exists %}
+              {% if msg.sender.fantasy_teams.exists %}
                 <span class="text-xs text-gray-500 dark:text-gray-400">
-                  ({% for owner in msg.sender.fantasyteamowner_set.all %}{{ owner.team.name }}{% if not forloop.last %}, {% endif %}{% endfor %})
+                  ({% for owner in msg.sender.fantasy_teams.all %}{{ owner.team.name }}{% if not forloop.last %}, {% endif %}{% endfor %})
                 </span>
               {% endif %}
             {% else %}
