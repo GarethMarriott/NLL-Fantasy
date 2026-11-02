@@ -122,6 +122,10 @@ class League(models.Model):
         default="redraft",
         help_text="Dynasty leagues preserve rosters when renewed; Re-Draft leagues clear all rosters"
     )
+    startup_draft_completed = models.BooleanField(
+        default=True,
+        help_text="Whether a dynasty league has completed its initial all-player startup draft"
+    )
     
     # Taxi Squad Size (Dynasty leagues only)
     taxi_squad_size = models.PositiveSmallIntegerField(
@@ -1168,6 +1172,10 @@ class WaiverClaim(models.Model):
 
 class Draft(models.Model):
     """Draft for a fantasy league"""
+    class DraftType(models.TextChoices):
+        REDRAFT = "redraft", "Re-Draft"
+        STARTUP = "startup", "Dynasty Start Up"
+
     class DraftOrderType(models.TextChoices):
         RANDOM = "RANDOM", "Random"
         MANUAL = "MANUAL", "Commissioner Selected"
@@ -1181,6 +1189,12 @@ class Draft(models.Model):
         on_delete=models.CASCADE,
         related_name='draft',
         help_text="The league this draft belongs to"
+    )
+    draft_type = models.CharField(
+        max_length=10,
+        choices=DraftType.choices,
+        default=DraftType.REDRAFT,
+        help_text="Whether this is a re-draft or a dynasty start up draft"
     )
     is_active = models.BooleanField(
         default=False,

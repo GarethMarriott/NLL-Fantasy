@@ -5,7 +5,7 @@
   <div class="mb-4">
     <div class="flex justify-between items-start">
       <div>
-        <h2 class="text-2xl font-semibold leading-tight">{% if is_rookie_draft %}Rookie Draft Room{% else %}Draft Room{% endif %}</h2>
+        <h2 class="text-2xl font-semibold leading-tight">{% if is_rookie_draft %}Rookie Draft Room{% elif is_startup_draft or startup_draft_required %}Start Up Draft Room{% else %}Draft Room{% endif %}</h2>
         <p class="text-gray-600">{{ league.name }}</p>
       </div>
       {% if league.league_type == 'dynasty' or not draft or not draft.is_active %}
@@ -19,9 +19,37 @@
   {% if not draft %}
     <!-- No draft exists yet -->
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-      <h3 class="text-lg font-semibold text-yellow-800 mb-2">{% if league.league_type == 'dynasty' %}Rookie Draft Preview{% else %}Draft Not Started{% endif %}</h3>
+      <h3 class="text-lg font-semibold text-yellow-800 mb-2">{% if startup_draft_required %}Start Up Draft{% elif league.league_type == 'dynasty' %}Rookie Draft Preview{% else %}Draft Not Started{% endif %}</h3>
       
-      {% if league.league_type == 'dynasty' %}
+      {% if startup_draft_required %}
+        <p class="text-yellow-700 mb-4">The start up draft is the only draft in this league's first season. It includes all available veterans and rookies.</p>
+        {% if is_commissioner %}
+          {% if league_is_full %}
+          <form method="post" action="{% url 'create_draft_preview' %}">
+            {% csrf_token %}
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">Draft Order Type:</label>
+              <select name="order_type" class="px-3 py-2 border border-gray-300 rounded-md">
+                <option value="RANDOM">Random Order</option>
+                <option value="MANUAL">Commissioner Selected</option>
+              </select>
+            </div>
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">Draft Style:</label>
+              <select name="draft_style" class="px-3 py-2 border border-gray-300 rounded-md">
+                <option value="SNAKE">Snake Draft (1,2,3,4 then 4,3,2,1)</option>
+                <option value="LINEAR">Linear Draft (1,2,3,4 every round)</option>
+              </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Create Start Up Draft Preview</button>
+          </form>
+          {% else %}
+          <p class="text-yellow-700">The league must be full before creating the start up draft. Currently {{ team_count }}/{{ league.max_teams }} teams.</p>
+          {% endif %}
+        {% else %}
+        <p class="text-yellow-700">Waiting for the commissioner to create the start up draft. League has {{ team_count }}/{{ league.max_teams }} teams.</p>
+        {% endif %}
+      {% elif league.league_type == 'dynasty' %}
         <p class="text-yellow-700 mb-4">Create the rookie draft board now. It can be reviewed before all teams have joined, but cannot start until the league is full.</p>
         {% if is_commissioner %}
         <form method="post" action="{% url 'create_rookie_draft_preview' %}">
@@ -74,14 +102,14 @@
     
     {% if draft.completed %}
       <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-        <h3 class="text-lg font-semibold text-green-800">Draft Completed!</h3>
+        <h3 class="text-lg font-semibold text-green-800">{% if is_startup_draft %}Start Up Draft Completed!{% else %}Draft Completed!{% endif %}</h3>
         <p class="text-green-700">All players have been added to team rosters.</p>
       </div>
     {% elif draft.is_active %}
       <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <div class="flex justify-between items-start">
           <div>
-            <h3 class="text-lg font-semibold text-blue-800">Draft In Progress</h3>
+            <h3 class="text-lg font-semibold text-blue-800">{% if is_startup_draft %}Start Up Draft In Progress{% else %}Draft In Progress{% endif %}</h3>
             <p class="text-blue-700">
               Round {{ draft.current_round }} of {{ draft_total_rounds }}
               {% if current_team %}
@@ -127,7 +155,7 @@
       <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
         <div class="flex justify-between items-start">
           <div>
-            <h3 class="text-lg font-semibold text-gray-800">Draft Created - Set Team Order</h3>
+            <h3 class="text-lg font-semibold text-gray-800">{% if is_startup_draft %}Start Up Draft Created - Set Team Order{% else %}Draft Created - Set Team Order{% endif %}</h3>
             <p class="text-gray-700">Arrange the team order below, then activate the draft.</p>
             <p class="text-sm text-gray-600 mt-1">
               Draft Style: {{ draft.get_draft_style_display }}

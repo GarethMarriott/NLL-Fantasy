@@ -1046,6 +1046,13 @@ def assign_player(request, team_id):
             return JsonResponse({'success': False, 'error': error_msg}, status=403)
         messages.error(request, error_msg)
         return redirect("team_detail", team_id=team.id)
+
+    if team.league.league_type == 'dynasty' and not team.league.startup_draft_completed:
+        error_msg = "Player moves are unavailable until the dynasty start up draft is complete."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=403)
+        messages.error(request, error_msg)
+        return redirect("team_detail", team_id=team.id)
     
     # Check league settings for waiver status
     use_waivers = team.league.use_waivers if hasattr(team.league, 'use_waivers') else False
@@ -4771,6 +4778,8 @@ def league_create(request):
         if form.is_valid():
             league = form.save(commit=False)
             league.commissioner = request.user
+            if league.league_type == 'dynasty':
+                league.startup_draft_completed = False
             league.save()
             
             # Set the default current_week to the first available week of the season
@@ -5301,6 +5310,11 @@ def create_draft_preview(request):
 
     draft = Draft.objects.create(
         league=league,
+        draft_type=(
+            Draft.DraftType.STARTUP
+            if league.league_type == 'dynasty'
+            else Draft.DraftType.REDRAFT
+        ),
         draft_order_type=order_type,
         draft_style=draft_style,
         total_rounds=league.roster_size,
@@ -5324,10 +5338,15 @@ def draft_room(request):
     
     league = get_object_or_404(League, id=selected_league_id)
     
-    # Dynasty leagues use their current-season rookie draft in this room.
+    startup_draft_required = (
+        league.league_type == 'dynasty'
+        and not league.startup_draft_completed
+    )
+
+    # Dynasty leagues use their current-season rookie draft after the startup draft.
     from ..models import RookieDraft, RookieDraftPick
     rookie_draft = None
-    if league.league_type == 'dynasty':
+    if league.league_type == 'dynasty' and not startup_draft_required:
         rookie_draft = RookieDraft.objects.filter(
             league=league,
             season_year=league.season,
@@ -5561,6 +5580,8 @@ def draft_room(request):
         'league': league,
         'draft': draft,
         'is_rookie_draft': is_rookie_draft,
+        'is_startup_draft': draft and draft.draft_type == Draft.DraftType.STARTUP,
+        'startup_draft_required': startup_draft_required,
         'draft_total_rounds': 2 if is_rookie_draft else (draft.total_rounds if draft else 0),
         'user_team': user_team,
         'is_commissioner': is_commissioner,
@@ -5595,6 +5616,8 @@ def create_rookie_draft_preview(request):
     league = get_object_or_404(League, id=selected_league_id)
     if league.league_type != 'dynasty':
         messages.error(request, "Rookie drafts are available only in dynasty leagues.")
+    elif not league.startup_draft_completed:
+        messages.error(request, "Complete the dynasty start up draft before creating a rookie draft.")
     elif league.commissioner != request.user:
         messages.error(request, "Only the commissioner can create a rookie draft preview.")
     else:
@@ -5625,6 +5648,8 @@ def start_rookie_draft(request, draft_id):
         ).count()
     if draft.league.commissioner != request.user:
         messages.error(request, "Only the commissioner can start the rookie draft.")
+    elif not draft.league.startup_draft_completed:
+        messages.error(request, "Complete the dynasty start up draft before starting a rookie draft.")
     elif draft.completed or draft.is_active:
         messages.error(request, "This rookie draft cannot be started.")
     elif team_count != draft.league.max_teams:
@@ -5818,6 +5843,10 @@ def make_draft_pick(request, draft_id):
     if not draft.is_active or draft.completed:
         messages.error(request, "Draft is not currently active.")
         return redirect('draft_room')
+
+    if is_rookie_draft and not draft.league.startup_draft_completed:
+        messages.error(request, "Complete the dynasty start up draft before making rookie draft picks.")
+        return redirect('draft_room')
     
     # Check if it's user's turn
     current_team = draft.get_current_team()
@@ -6000,6 +6029,9 @@ def make_draft_pick(request, draft_id):
                 )
                 # Auto-assign to starter slot if traditional league
                 auto_assign_to_starter_slot(draft_roster)
+            if draft.draft_type == Draft.DraftType.STARTUP:
+                draft.league.startup_draft_completed = True
+                draft.league.save(update_fields=['startup_draft_completed'])
             post_league_message(draft.league, f"ðŸŽ‰ Draft completed! All players have been added to rosters.")
             messages.success(request, f"You selected {player.first_name} {player.last_name}!")
     else:

@@ -610,6 +610,10 @@ def create_rookie_draft(league_id, season_year, draft_style="snake"):
     
     try:
         league = League.objects.get(id=league_id)
+
+        if not league.startup_draft_completed:
+            logger.warning(f"Cannot create a rookie draft for {league.name} before its startup draft is complete")
+            return None
         
         # Check if rookie draft already exists for this league/season
         existing_draft = RookieDraft.objects.filter(
