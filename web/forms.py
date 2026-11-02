@@ -106,7 +106,7 @@ class LeagueSettingsForm(forms.ModelForm):
             'scoring_goalie_wins', 'scoring_goalie_saves',
             'scoring_goalie_goals_against', 'scoring_goalie_goals',
             'scoring_goalie_assists', 'bestball_starters_offense',
-            'bestball_starters_defense', 'bestball_starters_goalie',
+            'bestball_starters_defense',
         },
         'playoffs': {'playoff_teams', 'playoff_reseed'},
         'draft': {'use_taxi_squad', 'taxi_squad_size', 'use_future_rookie_picks'},
@@ -118,7 +118,7 @@ class LeagueSettingsForm(forms.ModelForm):
         fields = [
             'name', 'description', 'max_teams', 'is_public',
             'roster_forwards', 'roster_defense', 'roster_bench', 'roster_size', 'use_taxi_squad', 'taxi_squad_size',
-            'bestball_starters_offense', 'bestball_starters_defense', 'bestball_starters_goalie',
+            'bestball_starters_offense', 'bestball_starters_defense',
             'allow_ir_slots', 'ir_slots',
             'use_future_rookie_picks',
             'playoff_teams', 'playoff_reseed', 'use_waivers',
@@ -145,7 +145,6 @@ class LeagueSettingsForm(forms.ModelForm):
             'roster_bench': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'bestball_starters_offense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'bestball_starters_defense': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
-            'bestball_starters_goalie': forms.NumberInput(attrs={'class': 'w-full px-3 py-2 border border-gray-300 rounded-md', 'min': 0, 'max': 20}),
             'use_taxi_squad': forms.CheckboxInput(attrs={'class': 'rounded'}),
             'taxi_squad_size': forms.Select(choices=[
                 (0, '0 slots (disabled)'),
@@ -194,8 +193,7 @@ class LeagueSettingsForm(forms.ModelForm):
             'allow_ir_slots': "Enable Injured Reserve roster slots for this league.",
             'ir_slots': "Number of Injured Reserve slots each team can use (0-5).",
             'bestball_starters_offense': "Top-scoring offense players counted toward each weekly score.",
-            'bestball_starters_defense': "Top-scoring defense players counted toward each weekly score.",
-            'bestball_starters_goalie': "Top-scoring goalies counted toward each weekly score.",
+            'bestball_starters_defense': "Top-scoring defense and goalie players counted toward each weekly score.",
         }
 
     def __init__(self, *args, section=None, **kwargs):
@@ -227,7 +225,7 @@ class LeagueSettingsForm(forms.ModelForm):
                 self.fields.pop('taxi_squad_size')
 
         if self.instance and self.instance.roster_format != 'bestball':
-            for field_name in ('bestball_starters_offense', 'bestball_starters_defense', 'bestball_starters_goalie'):
+            for field_name in ('bestball_starters_offense', 'bestball_starters_defense'):
                 self.fields.pop(field_name, None)
 
     def clean(self):
@@ -239,14 +237,13 @@ class LeagueSettingsForm(forms.ModelForm):
         roster_defense = cleaned_data.get('roster_defense', self.instance.roster_defense)
         starters_offense = cleaned_data.get('bestball_starters_offense', self.instance.bestball_starters_offense)
         starters_defense = cleaned_data.get('bestball_starters_defense', self.instance.bestball_starters_defense)
-        starters_goalie = cleaned_data.get('bestball_starters_goalie', self.instance.bestball_starters_goalie)
 
         if starters_offense > roster_forwards:
             error_field = 'bestball_starters_offense' if 'bestball_starters_offense' in self.fields else 'roster_forwards'
             self.add_error(error_field, 'Cannot exceed the offense roster allocation.')
-        if starters_defense + starters_goalie > roster_defense:
+        if starters_defense > roster_defense:
             error_field = 'bestball_starters_defense' if 'bestball_starters_defense' in self.fields else 'roster_defense'
-            self.add_error(error_field, 'Defense and goalie starters together cannot exceed the shared defense roster allocation.')
+            self.add_error(error_field, 'Cannot exceed the shared defense and goalie roster allocation.')
         return cleaned_data
 
 # ===== Password Reset Forms =====

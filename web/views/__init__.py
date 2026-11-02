@@ -798,21 +798,17 @@ def team_detail(request, team_id):
     else:
         bestball_starters_offense = league.bestball_starters_offense
         bestball_starters_defense = league.bestball_starters_defense
-        bestball_starters_goalie = league.bestball_starters_goalie
         for score, slot in offense_scores[:bestball_starters_offense]:
             slot["counts_for_total"][week_idx] = True
             slot["selected_week_counts"] = True
         
-        for score, slot in defense_scores[:bestball_starters_defense]:
-            slot["counts_for_total"][week_idx] = True
-            slot["selected_week_counts"] = True
-        
-        for score, slot in goalie_scores[:bestball_starters_goalie]:
+        defense_and_goalie_scores = sorted(defense_scores + goalie_scores, key=lambda x: x[0], reverse=True)
+        for score, slot in defense_and_goalie_scores[:bestball_starters_defense]:
             slot["counts_for_total"][week_idx] = True
             slot["selected_week_counts"] = True
         
         # Calculate total for selected week only
-        selected_week_total = sum(x[0] for x in offense_scores[:bestball_starters_offense]) + sum(x[0] for x in defense_scores[:bestball_starters_defense]) + sum(x[0] for x in goalie_scores[:bestball_starters_goalie])
+        selected_week_total = sum(x[0] for x in offense_scores[:bestball_starters_offense]) + sum(x[0] for x in defense_and_goalie_scores[:bestball_starters_defense])
     
     # Calculate overall total across all weeks (for the Total column)
     overall_total = 0
@@ -845,7 +841,8 @@ def team_detail(request, team_id):
             defense_scores_all.sort(reverse=True)
             goalie_scores_all.sort(reverse=True)
             
-            week_total_all = sum(offense_scores_all[:bestball_starters_offense]) + sum(defense_scores_all[:bestball_starters_defense]) + sum(goalie_scores_all[:bestball_starters_goalie])
+            defense_and_goalie_scores_all = sorted(defense_scores_all + goalie_scores_all, reverse=True)
+            week_total_all = sum(offense_scores_all[:bestball_starters_offense]) + sum(defense_and_goalie_scores_all[:bestball_starters_defense])
         
         overall_total += week_total_all
 
@@ -3737,12 +3734,11 @@ def matchups(request):
             # Mark top scorers
             for score, slot in offense_scores[:league.bestball_starters_offense]:
                 slot['counts_for_total'] = True
-            for score, slot in defense_scores[:league.bestball_starters_defense]:
-                slot['counts_for_total'] = True
-            for score, slot in goalie_scores[:league.bestball_starters_goalie]:
+            for score, slot in sorted(defense_scores + goalie_scores, key=lambda x: x[0], reverse=True)[:league.bestball_starters_defense]:
                 slot['counts_for_total'] = True
             
-            week_total = sum(x[0] for x in offense_scores[:league.bestball_starters_offense]) + sum(x[0] for x in defense_scores[:league.bestball_starters_defense]) + sum(x[0] for x in goalie_scores[:league.bestball_starters_goalie])
+            defense_and_goalie_scores = sorted(defense_scores + goalie_scores, key=lambda x: x[0], reverse=True)
+            week_total = sum(x[0] for x in offense_scores[:league.bestball_starters_offense]) + sum(x[0] for x in defense_and_goalie_scores[:league.bestball_starters_defense])
         
         team_rosters[team.id] = {
             "offence_slots": offence_slots,
@@ -3807,7 +3803,7 @@ def matchups(request):
             defense_scores = sorted([e["fantasy_points"] for e in players_by_position["D"] if e["fantasy_points"] is not None], reverse=True)
             goalie_scores = sorted([e["fantasy_points"] for e in players_by_position["G"] if e["fantasy_points"] is not None], reverse=True)
             
-            total = sum(offense_scores[:league.bestball_starters_offense]) + sum(defense_scores[:league.bestball_starters_defense]) + sum(goalie_scores[:league.bestball_starters_goalie])
+            total = sum(offense_scores[:league.bestball_starters_offense]) + sum(sorted(defense_scores + goalie_scores, reverse=True)[:league.bestball_starters_defense])
         
         return total
     
@@ -4181,7 +4177,7 @@ def standings(request):
                     defense_scores = sorted([e["fantasy_points"] for e in players_by_position["D"] if e["fantasy_points"] is not None], reverse=True)
                     goalie_scores = sorted([e["fantasy_points"] for e in players_by_position["G"] if e["fantasy_points"] is not None], reverse=True)
                     
-                    total = sum(offense_scores[:league.bestball_starters_offense]) + sum(defense_scores[:league.bestball_starters_defense]) + sum(goalie_scores[:league.bestball_starters_goalie])
+                    total = sum(offense_scores[:league.bestball_starters_offense]) + sum(sorted(defense_scores + goalie_scores, reverse=True)[:league.bestball_starters_defense])
                 
                 return total
             
