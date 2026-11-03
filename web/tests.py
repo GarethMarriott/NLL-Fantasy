@@ -160,3 +160,29 @@ class ChatViewTests(TestCase):
 		})
 
 		self.assertContains(response, current_team.name)
+
+	def test_legacy_team_chat_can_be_opened_and_sent(self):
+		user = get_user_model().objects.create_user(username="legacy-chat-user", password="test-password")
+		other_user = get_user_model().objects.create_user(username="legacy-chat-other", password="test-password")
+		league = League.objects.create(name="Legacy Chat League", commissioner=user, season=2027)
+		user_team = Team.objects.create(name="Legacy User Team", league=league)
+		other_team = Team.objects.create(name="Legacy Other Team", league=league)
+		FantasyTeamOwner.objects.create(user=user, team=user_team)
+		FantasyTeamOwner.objects.create(user=other_user, team=other_team)
+		self.client.force_login(user)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.get(reverse("chat"), {
+			"chat_type": "team",
+			"team_chat_id": other_team.id,
+		})
+		self.assertContains(response, other_team.name)
+
+		response = self.client.post(reverse("chat_post"), {
+			"chat_type": "team",
+			"team_chat_id": other_team.id,
+			"message": "Legacy private chat works",
+		})
+		self.assertTrue(response.json()["success"])

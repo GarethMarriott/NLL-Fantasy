@@ -4323,6 +4323,27 @@ def logout_view(request):
 
 # ============ CHAT VIEWS ============
 
+def get_chat_team(league, team_id):
+    """Return a league's current-season team, or its legacy unseasoned team."""
+    current_teams = Team.objects.filter(league=league, season_year=league.season)
+    team = current_teams.filter(id=team_id).first()
+    if team:
+        return team
+
+    legacy_teams = Team.objects.filter(league=league, season_year__isnull=True)
+    team = legacy_teams.filter(id=team_id).first()
+    if team:
+        return team
+
+    previous_team = Team.objects.filter(id=team_id, league=league).only('name').first()
+    if not previous_team:
+        return None
+
+    return current_teams.filter(name=previous_team.name).first() or legacy_teams.filter(
+        name=previous_team.name
+    ).first()
+
+
 @login_required
 def chat_view(request):
     """Display chat with option to view league chat or team chats"""
@@ -4387,22 +4408,7 @@ def chat_view(request):
     
     elif chat_type == 'team' and team_chat_id and user_team:
         # Display team-to-team chat
-        other_team = Team.objects.filter(
-            id=team_chat_id,
-            league=selected_league,
-            season_year=selected_league.season,
-        ).first()
-        if not other_team:
-            previous_team = Team.objects.filter(
-                id=team_chat_id,
-                league=selected_league,
-            ).only('name').first()
-            if previous_team:
-                other_team = Team.objects.filter(
-                    league=selected_league,
-                    season_year=selected_league.season,
-                    name=previous_team.name,
-                ).first()
+        other_team = get_chat_team(selected_league, team_chat_id)
         if not other_team:
             messages.warning(request, "That team chat is no longer available for this season.")
             return redirect('chat')
@@ -4535,13 +4541,10 @@ def chat_post_message(request):
         )
     elif chat_type == 'team' and team_chat_id:
         # Team-to-team chat
-        other_team_id = int(team_chat_id)
-        other_team = get_object_or_404(
-            Team,
-            id=other_team_id,
-            league=league,
-            season_year=league.season,
-        )
+        other_team = get_chat_team(league, team_chat_id)
+        if not other_team:
+            return JsonResponse({"error": "Team chat is not available"}, status=404)
+        other_team_id = other_team.id
         
         # Create message using the helper function
         post_team_chat_message(
@@ -4644,9 +4647,21 @@ def chat_get_messages(request):
             team__league_id=selected_league_id,
             team__season_year=selected_league_season,
         ).select_related('team').first()
+        if not user_team:
+            user_team = FantasyTeamOwner.objects.filter(
+                user=request.user,
+                team__league_id=selected_league_id,
+                team__season_year__isnull=True,
+            ).select_related('team').first()
         
         if user_team:
-            other_team_id = int(team_chat_id)
+            other_team = get_chat_team(
+                League.objects.get(id=selected_league_id),
+                team_chat_id,
+            )
+            if not other_team:
+                return JsonResponse({"messages": []})
+            other_team_id = other_team.id
             team1_id = min(user_team.team.id, other_team_id)
             team2_id = max(user_team.team.id, other_team_id)
             
