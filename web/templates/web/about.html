@@ -10,17 +10,6 @@
     time—helping fans get more involved, grow the game of lacrosse, and bring new fans to the NLL.
   </p>
 
-  <aside class="border-l-4 border-blue-600 bg-blue-50 dark:bg-blue-950/40 rounded-lg p-5 mb-8" aria-labelledby="pro-tip-heading">
-    <h2 id="pro-tip-heading" class="text-base font-bold text-blue-950 dark:text-blue-100 mb-2">💡 Pro Tip</h2>
-    <p class="text-base leading-relaxed text-gray-800 dark:text-gray-100">
-      We recommend a league size of <strong class="font-bold text-gray-950 dark:text-white">8 teams</strong> to ensure every
-      manager has access to quality goalies. With only 14 NLL teams total, larger leagues may face goalie
-      scarcity. As league commissioner, you can customize roster sizes and league settings to match your
-      league's preferences.
-    </p>
-  </aside>
-  </div>
-
   <!-- Scoring Dropdown -->
   <section class="mb-8">
     <button onclick="toggleDropdown('scoring')" class="flex items-center w-full p-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors">
@@ -125,6 +114,24 @@
           choosing who plays each week.
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Player Management Dropdown -->
+  <section class="mb-8">
+    <button onclick="toggleDropdown('player-management')" class="flex items-center w-full p-4 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold transition-colors">
+      <span>Player Management</span>
+      <span id="player-management-arrow" class="ml-auto">▼</span>
+    </button>
+    <div id="player-management" class="hidden bg-gray-50 dark:bg-gray-800 p-5 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Player Positions</h3>
+      <p class="text-gray-700 dark:text-gray-300 mb-4">
+        Players are grouped as Offence, Defence, Transition, or Goalie. Teams use Offence and Defence starting slots.
+      </p>
+      <ul class="space-y-3 text-gray-700 dark:text-gray-300">
+        <li><strong class="text-gray-900 dark:text-gray-100">Transition players:</strong> Eligible to start in either an Offence or Defence slot.</li>
+        <li><strong class="text-gray-900 dark:text-gray-100">Goalies:</strong> Included in the Defence position group and eligible for Defence slots, reflecting the limited number of NLL teams.</li>
+      </ul>
     </div>
   </section>
 
