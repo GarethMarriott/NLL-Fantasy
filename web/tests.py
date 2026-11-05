@@ -186,3 +186,24 @@ class ChatViewTests(TestCase):
 			"message": "Legacy private chat works",
 		})
 		self.assertTrue(response.json()["success"])
+
+
+class LeagueAutoSelectionTests(TestCase):
+	def setUp(self):
+		self.user = get_user_model().objects.create_user(username="matchups-user", password="test-password")
+		self.league = League.objects.create(name="Auto Select League", commissioner=self.user)
+		team = Team.objects.create(name="Auto Select Team", league=self.league, season_year=self.league.season)
+		FantasyTeamOwner.objects.create(user=self.user, team=team)
+		self.client.force_login(self.user)
+
+	def test_matchups_auto_selects_the_users_league(self):
+		response = self.client.get(reverse("matchups"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(self.client.session["selected_league_id"], self.league.id)
+
+	def test_standings_auto_selects_the_users_league(self):
+		response = self.client.get(reverse("standings"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(self.client.session["selected_league_id"], self.league.id)

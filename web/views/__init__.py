@@ -3390,7 +3390,7 @@ def matchups(request):
     
     if not selected_league_id and request.user.is_authenticated:
         # Auto-select first league user is part of if none selected
-        user_leagues = Team.objects.filter(owner=request.user)
+        user_leagues = Team.objects.filter(owner__user=request.user)
         if user_leagues.exists():
             selected_league_id = user_leagues.first().league.id
             request.session['selected_league_id'] = selected_league_id
@@ -3946,7 +3946,7 @@ def standings(request):
     
     if not selected_league_id and request.user.is_authenticated:
         # Auto-select first league user is part of if none selected
-        user_leagues = Team.objects.filter(owner=request.user)
+        user_leagues = Team.objects.filter(owner__user=request.user)
         if user_leagues.exists():
             selected_league_id = user_leagues.first().league.id
             request.session['selected_league_id'] = selected_league_id
