@@ -307,6 +307,14 @@ class League(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} (by {self.commissioner.username})"
+
+    @property
+    def active_team_count(self):
+        """Count teams participating in the league's current season."""
+        current_count = self.teams.filter(season_year=self.season).count()
+        if current_count:
+            return current_count
+        return self.teams.filter(season_year__isnull=True).count()
     
     def get_playoff_start_week(self):
         """Calculate the fantasy playoff start week for a Week 21 championship."""

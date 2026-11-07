@@ -207,3 +207,19 @@ class LeagueAutoSelectionTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(self.client.session["selected_league_id"], self.league.id)
+
+
+class LeagueTeamCountTests(TestCase):
+	def test_my_leagues_counts_only_the_current_season_teams(self):
+		user = get_user_model().objects.create_user(username="league-count-user", password="test-password")
+		league = League.objects.create(name="Rollover League", commissioner=user, max_teams=6, season=2027)
+		for season_year in (2026, 2027):
+			for number in range(1, 7):
+				Team.objects.create(name=f"Team {number}", league=league, season_year=season_year)
+		self.client.force_login(user)
+
+		response = self.client.get(reverse("league_list"))
+
+		self.assertEqual(league.active_team_count, 6)
+		self.assertContains(response, "6/6 teams")
+		self.assertNotContains(response, "12/6 teams")
