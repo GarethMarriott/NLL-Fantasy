@@ -31,7 +31,6 @@
         <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Home</a>
         
         {% if selected_league %}
-          <span class="mx-1.5 sm:mx-6 text-sm font-semibold text-blue-700 dark:text-blue-300">{{ selected_league.name }}</span>
           <a href="{% url 'players' %}" class="{% if request.resolver_match.url_name == 'players' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">players</a>
           <a href="{% url 'matchups' %}" class="{% if request.resolver_match.url_name == 'matchups' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">matchups</a>
           <a href="{% url 'standings' %}" class="{% if request.resolver_match.url_name == 'standings' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">standings</a>
@@ -264,12 +263,11 @@
     <!-- Main Content -->
     <main class="flex-1 w-full lg:w-auto p-6 overflow-x-hidden">
       {% if selected_league %}
-        <section class="mb-6 border-l-4 border-blue-600 bg-blue-50 px-5 py-4 dark:bg-blue-950/40">
+        <section class="mb-3 border-l-4 border-blue-600 bg-blue-50 px-4 py-2 dark:bg-blue-950/40">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p class="text-xs font-semibold uppercase text-blue-700 dark:text-blue-300">Viewing League</p>
-              <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ selected_league.name }}</h1>
-              <p class="text-sm text-gray-600 dark:text-gray-300">{{ selected_league.season }} season</p>
+              <h1 class="text-xl font-bold text-gray-900 dark:text-white">{{ selected_league.name }}</h1>
             </div>
             <a href="{% url 'home' %}" class="px-4 py-2 text-sm font-semibold text-blue-700 hover:text-blue-900 dark:text-blue-300">Exit to Home</a>
           </div>
