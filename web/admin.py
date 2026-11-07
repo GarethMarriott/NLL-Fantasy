@@ -350,7 +350,7 @@ class LeagueAdmin(admin.ModelAdmin):
     )
     
     def team_count(self, obj):
-        return obj.teams.count()
+        return obj.active_team_count
     team_count.short_description = "Teams"
 
 
