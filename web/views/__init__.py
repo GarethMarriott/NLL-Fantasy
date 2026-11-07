@@ -257,38 +257,11 @@ def my_team(request):
 
 
 def home(request):
-    # Redirect to team detail page if user has a selected league
+    """Display the level-one Home workspace without an active league."""
     if request.user.is_authenticated:
-        selected_league_id = request.session.get('selected_league_id')
-        
-        # Auto-select league if user has exactly one
-        if not selected_league_id:
-            user_leagues = FantasyTeamOwner.objects.filter(user=request.user).select_related('team__league')
-            if user_leagues.values('team__league_id').distinct().count() == 1:
-                selected_league_id = user_leagues.first().team.league.id
-                request.session['selected_league_id'] = selected_league_id
-        
-        if selected_league_id:
-            league = League.objects.filter(pk=selected_league_id).first()
-            owner = None
-            if league:
-                owner = FantasyTeamOwner.objects.select_related('team').filter(
-                    user=request.user,
-                    team__league=league,
-                    team__season_year=league.season,
-                ).first()
-                if not owner:
-                    owner = FantasyTeamOwner.objects.select_related('team').filter(
-                        user=request.user,
-                        team__league=league,
-                        team__season_year__isnull=True,
-                    ).first()
+        request.session.pop('selected_league_id', None)
+        return redirect('league_list')
 
-            if owner:
-                # Redirect to team detail page
-                return redirect('team_detail', team_id=owner.team.id)
-    
-    # If not authenticated or no team, show the about page
     return render(request, "web/about.html", {})
 
 
@@ -4732,6 +4705,7 @@ def register_view(request):
 @login_required
 def league_list(request):
     """List all active leagues and user's leagues (including archived) with search functionality"""
+    request.session.pop('selected_league_id', None)
     search_query = request.GET.get('search', '').strip()
     search_type = request.GET.get('search_type', 'name')
     
@@ -4918,7 +4892,7 @@ def select_league(request, league_id):
     """Set the selected league in session"""
     league = get_object_or_404(League, id=league_id)
     request.session['selected_league_id'] = league_id
-    return redirect('home')
+    return redirect('my_team')
 
 
 @login_required

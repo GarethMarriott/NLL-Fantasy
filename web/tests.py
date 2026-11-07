@@ -65,6 +65,41 @@ class DynastyStartupDraftTests(TestCase):
 		self.assertEqual(draft.total_rounds, league.roster_size)
 
 
+class LeagueNavigationTests(TestCase):
+	def setUp(self):
+		self.user = get_user_model().objects.create_user(username="navigation-user", password="test-password")
+		self.league = League.objects.create(name="Navigation League", commissioner=self.user)
+		team = Team.objects.create(name="Navigation Team", league=self.league, season_year=self.league.season)
+		FantasyTeamOwner.objects.create(user=self.user, team=team)
+		self.client.force_login(self.user)
+
+	def test_home_exits_the_selected_league(self):
+		session = self.client.session
+		session["selected_league_id"] = self.league.id
+		session.save()
+
+		response = self.client.get(reverse("home"))
+
+		self.assertRedirects(response, reverse("league_list"))
+		self.assertNotIn("selected_league_id", self.client.session)
+
+	def test_league_list_exits_the_selected_league(self):
+		session = self.client.session
+		session["selected_league_id"] = self.league.id
+		session.save()
+
+		response = self.client.get(reverse("league_list"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotIn("selected_league_id", self.client.session)
+
+	def test_selecting_a_league_enters_its_team_view(self):
+		response = self.client.get(reverse("select_league", args=[self.league.id]))
+
+		self.assertRedirects(response, reverse("my_team"), fetch_redirect_response=False)
+		self.assertEqual(self.client.session["selected_league_id"], self.league.id)
+
+
 class DraftHistoryTests(TestCase):
 	def setUp(self):
 		self.user = get_user_model().objects.create_user(username="history-user", password="test-password")

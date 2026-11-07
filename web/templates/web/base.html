@@ -28,14 +28,15 @@
         </div>
         
         <div class="flex items-center justify-center pl-12 lg:pl-0">
-        <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">{% if user_has_league %}team{% else %}home{% endif %}</a>
+        <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Home</a>
         
-        <a href="{% url 'players' %}" class="{% if request.resolver_match.url_name == 'players' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">players</a>
-        
-        {% if user_has_league %}
+        {% if selected_league %}
+          <span class="mx-1.5 sm:mx-6 text-sm font-semibold text-blue-700 dark:text-blue-300">{{ selected_league.name }}</span>
+          <a href="{% url 'players' %}" class="{% if request.resolver_match.url_name == 'players' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">players</a>
           <a href="{% url 'matchups' %}" class="{% if request.resolver_match.url_name == 'matchups' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">matchups</a>
-          
           <a href="{% url 'standings' %}" class="{% if request.resolver_match.url_name == 'standings' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">standings</a>
+        {% else %}
+          <a href="{% url 'nll_schedule' %}" class="{% if request.resolver_match.url_name == 'nll_schedule' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">NLL Schedule</a>
         {% endif %}
         
         {% if not user.is_authenticated %}
@@ -83,7 +84,7 @@
         </div>
         <div class="divide-y dark:divide-gray-300">
           <ul class="pt-2 pb-4 space-y-1 text-sm">
-            {% if user.is_authenticated %}
+            {% if user.is_authenticated and not selected_league %}
               <li class="dark:bg-gray-100 dark:text-gray-900">
                 <a rel="noopener noreferrer" href="{% url 'league_list' %}" class="flex items-center p-2 space-x-3 rounded-md">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
@@ -92,7 +93,7 @@
                   <span>My Leagues</span>
                 </a>
               </li>
-              {% if sidebar_owners %}
+              {% if sidebar_owners and not selected_league %}
                 <li class="pl-8">
                   <ul class="space-y-1 text-xs">
                     {% for owner in sidebar_owners %}
@@ -131,6 +132,7 @@
                 </a>
               </li>
             {% endif %}
+            {% if not selected_league %}
             <li>
               <a rel="noopener noreferrer" href="{% url 'players' %}" class="flex items-center p-2 space-x-3 rounded-md">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
@@ -155,7 +157,14 @@
                 <span>NLL Transactions</span>
               </a>
             </li>
-            {% if user_has_league %}
+            {% endif %}
+            {% if selected_league %}
+              <li>
+                <a rel="noopener noreferrer" href="{% url 'my_team' %}" class="flex items-center p-2 space-x-3 rounded-md">
+                  <span class="w-5 text-center">T</span>
+                  <span>My Team</span>
+                </a>
+              </li>
               <li>
                 <a rel="noopener noreferrer" href="{% url 'chat' %}" class="flex items-center p-2 space-x-3 rounded-md">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
@@ -182,7 +191,7 @@
           </ul>
           <ul class="pt-4 pb-2 space-y-1 text-sm">
             {% if user.is_authenticated %}
-              {% if selected_league or sidebar_owners %}
+              {% if selected_league %}
                 <li>
                   {% if selected_league %}
                     <a rel="noopener noreferrer" href="{% url 'league_settings' selected_league.id %}" class="flex items-center p-2 space-x-3 rounded-md">
@@ -203,7 +212,7 @@
                   {% endif %}
                 </li>
               {% endif %}
-              {% if sidebar_owners and active_team %}
+              {% if selected_league and active_team %}
                 <li>
                   <a rel="noopener noreferrer" href="{% url 'team_settings' active_team.id %}" class="flex items-center p-2 space-x-3 rounded-md">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
@@ -251,7 +260,18 @@
 
     <!-- Main Content -->
     <main class="flex-1 w-full lg:w-auto p-6 overflow-x-hidden">
-      
+      {% if selected_league %}
+        <section class="mb-6 border-l-4 border-blue-600 bg-blue-50 px-5 py-4 dark:bg-blue-950/40">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase text-blue-700 dark:text-blue-300">Viewing League</p>
+              <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ selected_league.name }}</h1>
+              <p class="text-sm text-gray-600 dark:text-gray-300">{{ selected_league.season }} season</p>
+            </div>
+            <a href="{% url 'home' %}" class="px-4 py-2 text-sm font-semibold text-blue-700 hover:text-blue-900 dark:text-blue-300">Exit to Home</a>
+          </div>
+        </section>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>
