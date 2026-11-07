@@ -36,6 +36,9 @@
           <a href="{% url 'matchups' %}" class="{% if request.resolver_match.url_name == 'matchups' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">matchups</a>
           <a href="{% url 'standings' %}" class="{% if request.resolver_match.url_name == 'standings' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">standings</a>
         {% else %}
+          {% if user.is_authenticated %}
+            <a href="{% url 'league_list' %}" class="{% if request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Leagues</a>
+          {% endif %}
           <a href="{% url 'nll_schedule' %}" class="{% if request.resolver_match.url_name == 'nll_schedule' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">NLL Schedule</a>
         {% endif %}
         

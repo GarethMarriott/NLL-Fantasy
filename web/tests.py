@@ -80,7 +80,8 @@ class LeagueNavigationTests(TestCase):
 
 		response = self.client.get(reverse("home"))
 
-		self.assertRedirects(response, reverse("league_list"))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Welcome to NLL Fantasy")
 		self.assertNotIn("selected_league_id", self.client.session)
 
 	def test_league_list_exits_the_selected_league(self):
@@ -92,6 +93,7 @@ class LeagueNavigationTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertNotIn("selected_league_id", self.client.session)
+		self.assertContains(response, reverse("select_league", args=[self.league.id]))
 
 	def test_selecting_a_league_enters_its_team_view(self):
 		response = self.client.get(reverse("select_league", args=[self.league.id]))

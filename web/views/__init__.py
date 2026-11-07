@@ -257,10 +257,9 @@ def my_team(request):
 
 
 def home(request):
-    """Display the level-one Home workspace without an active league."""
+    """Display the level-one Home page without an active league."""
     if request.user.is_authenticated:
         request.session.pop('selected_league_id', None)
-        return redirect('league_list')
 
     return render(request, "web/about.html", {})
 
