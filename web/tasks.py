@@ -983,8 +983,17 @@ def create_future_rookie_picks(league_id, team=None, years_ahead=5, num_rounds=N
         if not getattr(league, 'use_future_rookie_picks', True):
             return False, "Future rookie picks feature is disabled for this league", 0
         
-        # Get all teams in the league
-        all_teams = list(league.teams.all())
+        # Future picks belong to the league's current-season teams. Legacy teams
+        # remain for historical records but must not receive new pick assets.
+        all_teams = list(Team.objects.filter(
+            league=league,
+            season_year=league.season,
+        ).order_by('id'))
+        if not all_teams:
+            all_teams = list(Team.objects.filter(
+                league=league,
+                season_year__isnull=True,
+            ).order_by('id'))
         if not all_teams:
             return False, "No teams in league", 0
         
@@ -1007,13 +1016,22 @@ def create_future_rookie_picks(league_id, team=None, years_ahead=5, num_rounds=N
             # Calculate draft order based on standings from previous year
             standings_order = _calculate_draft_order_from_standings(league, future_year - 1)
             
-            # If no standings data (first year of league), use team ID order
-            if not standings_order:
-                standings_order = list(league.teams.all().order_by('id'))
+            # Map prior-season standings to the current teams by name, then add
+            # teams that did not participate in the prior season.
+            current_teams_by_name = {team.name: team for team in all_teams}
+            draft_order_teams = []
+            if standings_order:
+                for historical_team in standings_order:
+                    current_team = current_teams_by_name.get(historical_team.name)
+                    if current_team and current_team not in draft_order_teams:
+                        draft_order_teams.append(current_team)
+            draft_order_teams.extend(
+                team for team in all_teams if team not in draft_order_teams
+            )
             
             # Create picks for each round using standings order
             for round_num in range(1, num_rounds + 1):
-                for pick_in_round, team_obj in enumerate(standings_order, 1):
+                for pick_in_round, team_obj in enumerate(draft_order_teams, 1):
                     # Create the future pick with standings-based order
                     frp, created = FutureRookiePick.objects.get_or_create(
                         league=league,

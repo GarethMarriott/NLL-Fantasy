@@ -3,8 +3,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .draft_history import archive_draft, archive_rookie_draft
-from .models import ChatMessage, Draft, DraftHistory, DraftPick, FantasyTeamOwner, League, Player, RookieDraft, RookieDraftPick, Team
-from .tasks import create_rookie_draft
+from .models import ChatMessage, Draft, DraftHistory, DraftPick, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Team
+from .tasks import create_future_rookie_picks, create_rookie_draft
 
 
 class DynastyStartupDraftTests(TestCase):
@@ -181,6 +181,26 @@ class DraftRoomTests(TestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Rookie Draft Room")
+
+
+class FutureRookiePickTests(TestCase):
+	def test_future_picks_exclude_legacy_teams(self):
+		user = get_user_model().objects.create_user(username="future-pick-user", password="test-password")
+		league = League.objects.create(
+			name="Future Pick League",
+			commissioner=user,
+			league_type="dynasty",
+			season=2027,
+			startup_draft_completed=True,
+		)
+		Team.objects.create(name="Legacy Team", league=league)
+		current_team = Team.objects.create(name="Current Team", league=league, season_year=2027)
+
+		success, _, _ = create_future_rookie_picks(league.id, years_ahead=1, num_rounds=1)
+
+		self.assertTrue(success)
+		self.assertEqual(FutureRookiePick.objects.filter(league=league).count(), 1)
+		self.assertEqual(FutureRookiePick.objects.get(league=league).team, current_team)
 
 
 class ChatViewTests(TestCase):

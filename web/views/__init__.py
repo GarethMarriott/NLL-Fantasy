@@ -5598,7 +5598,10 @@ def draft_room(request):
     future_picks_by_year = {}
     if getattr(league, 'use_future_rookie_picks', False):
         from ..models import FutureRookiePick
-        future_picks = FutureRookiePick.objects.filter(league=league).select_related(
+        future_picks = FutureRookiePick.objects.filter(
+            league=league,
+            team__in=teams,
+        ).select_related(
             'team', 'original_owner'
         ).order_by('year', 'round_number', 'pick_number')
         
