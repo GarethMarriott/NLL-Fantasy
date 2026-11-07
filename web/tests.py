@@ -258,3 +258,19 @@ class LeagueTeamCountTests(TestCase):
 		self.assertEqual(league.active_team_count, 6)
 		self.assertContains(response, "6/6 teams")
 		self.assertNotContains(response, "12/6 teams")
+
+
+class LeagueJoinTests(TestCase):
+	def test_joining_after_a_rollover_uses_current_season_capacity(self):
+		commissioner = get_user_model().objects.create_user(username="join-commissioner", password="test-password")
+		user = get_user_model().objects.create_user(username="joining-user", password="test-password")
+		league = League.objects.create(name="Open Rollover League", commissioner=commissioner, max_teams=6, season=2027)
+		for number in range(1, 7):
+			Team.objects.create(name=f"Previous Team {number}", league=league, season_year=2026)
+		self.client.force_login(user)
+
+		response = self.client.post(reverse("team_create", args=[league.id]), {"name": "New Season Team"})
+
+		self.assertRedirects(response, reverse("league_detail", args=[league.id]))
+		self.assertTrue(FantasyTeamOwner.objects.filter(user=user, team__name="New Season Team").exists())
+		self.assertTrue(Team.objects.filter(name="New Season Team", league=league, season_year=2027).exists())

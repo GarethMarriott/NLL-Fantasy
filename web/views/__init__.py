@@ -4835,7 +4835,7 @@ def team_create(request, league_id):
         return redirect("league_detail", league_id=league.id)
     
     # Check if league is full
-    current_team_count = league.teams.count()
+    current_team_count = league.active_team_count
     if current_team_count >= league.max_teams:
         messages.error(request, "This league is full.")
         return redirect("league_detail", league_id=league.id)
@@ -4848,7 +4848,9 @@ def team_create(request, league_id):
     if request.method == "POST":
         form = TeamCreateForm(request.POST, league=league)
         if form.is_valid():
-            team = form.save()
+            team = form.save(commit=False)
+            team.season_year = league.season
+            team.save()
             
             # Create FantasyTeamOwner to link user to team
             FantasyTeamOwner.objects.create(user=request.user, team=team)
