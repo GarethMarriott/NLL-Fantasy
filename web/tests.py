@@ -278,3 +278,4 @@ class LeagueJoinTests(TestCase):
 		self.assertRedirects(response, reverse("league_detail", args=[league.id]))
 		self.assertTrue(FantasyTeamOwner.objects.filter(user=user, team__name="New Season Team").exists())
 		self.assertTrue(Team.objects.filter(name="New Season Team", league=league, season_year=2027).exists())
+		self.assertEqual(self.client.session["selected_league_id"], league.id)

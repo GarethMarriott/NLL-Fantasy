@@ -4854,6 +4854,7 @@ def team_create(request, league_id):
             
             # Create FantasyTeamOwner to link user to team
             FantasyTeamOwner.objects.create(user=request.user, team=team)
+            request.session['selected_league_id'] = league.id
             
             # For dynasty leagues with taxi squad enabled, create taxi squad slots
             if hasattr(league, 'league_type') and league.league_type == 'dynasty':
