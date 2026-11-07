@@ -279,3 +279,36 @@ class LeagueJoinTests(TestCase):
 		self.assertTrue(FantasyTeamOwner.objects.filter(user=user, team__name="New Season Team").exists())
 		self.assertTrue(Team.objects.filter(name="New Season Team", league=league, season_year=2027).exists())
 		self.assertEqual(self.client.session["selected_league_id"], league.id)
+
+
+class LeaveLeagueTests(TestCase):
+	def setUp(self):
+		self.commissioner = get_user_model().objects.create_user(username="leave-commissioner", password="test-password")
+		self.user = get_user_model().objects.create_user(username="leaving-user", password="test-password")
+		self.league = League.objects.create(name="Leave League", commissioner=self.commissioner)
+		self.team = Team.objects.create(name="Leaving Team", league=self.league, season_year=self.league.season)
+		FantasyTeamOwner.objects.create(user=self.user, team=self.team)
+		self.client.force_login(self.user)
+
+	def test_member_can_leave_and_returns_to_home(self):
+		session = self.client.session
+		session["selected_league_id"] = self.league.id
+		session.save()
+
+		response = self.client.post(reverse("leave_league", args=[self.league.id]))
+
+		self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
+		self.assertFalse(Team.objects.filter(id=self.team.id).exists())
+		self.assertNotIn("selected_league_id", self.client.session)
+
+	def test_commissioner_cannot_leave(self):
+		commissioner_team = Team.objects.create(
+			name="Commissioner Team", league=self.league, season_year=self.league.season,
+		)
+		FantasyTeamOwner.objects.create(user=self.commissioner, team=commissioner_team)
+		self.client.force_login(self.commissioner)
+
+		response = self.client.post(reverse("leave_league", args=[self.league.id]))
+
+		self.assertRedirects(response, reverse("league_settings_section", args=[self.league.id, "operations"]))
+		self.assertTrue(Team.objects.filter(id=commissioner_team.id).exists())

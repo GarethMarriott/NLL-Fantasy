@@ -5033,6 +5033,32 @@ def remove_team_from_league(request, league_id, team_id):
 
 
 @login_required
+def leave_league(request, league_id):
+    """Remove the current user's active team from a league."""
+    league = get_object_or_404(League, id=league_id)
+    if request.method != "POST":
+        return redirect("league_settings_section", league_id=league.id, section="operations")
+
+    if league.commissioner == request.user:
+        messages.error(request, "Transfer the commissioner role before leaving this league.")
+        return redirect("league_settings_section", league_id=league.id, section="operations")
+
+    teams = Team.objects.filter(league=league, season_year=league.season)
+    if not teams.exists():
+        teams = Team.objects.filter(league=league, season_year__isnull=True)
+    team = teams.filter(owner__user=request.user).first()
+    if not team:
+        messages.error(request, "You do not have an active team in this league.")
+        return redirect("home")
+
+    team_name = team.name
+    team.delete()
+    request.session.pop("selected_league_id", None)
+    messages.success(request, f"You left {league.name}. Team '{team_name}' was removed.")
+    return redirect("home")
+
+
+@login_required
 def renew_league(request, league_id):
     """Renew a completed league for the next season with same settings and members"""
     league = get_object_or_404(League, id=league_id)
