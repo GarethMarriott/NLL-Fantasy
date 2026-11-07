@@ -13,7 +13,7 @@
 
   {% if not is_commissioner %}<div class="mb-5 p-3 text-sm text-amber-900 border border-amber-200 bg-amber-50 rounded-md">Read-only access. Only the commissioner can change these settings.</div>{% endif %}
 
-  <form method="post" class="bg-white border border-gray-200 rounded-md p-5 space-y-5">
+  <form id="league-settings-form" method="post" class="bg-white border border-gray-200 rounded-md p-5 space-y-5">
     {% csrf_token %}
     {% if section == 'general' %}
       <div class="grid gap-4 sm:grid-cols-2 text-sm"><div><span class="block text-xs text-gray-500">League Type</span><span class="font-medium">{{ league.get_league_type_display }}</span></div><div><span class="block text-xs text-gray-500">Roster Format</span><span class="font-medium">{{ league.get_roster_format_display }}</span></div></div>
@@ -65,5 +65,5 @@
     </section>
   {% endif %}
 </div>
-{% if not is_commissioner %}<script>document.querySelectorAll('form input, form select, form textarea').forEach(function (input) { input.disabled = true; });</script>{% endif %}
+{% if not is_commissioner %}<script>document.querySelectorAll('#league-settings-form input, #league-settings-form select, #league-settings-form textarea').forEach(function (input) { input.disabled = true; });</script>{% endif %}
 {% endblock %}
