@@ -160,6 +160,29 @@ class DraftHistoryTests(TestCase):
 		self.assertEqual(archive.total_rounds, 1)
 
 
+class DraftRoomTests(TestCase):
+	def test_rookie_draft_room_does_not_read_regular_draft_type(self):
+		user = get_user_model().objects.create_user(username="rookie-draft-user", password="test-password")
+		league = League.objects.create(
+			name="Rookie Draft League",
+			commissioner=user,
+			league_type="dynasty",
+			startup_draft_completed=True,
+		)
+		team = Team.objects.create(name="Rookie Draft Team", league=league, season_year=league.season)
+		FantasyTeamOwner.objects.create(user=user, team=team)
+		RookieDraft.objects.create(league=league, season_year=league.season)
+		self.client.force_login(user)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.get(reverse("draft_room"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Rookie Draft Room")
+
+
 class ChatViewTests(TestCase):
 	def test_chat_view_prefetches_sender_fantasy_teams(self):
 		user = get_user_model().objects.create_user(username="chat-user", password="test-password")

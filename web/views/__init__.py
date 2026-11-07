@@ -5611,7 +5611,7 @@ def draft_room(request):
         'league': league,
         'draft': draft,
         'is_rookie_draft': is_rookie_draft,
-        'is_startup_draft': draft and draft.draft_type == Draft.DraftType.STARTUP,
+        'is_startup_draft': not is_rookie_draft and draft and draft.draft_type == Draft.DraftType.STARTUP,
         'startup_draft_required': startup_draft_required,
         'draft_total_rounds': 2 if is_rookie_draft else (draft.total_rounds if draft else 0),
         'user_team': user_team,
