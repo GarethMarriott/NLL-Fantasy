@@ -269,6 +269,10 @@ class LeagueJoinTests(TestCase):
 			Team.objects.create(name=f"Previous Team {number}", league=league, season_year=2026)
 		self.client.force_login(user)
 
+		response = self.client.get(reverse("team_create", args=[league.id]))
+
+		self.assertContains(response, "Current Teams:</strong> 0/6")
+
 		response = self.client.post(reverse("team_create", args=[league.id]), {"name": "New Season Team"})
 
 		self.assertRedirects(response, reverse("league_detail", args=[league.id]))
