@@ -5583,15 +5583,14 @@ def draft_room(request):
                 'picks': round_picks
             })
     
-    # Get user's draft picks so far
+    # Show each user their complete personal board, including future picks.
     user_picks = []
     if draft and user_team:
         draft_pick_model = RookieDraftPick if is_rookie_draft else DraftPick
         user_picks = draft_pick_model.objects.filter(
             draft=draft,
             team=user_team,
-            player__isnull=False
-        ).select_related('player').order_by('round', 'pick_number')
+        ).select_related('player').order_by('overall_pick')
     
     # Get future picks organized by year
     future_picks_by_year = {}
@@ -5844,6 +5843,7 @@ def reorder_draft_picks(request):
 
 @login_required
 @require_POST
+@transaction.atomic
 def make_draft_pick(request, draft_id):
     """Make a draft pick (handles both regular and rookie drafts)"""
     # First try to get as a regular draft, then as a rookie draft
@@ -5860,6 +5860,13 @@ def make_draft_pick(request, draft_id):
         except RookieDraft.DoesNotExist:
             messages.error(request, "Draft not found.")
             return redirect('draft_room')
+
+    # Lock the draft row so simultaneous requests cannot claim the same turn.
+    if is_rookie_draft:
+        from ..models import RookieDraft
+        draft = RookieDraft.objects.select_for_update().get(id=draft.id)
+    else:
+        draft = Draft.objects.select_for_update().get(id=draft.id)
     
     # Check if draft is active
     if not draft.is_active or draft.completed:
@@ -5925,7 +5932,9 @@ def make_draft_pick(request, draft_id):
         current_pick = RookieDraftPick.objects.filter(
             draft=draft,
             round=draft.current_round,
-            team=user_team
+            pick_number=draft.current_pick,
+            team=current_team,
+            player__isnull=True,
         ).first()
         
         if not current_pick:
@@ -5951,7 +5960,9 @@ def make_draft_pick(request, draft_id):
         current_pick = DraftPick.objects.filter(
             draft=draft,
             round=draft.current_round,
-            team=user_team
+            pick_number=draft.current_pick,
+            team=current_team,
+            player__isnull=True,
         ).first()
         
         if not current_pick:

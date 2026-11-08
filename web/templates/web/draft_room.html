@@ -328,9 +328,9 @@
               {% for pick_data in round_data.picks %}
                 <div class="p-2
                   {% if pick_data.pick.player %}bg-gray-50
-                  {% elif current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round %}bg-yellow-100 border border-yellow-300
+                  {% elif current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round and draft.current_pick == pick_data.position %}bg-yellow-100 border border-yellow-300
                   {% else %}bg-white border border-gray-200{% endif %} rounded"
-                  {% if current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round %}id="current-pick"{% endif %}>
+                  {% if current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round and draft.current_pick == pick_data.position %}id="current-pick"{% endif %}>
                   <div class="font-semibold text-gray-700">{{ pick_data.pick_label }}</div>
                     {% if pick_data.pick.player %}
                     <div class="text-gray-600">{{ pick_data.pick.player.first_name }} {{ pick_data.pick.player.last_name }}</div>
@@ -349,17 +349,22 @@
     </div>
   {% endif %}
   
-  <!-- Your Draft Picks -->
+  <!-- Personal Draft Board -->
   {% if user_picks %}
   <div class="mt-6 bg-white dark:bg-gray-50 rounded-lg shadow p-4">
-    <h3 class="text-lg font-semibold mb-3">Your Draft Picks ({{ user_picks|length }})</h3>
+    <h3 class="text-lg font-semibold mb-3">Your Draft Board ({{ user_picks|length }} picks)</h3>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
       {% for pick in user_picks %}
-      <div class="rounded p-2 text-xs border-2 
+      <div class="rounded p-2 text-xs border-2
+        {% if current_team and pick.team.id == current_team.id and draft.is_active and pick.round == draft.current_round and pick.pick_number == draft.current_pick %}bg-yellow-100 border-yellow-300
+        {% elif pick.player %}
         {% if pick.player.position == 'O' %}bg-green-100 border-green-300
         {% elif pick.player.position == 'D' %}bg-orange-100 border-orange-300
         {% elif pick.player.position == 'T' %}bg-purple-100 border-purple-300
-        {% else %}bg-blue-100 border-blue-300{% endif %}">
+        {% else %}bg-blue-100 border-blue-300{% endif %}
+        {% else %}bg-white border-gray-200{% endif %}">
+        <div class="font-semibold text-gray-700">Pick {{ pick.overall_pick }} · Round {{ pick.round }}</div>
+        {% if pick.player %}
         <div class="font-bold 
           {% if pick.player.position == 'O' %}text-green-900
           {% elif pick.player.position == 'D' %}text-orange-900
@@ -379,8 +384,11 @@
           {% elif pick.player.position == 'D' %}text-orange-600
           {% elif pick.player.position == 'T' %}text-purple-600
           {% else %}text-blue-600{% endif %} text-xs mt-1">
-          Round {{ pick.round }}
+          Selected
         </div>
+        {% else %}
+        <div class="mt-1 text-gray-400 italic">Available</div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

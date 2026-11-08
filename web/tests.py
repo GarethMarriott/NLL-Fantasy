@@ -163,6 +163,54 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
+	def test_draft_enforces_turn_order_and_shows_personal_board(self):
+		first_user = get_user_model().objects.create_user(username="first-drafter", password="test-password")
+		second_user = get_user_model().objects.create_user(username="second-drafter", password="test-password")
+		league = League.objects.create(name="Ordered Draft League", commissioner=first_user)
+		first_team = Team.objects.create(name="First Team", league=league, season_year=league.season)
+		second_team = Team.objects.create(name="Second Team", league=league, season_year=league.season)
+		FantasyTeamOwner.objects.create(user=first_user, team=first_team)
+		FantasyTeamOwner.objects.create(user=second_user, team=second_team)
+		draft = Draft.objects.create(league=league, is_active=True, total_rounds=2)
+		DraftPosition.objects.create(draft=draft, team=first_team, position=1)
+		DraftPosition.objects.create(draft=draft, team=second_team, position=2)
+		first_pick = DraftPick.objects.create(draft=draft, round=1, pick_number=1, overall_pick=1, team=first_team)
+		second_pick = DraftPick.objects.create(draft=draft, round=1, pick_number=2, overall_pick=2, team=second_team)
+		DraftPick.objects.create(draft=draft, round=2, pick_number=1, overall_pick=3, team=second_team)
+		future_first_pick = DraftPick.objects.create(draft=draft, round=2, pick_number=2, overall_pick=4, team=first_team)
+		first_player = Player.objects.create(first_name="First", last_name="Target", position=Player.Position.OFFENCE)
+		second_player = Player.objects.create(first_name="Second", last_name="Target", position=Player.Position.DEFENCE)
+
+		self.client.force_login(second_user)
+		response = self.client.post(reverse("make_draft_pick", args=[draft.id]), {"player_id": second_player.id})
+
+		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
+		self.assertIsNone(DraftPick.objects.get(id=second_pick.id).player)
+
+		self.client.force_login(first_user)
+		self.client.post(reverse("make_draft_pick", args=[draft.id]), {"player_id": first_player.id})
+		draft.refresh_from_db()
+		self.assertEqual(draft.current_pick, 2)
+
+		self.client.force_login(second_user)
+		response = self.client.post(reverse("make_draft_pick", args=[draft.id]), {"player_id": second_player.id})
+
+		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
+		self.assertEqual(DraftPick.objects.get(id=first_pick.id).player, first_player)
+		self.assertEqual(DraftPick.objects.get(id=second_pick.id).player, second_player)
+
+		self.client.force_login(first_user)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+		response = self.client.get(reverse("draft_room"))
+
+		self.assertContains(response, "Your Draft Board (2 picks)")
+		self.assertEqual(
+			list(response.context["user_picks"].values_list("id", flat=True)),
+			[first_pick.id, future_first_pick.id],
+		)
+
 	def test_draft_pick_uses_the_team_on_the_clock_after_rollover(self):
 		user = get_user_model().objects.create_user(username="rollover-drafter", password="test-password")
 		league = League.objects.create(name="Rollover Draft League", commissioner=user)
