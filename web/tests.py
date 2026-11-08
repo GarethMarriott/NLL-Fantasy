@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .draft_history import archive_draft, archive_rookie_draft
-from .models import ChatMessage, Draft, DraftHistory, DraftPick, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Team
+from .models import ChatMessage, Draft, DraftHistory, DraftPick, DraftPosition, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Team
 from .tasks import create_future_rookie_picks, create_rookie_draft
 
 
@@ -163,6 +163,24 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
+	def test_draft_pick_uses_the_team_on_the_clock_after_rollover(self):
+		user = get_user_model().objects.create_user(username="rollover-drafter", password="test-password")
+		league = League.objects.create(name="Rollover Draft League", commissioner=user)
+		legacy_team = Team.objects.create(name="Legacy Team", league=league, season_year=league.season - 1)
+		current_team = Team.objects.create(name="Current Team", league=league, season_year=league.season)
+		FantasyTeamOwner.objects.create(user=user, team=legacy_team)
+		FantasyTeamOwner.objects.create(user=user, team=current_team)
+		draft = Draft.objects.create(league=league, is_active=True, total_rounds=1)
+		DraftPosition.objects.create(draft=draft, team=current_team, position=1)
+		DraftPick.objects.create(draft=draft, round=1, pick_number=1, overall_pick=1, team=current_team)
+		player = Player.objects.create(first_name="Draft", last_name="Target", position=Player.Position.OFFENCE)
+		self.client.force_login(user)
+
+		response = self.client.post(reverse("make_draft_pick", args=[draft.id]), {"player_id": player.id})
+
+		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
+		self.assertEqual(DraftPick.objects.get(draft=draft).player, player)
+
 	def test_rookie_draft_room_does_not_read_regular_draft_type(self):
 		user = get_user_model().objects.create_user(username="rookie-draft-user", password="test-password")
 		league = League.objects.create(

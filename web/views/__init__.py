@@ -5861,20 +5861,27 @@ def make_draft_pick(request, draft_id):
             messages.error(request, "Draft not found.")
             return redirect('draft_room')
     
-    # Get user's team
+    # Check if draft is active
+    if not draft.is_active or draft.completed:
+        messages.error(request, "Draft is not currently active.")
+        return redirect('draft_room')
+
+    # Resolve the current pick before ownership validation. A user can own
+    # historical and current teams in the same league after a season rollover.
+    current_team = draft.get_current_team()
+    if not current_team:
+        messages.error(request, "Could not find the current draft pick.")
+        return redirect('draft_room')
+
+    # Get the user's team that is currently on the clock.
     try:
         owner = FantasyTeamOwner.objects.select_related('team').get(
             user=request.user,
-            team__league=draft.league
+            team=current_team,
         )
         user_team = owner.team
     except FantasyTeamOwner.DoesNotExist:
         messages.error(request, "You don't have a team in this league.")
-        return redirect('draft_room')
-    
-    # Check if draft is active
-    if not draft.is_active or draft.completed:
-        messages.error(request, "Draft is not currently active.")
         return redirect('draft_room')
 
     if is_rookie_draft and not draft.league.startup_draft_completed:
@@ -5882,8 +5889,7 @@ def make_draft_pick(request, draft_id):
         return redirect('draft_room')
     
     # Check if it's user's turn
-    current_team = draft.get_current_team()
-    if not current_team or current_team.id != user_team.id:
+    if current_team.id != user_team.id:
         messages.error(request, "It's not your turn to pick.")
         return redirect('draft_room')
     
