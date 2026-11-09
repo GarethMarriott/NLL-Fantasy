@@ -139,6 +139,8 @@ class LeagueNavigationTests(TestCase):
 		response = self.client.get(reverse("delete_league", args=[self.league.id]))
 
 		self.assertNotContains(response, "Draft cancelled.")
+		self.assertContains(response, 'id="delete-confirmation-modal"')
+		self.assertContains(response, "Are you absolutely sure?")
 
 
 class DraftHistoryTests(TestCase):

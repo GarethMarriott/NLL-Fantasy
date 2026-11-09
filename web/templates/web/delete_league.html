@@ -52,15 +52,62 @@
            class="px-6 py-3 bg-gray-400 hover:bg-gray-500 text-white font-semibold rounded-lg transition-colors">
             Cancel
         </a>
-        
-        <form method="POST" class="inline">
-            {% csrf_token %}
-            <button type="submit" 
-                    class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
-                    onclick="return confirm('Are you absolutely sure? This cannot be undone!');">
-                Yes, Permanently Delete
-            </button>
-        </form>
+
+        <button type="button"
+                id="open-delete-confirmation"
+                class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">
+            Yes, Permanently Delete
+        </button>
     </div>
 </div>
+
+<dialog id="delete-confirmation-modal"
+        class="w-full max-w-md rounded-lg border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/60">
+    <div class="border-b border-red-100 bg-red-50 px-6 py-5">
+        <h2 id="delete-confirmation-title" class="text-xl font-bold text-red-800">Are you absolutely sure?</h2>
+        <p class="mt-2 text-sm text-red-700">This cannot be undone.</p>
+    </div>
+    <div class="px-6 py-5">
+        <p class="text-gray-700">
+            Deleting <strong>{{ league.name }}</strong> will permanently remove its teams, rosters, drafts, trades, waivers, and chat history.
+        </p>
+        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button"
+                    id="close-delete-confirmation"
+                    class="px-5 py-2.5 font-semibold text-gray-700 transition-colors hover:bg-gray-100 rounded-lg">
+                Keep League
+            </button>
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit"
+                        class="w-full px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors sm:w-auto">
+                    Permanently Delete League
+                </button>
+            </form>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    (function () {
+        const modal = document.getElementById('delete-confirmation-modal');
+        const openButton = document.getElementById('open-delete-confirmation');
+        const closeButton = document.getElementById('close-delete-confirmation');
+
+        openButton.addEventListener('click', function () {
+            modal.showModal();
+            closeButton.focus();
+        });
+
+        closeButton.addEventListener('click', function () {
+            modal.close();
+        });
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                modal.close();
+            }
+        });
+    }());
+</script>
 {% endblock %}
