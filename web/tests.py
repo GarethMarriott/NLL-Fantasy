@@ -129,6 +129,17 @@ class LeagueNavigationTests(TestCase):
 		self.assertTrue(get_user_model().objects.filter(id=self.user.id).exists())
 		self.assertNotIn("selected_league_id", self.client.session)
 
+	def test_delete_confirmation_discards_stale_activity_messages(self):
+		Draft.objects.create(league=self.league)
+		session = self.client.session
+		session["selected_league_id"] = self.league.id
+		session.save()
+
+		self.client.post(reverse("cancel_draft"))
+		response = self.client.get(reverse("delete_league", args=[self.league.id]))
+
+		self.assertNotContains(response, "Draft cancelled.")
+
 
 class DraftHistoryTests(TestCase):
 	def setUp(self):

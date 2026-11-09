@@ -5126,7 +5126,9 @@ def delete_league(request, league_id):
         messages.success(request, f"League '{league_name}' has been permanently deleted.")
         return redirect("league_list")
     else:
-        # Show confirmation page for GET request
+        # Confirmation pages must not surface activity feedback from a
+        # previously selected league.
+        list(messages.get_messages(request))
         return render(request, "web/delete_league.html", {
             "league": league,
         })
