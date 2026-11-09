@@ -2193,7 +2193,7 @@ def execute_trade(trade):
     proposing_names = ", ".join(proposing_items)
     receiving_names = ", ".join(receiving_items)
     
-    message_text = f"ðŸ¤ Trade completed! {trade.proposing_team.name} receives ({receiving_names}) and {trade.receiving_team.name} receives ({proposing_names})"
+    message_text = f"[Trade] {trade.proposing_team.name} receives ({receiving_names}) and {trade.receiving_team.name} receives ({proposing_names})"
     post_league_message(trade.league, message_text)
     
     # Invalidate caches for both teams and league standings
@@ -6004,14 +6004,14 @@ def make_draft_pick(request, draft_id):
                                 player=pick.player
                             )
                         else:
-                            post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} taxi squad is full")
+                            post_league_message(draft.league, f"[Draft error] {pick.team.name} taxi squad is full")
                             messages.error(request, f"Draft error: taxi squad full for {pick.team.name}")
                             return redirect('draft_room')
                     else:
                         taxi_entry.player = pick.player
                         taxi_entry.save()
                 
-                post_league_message(draft.league, f"ðŸŽ‰ Rookie draft completed! All rookies have been added to taxi squads.")
+                post_league_message(draft.league, "[Draft] Rookie draft completed. All rookies have been added to taxi squads.")
             else:
                 # Add rookie draft picks to main roster (taxi squad disabled)
                 for pick in all_picks:
@@ -6023,7 +6023,7 @@ def make_draft_pick(request, draft_id):
                     ).exclude(slot_assignment='ir').count()
                     
                     if current_roster_count >= draft.league.roster_size:
-                        post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} roster would exceed capacity")
+                        post_league_message(draft.league, f"[Draft error] {pick.team.name} roster would exceed capacity")
                         messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
                         return redirect('draft_room')
                     
@@ -6034,7 +6034,7 @@ def make_draft_pick(request, draft_id):
                         can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
                         if not can_add:
                             pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                            post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} {pos_name} roster full")
+                            post_league_message(draft.league, f"[Draft error] {pick.team.name} {pos_name} roster full")
                             messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
                             return redirect('draft_room')
                     
@@ -6047,7 +6047,7 @@ def make_draft_pick(request, draft_id):
                     # Auto-assign to starter slot if traditional league
                     auto_assign_to_starter_slot(draft_roster)
                 
-                post_league_message(draft.league, f"ðŸŽ‰ Rookie draft completed! All rookies have been added to rosters.")
+                post_league_message(draft.league, "[Draft] Rookie draft completed. All rookies have been added to rosters.")
             
             messages.success(request, f"You selected {player.first_name} {player.last_name}!")
         else:
@@ -6062,7 +6062,7 @@ def make_draft_pick(request, draft_id):
                 ).exclude(slot_assignment='ir').count()
                 
                 if current_roster_count >= draft.league.roster_size:
-                    post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} roster would exceed capacity")
+                    post_league_message(draft.league, f"[Draft error] {pick.team.name} roster would exceed capacity")
                     messages.error(request, f"Draft error: roster capacity exceeded for {pick.team.name}")
                     return redirect('draft_room')
                 
@@ -6073,7 +6073,7 @@ def make_draft_pick(request, draft_id):
                     can_add, current_pos_count, max_pos_slots = check_roster_capacity(pick.team, player_position)
                     if not can_add:
                         pos_name = {'O': 'Offence', 'D': 'Defence', 'G': 'Goalie'}.get(player_position, 'Unknown')
-                        post_league_message(draft.league, f"âš ï¸ Draft error: {pick.team.name} {pos_name} roster full")
+                        post_league_message(draft.league, f"[Draft error] {pick.team.name} {pos_name} roster full")
                         messages.error(request, f"Draft error: {pos_name} roster full for {pick.team.name}")
                         return redirect('draft_room')
                 
@@ -6088,10 +6088,10 @@ def make_draft_pick(request, draft_id):
             if draft.draft_type == Draft.DraftType.STARTUP:
                 draft.league.startup_draft_completed = True
                 draft.league.save(update_fields=['startup_draft_completed'])
-            post_league_message(draft.league, f"ðŸŽ‰ Draft completed! All players have been added to rosters.")
+            post_league_message(draft.league, "[Draft] Completed. All players have been added to rosters.")
             messages.success(request, f"You selected {player.first_name} {player.last_name}!")
     else:
-        post_league_message(draft.league, f"ðŸ“‹ {user_team.name} selected {player.first_name} {player.last_name} (Round {draft.current_round})")
+        post_league_message(draft.league, f"[Draft] {user_team.name} selected {player.first_name} {player.last_name} (Round {draft.current_round})")
         messages.success(request, f"You selected {player.first_name} {player.last_name}!")
     
     return redirect('draft_room')
@@ -6209,7 +6209,7 @@ def cancel_draft(request):
     # Delete the draft (this will cascade delete positions and picks)
     draft.delete()
     
-    post_league_message(league, "âŒ The draft has been cancelled by the commissioner.")
+    post_league_message(league, "[Draft] Cancelled by the commissioner.")
     messages.info(request, "Draft cancelled.")
     return redirect('draft_room')
 
@@ -6374,7 +6374,7 @@ def move_from_taxi(request, team_id):
         roster_limit = team.league.roster_size if hasattr(team.league, 'roster_size') else 14
         
         if is_over:
-            messages.warning(request, f"{player.get_full_name()} moved to main roster. âš ï¸ Your roster is now OVER the limit ({current_count}/{roster_limit}). You must drop players to get back under the limit.")
+            messages.warning(request, f"{player.get_full_name()} moved to main roster. Warning: your roster is now over the limit ({current_count}/{roster_limit}). You must drop players to get back under the limit.")
         else:
             messages.success(request, f"{player.get_full_name()} moved from taxi squad to main roster.")
     

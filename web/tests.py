@@ -191,6 +191,10 @@ class DraftRoomTests(TestCase):
 		self.client.post(reverse("make_draft_pick", args=[draft.id]), {"player_id": first_player.id})
 		draft.refresh_from_db()
 		self.assertEqual(draft.current_pick, 2)
+		self.assertTrue(ChatMessage.objects.filter(
+			league=league,
+			message="[Draft] First Team selected First Target (Round 1)",
+		).exists())
 
 		self.client.force_login(second_user)
 		response = self.client.post(reverse("make_draft_pick", args=[draft.id]), {"player_id": second_player.id})
