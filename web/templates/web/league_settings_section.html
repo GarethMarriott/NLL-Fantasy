@@ -63,6 +63,13 @@
         </form>
       {% endif %}
     </section>
+    {% if is_commissioner %}
+    <section class="mt-6 border border-red-300 bg-red-50 p-5 rounded-md">
+      <h2 class="text-base font-semibold text-red-900">Delete League</h2>
+      <p class="mt-1 text-sm text-red-800">Permanently deletes this league, its teams, memberships, rosters, drafts, chat, trades, waiver claims, and archived records. User accounts are not deleted.</p>
+      <a href="{% url 'delete_league' league.id %}" class="inline-block mt-4 px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md">Delete League</a>
+    </section>
+    {% endif %}
   {% endif %}
 </div>
 {% if not is_commissioner %}<script>document.querySelectorAll('#league-settings-form input, #league-settings-form select, #league-settings-form textarea').forEach(function (input) { input.disabled = true; });</script>{% endif %}

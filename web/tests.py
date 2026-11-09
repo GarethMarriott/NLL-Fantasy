@@ -101,6 +101,34 @@ class LeagueNavigationTests(TestCase):
 		self.assertRedirects(response, reverse("my_team"), fetch_redirect_response=False)
 		self.assertEqual(self.client.session["selected_league_id"], self.league.id)
 
+	def test_commissioner_can_delete_league_from_operations(self):
+		team = Team.objects.get(league=self.league)
+		archive = DraftHistory.objects.create(
+			league=self.league,
+			draft_type=DraftHistory.DraftType.REDRAFT,
+			season_year=self.league.season,
+			total_rounds=1,
+			source_model="Draft",
+			source_draft_id=1,
+			results=[],
+		)
+		session = self.client.session
+		session["selected_league_id"] = self.league.id
+		session.save()
+
+		response = self.client.get(reverse("league_settings_section", args=[self.league.id, "operations"]))
+
+		self.assertContains(response, reverse("delete_league", args=[self.league.id]))
+		response = self.client.post(reverse("delete_league", args=[self.league.id]))
+
+		self.assertRedirects(response, reverse("league_list"))
+		self.assertFalse(League.objects.filter(id=self.league.id).exists())
+		self.assertFalse(Team.objects.filter(id=team.id).exists())
+		self.assertFalse(FantasyTeamOwner.objects.filter(user=self.user).exists())
+		self.assertFalse(DraftHistory.objects.filter(id=archive.id).exists())
+		self.assertTrue(get_user_model().objects.filter(id=self.user.id).exists())
+		self.assertNotIn("selected_league_id", self.client.session)
+
 
 class DraftHistoryTests(TestCase):
 	def setUp(self):

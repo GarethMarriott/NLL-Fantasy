@@ -5121,8 +5121,10 @@ def delete_league(request, league_id):
     if request.method == "POST":
         league_name = league.name
         league.delete()
+        if request.session.get("selected_league_id") == league_id:
+            request.session.pop("selected_league_id", None)
         messages.success(request, f"League '{league_name}' has been permanently deleted.")
-        return redirect("home")
+        return redirect("league_list")
     else:
         # Show confirmation page for GET request
         return render(request, "web/delete_league.html", {
