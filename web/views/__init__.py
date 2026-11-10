@@ -5343,8 +5343,8 @@ def create_draft_preview(request):
     teams = list(Team.objects.filter(league=league, season_year=league.season).order_by('id'))
     if not teams:
         teams = list(Team.objects.filter(league=league, season_year__isnull=True).order_by('id'))
-    if len(teams) != league.max_teams:
-        messages.error(request, "The league must be full before creating a draft preview.")
+    if not teams:
+        messages.error(request, "Add at least one team before creating a draft preview.")
         return redirect('draft_room')
 
     order_type = request.POST.get('order_type', Draft.DraftOrderType.RANDOM)
@@ -6145,6 +6145,22 @@ def set_draft_order(request):
     
     if not team_order:
         return JsonResponse({'error': 'No team order provided'}, status=400)
+
+    activate = request.POST.get('activate', 'false') == 'true'
+    if activate:
+        active_team_ids = set(Team.objects.filter(
+            league=league,
+            season_year=league.season,
+        ).values_list("id", flat=True))
+        if not active_team_ids:
+            active_team_ids = set(Team.objects.filter(
+                league=league,
+                season_year__isnull=True,
+            ).values_list("id", flat=True))
+        if len(active_team_ids) != league.max_teams:
+            return JsonResponse({'error': 'The league must be full before starting the draft.'}, status=400)
+        if set(team_order) != active_team_ids or len(team_order) != len(active_team_ids):
+            return JsonResponse({'error': 'Update the draft order to include every current team before starting.'}, status=400)
     
     # Update draft positions
     DraftPosition.objects.filter(draft=draft).delete()
@@ -6186,7 +6202,6 @@ def set_draft_order(request):
             overall_pick += 1
     
     # Activate draft if requested
-    activate = request.POST.get('activate', 'false') == 'true'
     if activate:
         draft.is_active = True
         draft.started_at = timezone.now()

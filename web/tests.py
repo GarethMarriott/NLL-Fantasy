@@ -65,6 +65,48 @@ class DynastyStartupDraftTests(TestCase):
 		self.assertEqual(draft.draft_type, Draft.DraftType.STARTUP)
 		self.assertEqual(draft.total_rounds, league.roster_size)
 
+	def test_startup_draft_preview_can_be_created_before_league_is_full(self):
+		league = League.objects.create(
+			name="Partial Startup League",
+			commissioner=self.user,
+			league_type="dynasty",
+			max_teams=4,
+			startup_draft_completed=False,
+		)
+		Team.objects.create(name="Only Team", league=league, season_year=league.season)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.post(reverse("create_draft_preview"), {
+			"order_type": Draft.DraftOrderType.RANDOM,
+			"draft_style": Draft.DraftStyle.SNAKE,
+		})
+
+		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
+		self.assertTrue(Draft.objects.filter(league=league).exists())
+
+	def test_incomplete_league_cannot_activate_a_draft_preview(self):
+		league = League.objects.create(
+			name="Incomplete Draft League",
+			commissioner=self.user,
+			max_teams=4,
+		)
+		team = Team.objects.create(name="Only Team", league=league, season_year=league.season)
+		Draft.objects.create(league=league, total_rounds=1)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.post(reverse("set_draft_order"), {
+			"team_order": f"[{team.id}]",
+			"activate": "true",
+		})
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("must be full", response.json()["error"])
+		self.assertFalse(Draft.objects.get(league=league).is_active)
+
 	def test_commissioner_can_reset_dynasty_league_for_a_new_startup_draft(self):
 		league = League.objects.create(
 			name="Restart Dynasty League",
