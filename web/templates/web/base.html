@@ -30,7 +30,6 @@
         <a href="{% url 'home' %}" class="absolute left-6 hidden lg:block {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %}">Home</a>
 
         <div class="flex items-center justify-center pl-12 lg:pl-0">
-        <a href="{% url 'home' %}" class="lg:hidden {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Home</a>
         
         {% if selected_league %}
           <a href="{% url 'my_team' %}" class="{% if request.resolver_match.url_name == 'my_team' or request.resolver_match.url_name == 'team_detail' or request.resolver_match.url_name == 'manage_lineup' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Team</a>
@@ -164,6 +163,14 @@
             </li>
             {% endif %}
             {% if selected_league %}
+              <li class="lg:hidden">
+                <a rel="noopener noreferrer" href="{% url 'home' %}" class="flex items-center p-2 space-x-3 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 fill-current dark:text-gray-600">
+                    <path d="M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3zm5 15h-2v-5H9v5H7v-7.8l5-4.5 5 4.5V18z"/>
+                  </svg>
+                  <span>Home</span>
+                </a>
+              </li>
               <li>
                 <a rel="noopener noreferrer" href="{% url 'chat' %}" class="flex items-center p-2 space-x-3 rounded-md">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
