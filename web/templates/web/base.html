@@ -14,7 +14,7 @@
 <body class="overflow-x-hidden">
   <header class="sticky top-0 z-40">
     <nav class="bg-white shadow dark:bg-gray-800">
-      <div class="container flex items-center justify-center p-6 mx-auto text-black capitalize dark:text-gray-300">
+      <div class="container relative flex items-center justify-center p-6 mx-auto text-black capitalize dark:text-gray-300">
         <!-- Mobile menu button -->
         <div class="lg:hidden absolute left-6 relative">
           <button id="mobile-menu-button" class="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200">
@@ -27,10 +27,13 @@
           {% endif %}
         </div>
         
+        <a href="{% url 'home' %}" class="absolute left-6 hidden lg:block {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %}">Home</a>
+
         <div class="flex items-center justify-center pl-12 lg:pl-0">
-        <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Home</a>
+        <a href="{% url 'home' %}" class="lg:hidden {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'league_list' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Home</a>
         
         {% if selected_league %}
+          <a href="{% url 'my_team' %}" class="{% if request.resolver_match.url_name == 'my_team' or request.resolver_match.url_name == 'team_detail' or request.resolver_match.url_name == 'manage_lineup' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">Team</a>
           <a href="{% url 'players' %}" class="{% if request.resolver_match.url_name == 'players' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">players</a>
           <a href="{% url 'matchups' %}" class="{% if request.resolver_match.url_name == 'matchups' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">matchups</a>
           <a href="{% url 'standings' %}" class="{% if request.resolver_match.url_name == 'standings' %}text-black dark:text-gray-200 border-b-2 border-blue-500{% else %}text-black dark:text-gray-300 border-b-2 border-transparent hover:text-gray-800 dark:hover:text-gray-200 hover:border-blue-500{% endif %} mx-1.5 sm:mx-6">standings</a>
@@ -161,12 +164,6 @@
             </li>
             {% endif %}
             {% if selected_league %}
-              <li>
-                <a rel="noopener noreferrer" href="{% url 'my_team' %}" class="flex items-center p-2 space-x-3 rounded-md">
-                  <span class="w-5 text-center">T</span>
-                  <span>My Team</span>
-                </a>
-              </li>
               <li>
                 <a rel="noopener noreferrer" href="{% url 'chat' %}" class="flex items-center p-2 space-x-3 rounded-md">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current dark:text-gray-600">
