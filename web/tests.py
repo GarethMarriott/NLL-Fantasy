@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .draft_history import archive_draft, archive_rookie_draft
-from .models import ChatMessage, Draft, DraftHistory, DraftPick, DraftPosition, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Team
+from .models import ChatMessage, Draft, DraftHistory, DraftPick, DraftPosition, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Roster, Team
 from .tasks import create_future_rookie_picks, create_rookie_draft
 
 
@@ -64,6 +64,29 @@ class DynastyStartupDraftTests(TestCase):
 		draft = Draft.objects.get(league=league)
 		self.assertEqual(draft.draft_type, Draft.DraftType.STARTUP)
 		self.assertEqual(draft.total_rounds, league.roster_size)
+
+	def test_commissioner_can_reset_dynasty_league_for_a_new_startup_draft(self):
+		league = League.objects.create(
+			name="Restart Dynasty League",
+			commissioner=self.user,
+			league_type="dynasty",
+			startup_draft_completed=True,
+		)
+		team = Team.objects.create(name="Restart Team", league=league, season_year=league.season)
+		FantasyTeamOwner.objects.create(user=self.user, team=team)
+		player = Player.objects.create(first_name="Reset", last_name="Player", position="O")
+		roster = Roster.objects.create(team=team, player=player, league=league, season=league.season)
+		Draft.objects.create(league=league, completed=True)
+
+		response = self.client.post(reverse("reset_dynasty_for_startup_draft", args=[league.id]))
+
+		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
+		league.refresh_from_db()
+		roster.refresh_from_db()
+		self.assertFalse(league.startup_draft_completed)
+		self.assertTrue(league.draft_locked)
+		self.assertEqual(roster.week_dropped, 0)
+		self.assertFalse(Draft.objects.filter(league=league).exists())
 
 
 class LeagueNavigationTests(TestCase):

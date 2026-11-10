@@ -81,6 +81,25 @@
         {% endfor %}
       </div>
     </section>
+    {% if league.league_type == 'dynasty' %}
+    <section class="mt-6 border border-amber-300 bg-amber-50 p-5 rounded-md">
+      <h2 class="text-base font-semibold text-amber-900">Reset for Start Up Draft</h2>
+      <p class="mt-1 text-sm text-amber-800">Clears every active roster and taxi assignment, removes current draft boards, and locks all transactions. The next draft will be a new all-player Start Up draft.</p>
+      <button type="button" id="open-startup-reset" class="mt-4 px-4 py-2 text-sm font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-md">Reset League for Start Up Draft</button>
+    </section>
+    <dialog id="startup-reset-modal" class="w-full max-w-md rounded-lg border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/60">
+      <div class="border-b border-amber-100 bg-amber-50 px-6 py-5"><h2 class="text-xl font-bold text-amber-900">Reset this league for a new Start Up draft?</h2></div>
+      <div class="px-6 py-5"><p class="text-sm text-gray-700">Every active roster and taxi assignment will be cleared. Pending waiver claims and current draft boards will be removed. This cannot be undone.</p><div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" id="close-startup-reset" class="px-5 py-2.5 font-semibold text-gray-700 hover:bg-gray-100 rounded-lg">Keep Current League</button><form method="post" action="{% url 'reset_dynasty_for_startup_draft' league.id %}">{% csrf_token %}<button type="submit" class="w-full px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white font-semibold rounded-lg sm:w-auto">Clear Rosters and Lock Transactions</button></form></div></div>
+    </dialog>
+    <script>
+      (function () {
+        const modal = document.getElementById('startup-reset-modal');
+        document.getElementById('open-startup-reset').addEventListener('click', function () { modal.showModal(); });
+        document.getElementById('close-startup-reset').addEventListener('click', function () { modal.close(); });
+        modal.addEventListener('click', function (event) { if (event.target === modal) { modal.close(); } });
+      }());
+    </script>
+    {% endif %}
     <section class="mt-6 border border-red-300 bg-red-50 p-5 rounded-md">
       <h2 class="text-base font-semibold text-red-900">Delete League</h2>
       <p class="mt-1 text-sm text-red-800">Permanently deletes this league, its teams, memberships, rosters, drafts, chat, trades, waiver claims, and archived records. User accounts are not deleted.</p>

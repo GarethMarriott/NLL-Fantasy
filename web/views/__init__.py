@@ -2707,8 +2707,10 @@ def players(request):
 
     draft_in_progress = bool(
         user_team
-        and user_team.league.league_type == 'redraft'
-        and user_team.league.draft_locked
+        and (
+            (user_team.league.league_type == 'redraft' and user_team.league.draft_locked)
+            or (user_team.league.league_type == 'dynasty' and not user_team.league.startup_draft_completed)
+        )
     )
 
     logger.info(f"PLAYERS VIEW RENDER: user={request.user}, user_team={user_team}, selected_league={selected_league}")
@@ -5196,6 +5198,9 @@ def submit_waiver_claim(request, team_id):
     if team.league.league_type == 'redraft' and team.league.draft_locked:
         messages.error(request, "Waiver claims are unavailable until the draft is finalized.")
         return redirect('team_detail', team_id=team.id)
+    if team.league.league_type == 'dynasty' and not team.league.startup_draft_completed:
+        messages.error(request, "Waiver claims are unavailable until the dynasty start up draft is complete.")
+        return redirect('team_detail', team_id=team.id)
     
     # Get player to add - accept both parameter names for compatibility
     player_id = request.POST.get('player_to_add_id') or request.POST.get('player_id')
@@ -7049,6 +7054,46 @@ def league_offseason(request, league_id):
     }
     
     return render(request, 'web/league_offseason.html', context)
+@login_required
+@require_POST
+def reset_dynasty_for_startup_draft(request, league_id):
+    """Clear a dynasty league so its commissioner can run a new startup draft."""
+    from ..models import RookieDraft, TaxiSquad
+
+    league = get_object_or_404(League, id=league_id)
+    if league.commissioner != request.user:
+        messages.error(request, "Only the league commissioner can reset the league for a start up draft.")
+        return redirect("league_settings_section", league_id=league.id, section="operations")
+    if league.league_type != "dynasty":
+        messages.error(request, "Only dynasty leagues can be reset for a start up draft.")
+        return redirect("league_settings_section", league_id=league.id, section="operations")
+
+    existing_draft = getattr(league, "draft", None)
+    rookie_drafts = RookieDraft.objects.filter(league=league, season_year=league.season)
+    if (existing_draft and existing_draft.is_active) or rookie_drafts.filter(is_active=True).exists():
+        messages.error(request, "Cancel the active draft before resetting this league.")
+        return redirect("league_settings_section", league_id=league.id, section="operations")
+
+    with transaction.atomic():
+        Roster.objects.filter(league=league, week_dropped__isnull=True).update(
+            week_dropped=0,
+            is_locked=True,
+            locked_reason="offseason",
+        )
+        TaxiSquad.objects.filter(team__league=league).update(player=None)
+        WaiverClaim.objects.filter(league=league, status=WaiverClaim.Status.PENDING).delete()
+        rookie_drafts.delete()
+        if existing_draft:
+            existing_draft.delete()
+        league.startup_draft_completed = False
+        league.draft_locked = True
+        league.offseason_rosters_open = False
+        league.save(update_fields=["startup_draft_completed", "draft_locked", "offseason_rosters_open"])
+
+    messages.success(request, "League rosters were cleared and transactions are locked until the new start up draft is complete.")
+    return redirect("draft_room")
+
+
 
 
 @login_required

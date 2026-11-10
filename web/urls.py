@@ -6,7 +6,7 @@ from .views import (
     submit_waiver_claim, cancel_waiver_claim, my_team, create_draft_preview, create_rookie_draft_preview, draft_room, draft_settings, make_draft_pick, set_draft_order, cancel_draft, reorder_draft_picks, start_rookie_draft,
     nll_schedule, cache_stats, CustomPasswordResetView, CustomPasswordResetDoneView, CustomPasswordResetConfirmView, CustomPasswordResetCompleteView,
     manage_lineup, add_to_taxi, move_from_taxi, get_available_slots, handle_404, handle_500, current_user_api, upload_team_logo,
-    league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion, toggle_offseason_rosters
+    league_offseason, offseason_renew_league, lock_rosters, finalize_draft, crown_champion, toggle_offseason_rosters, reset_dynasty_for_startup_draft
 )
 from .views.history import league_history, league_history_draft, league_history_standings, league_history_matchups, league_history_playoffs, league_archives
 from .views.nll_transactions import nll_transactions
@@ -60,6 +60,7 @@ urlpatterns = [
     path("leagues/<int:league_id>/delete/", delete_league, name="delete_league"),
     path("leagues/<int:league_id>/teams/<int:team_id>/remove/", remove_team_from_league, name="remove_team_from_league"),
     path("leagues/<int:league_id>/leave/", leave_league, name="leave_league"),
+    path("leagues/<int:league_id>/reset-startup-draft/", reset_dynasty_for_startup_draft, name="reset_dynasty_for_startup_draft"),
     path("leagues/<int:league_id>/join/", team_create, name="team_create"),
     path("leagues/<int:league_id>/select/", select_league, name="select_league"),
     path("teams/<int:team_id>/settings/", team_settings, name="team_settings"),
