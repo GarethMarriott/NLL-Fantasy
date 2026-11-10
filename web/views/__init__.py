@@ -4977,11 +4977,16 @@ def league_settings_section(request, league_id, section):
                     messages.error(request, f"{field}: {error}")
     else:
         form = LeagueSettingsForm(instance=league, section=section)
+
+    active_teams = Team.objects.filter(league=league, season_year=league.season)
+    if not active_teams.exists():
+        active_teams = Team.objects.filter(league=league, season_year__isnull=True)
     
     return render(request, "web/league_settings_section.html", {
         "form": form,
         "league": league,
         "is_commissioner": is_commissioner,
+        "active_teams": active_teams.select_related("owner__user").order_by("name"),
         "section": section,
         "section_title": section_titles[section],
         "is_dynasty_offseason": is_dynasty_offseason(league),

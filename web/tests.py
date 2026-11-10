@@ -143,6 +143,25 @@ class LeagueNavigationTests(TestCase):
 		self.assertContains(response, 'id="delete-confirmation-modal"')
 		self.assertContains(response, "Are you absolutely sure?")
 
+	def test_operations_lists_member_removal_for_commissioner_only(self):
+		member = get_user_model().objects.create_user(username="removal-member", password="test-password")
+		member_team = Team.objects.create(
+			name="Removal Member Team",
+			league=self.league,
+			season_year=self.league.season,
+		)
+		FantasyTeamOwner.objects.create(user=member, team=member_team)
+
+		response = self.client.get(reverse("league_settings_section", args=[self.league.id, "operations"]))
+
+		self.assertContains(response, "Manage Members")
+		self.assertContains(response, reverse("remove_team_from_league", args=[self.league.id, member_team.id]))
+
+		self.client.force_login(member)
+		response = self.client.get(reverse("league_settings_section", args=[self.league.id, "operations"]))
+
+		self.assertNotContains(response, "Manage Members")
+
 
 class RenewedLeagueRepairTests(TestCase):
 	def test_repair_restores_missing_current_season_teams_and_priorities(self):
