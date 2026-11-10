@@ -373,7 +373,7 @@ def renew_league(league_id):
                     name=old_team.name,
                     season_year=new_season,
                     defaults={
-                        'waiver_priority': 0,
+                        'waiver_priority': max(old_team.waiver_priority, 1),
                     },
                 )
                 

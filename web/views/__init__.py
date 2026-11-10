@@ -4849,6 +4849,11 @@ def team_create(request, league_id):
         if form.is_valid():
             team = form.save(commit=False)
             team.season_year = league.season
+            last_waiver_priority = Team.objects.filter(
+                league=league,
+                season_year=league.season,
+            ).aggregate(max_priority=models.Max("waiver_priority"))["max_priority"] or 0
+            team.waiver_priority = max(last_waiver_priority, 0) + 1
             team.save()
             
             # Create FantasyTeamOwner to link user to team

@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
@@ -141,6 +142,35 @@ class LeagueNavigationTests(TestCase):
 		self.assertNotContains(response, "Draft cancelled.")
 		self.assertContains(response, 'id="delete-confirmation-modal"')
 		self.assertContains(response, "Are you absolutely sure?")
+
+
+class RenewedLeagueRepairTests(TestCase):
+	def test_repair_restores_missing_current_season_teams_and_priorities(self):
+		commissioner = get_user_model().objects.create_user(username="renewal-commissioner")
+		member = get_user_model().objects.create_user(username="renewal-member")
+		league = League.objects.create(
+			name="Partially Renewed League",
+			commissioner=commissioner,
+			season=2027,
+		)
+		commissioner_team = Team.objects.create(
+			name="Commissioner Team", league=league, season_year=2026, waiver_priority=2,
+		)
+		member_team = Team.objects.create(
+			name="Member Team", league=league, season_year=2026, waiver_priority=1,
+		)
+		FantasyTeamOwner.objects.create(user=commissioner, team=commissioner_team)
+		FantasyTeamOwner.objects.create(user=member, team=member_team)
+		Team.objects.create(
+			name="Commissioner Team", league=league, season_year=2027, waiver_priority=0,
+		)
+
+		call_command("repair_active_league_teams", league_id=league.id)
+
+		teams = Team.objects.filter(league=league, season_year=2027).order_by("waiver_priority")
+		self.assertEqual(list(teams.values_list("name", flat=True)), ["Member Team", "Commissioner Team"])
+		self.assertEqual(list(teams.values_list("waiver_priority", flat=True)), [1, 2])
+		self.assertTrue(FantasyTeamOwner.objects.filter(user=member, team__season_year=2027).exists())
 
 
 class DraftHistoryTests(TestCase):

@@ -337,7 +337,8 @@ class Team(models.Model):
         help_text="Season year this team belongs to (null for teams created before multi-season support)"
     )
     waiver_priority = models.PositiveIntegerField(
-        default=0,
+        default=1,
+        validators=[MinValueValidator(1)],
         help_text="Lower number = higher priority. Resets to last when claim succeeds"
     )
     logo = models.ImageField(
