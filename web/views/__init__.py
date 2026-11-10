@@ -5722,6 +5722,58 @@ def start_rookie_draft(request, draft_id):
 
 
 @login_required
+def startup_draft_settings(request):
+    """Configure a dynasty startup draft before it begins."""
+    selected_league_id = request.session.get('selected_league_id')
+    if not selected_league_id:
+        messages.error(request, "Please select a league first.")
+        return redirect('league_list')
+
+    league = get_object_or_404(League, id=selected_league_id)
+    draft = getattr(league, 'draft', None)
+    if league.league_type != 'dynasty' or league.startup_draft_completed:
+        messages.error(request, "Startup draft settings are only available before a dynasty startup draft is complete.")
+        return redirect('draft_room')
+    if not draft or draft.draft_type != Draft.DraftType.STARTUP:
+        messages.error(request, "Create the startup draft preview before configuring its settings.")
+        return redirect('draft_room')
+    if draft.is_active:
+        messages.error(request, "Startup draft settings cannot be modified after the draft has started.")
+        return redirect('draft_room')
+
+    is_commissioner = league.commissioner == request.user
+    if request.method == 'POST':
+        if not is_commissioner:
+            messages.error(request, "Only the commissioner can modify startup draft settings.")
+            return redirect('draft_room')
+
+        try:
+            total_rounds = int(request.POST.get('total_rounds', ''))
+        except (TypeError, ValueError):
+            total_rounds = 0
+        draft_style = request.POST.get('draft_style')
+        draft_order_type = request.POST.get('draft_order_type')
+        if not 1 <= total_rounds <= 50:
+            messages.error(request, "Startup drafts must have between 1 and 50 rounds.")
+        elif draft_style not in Draft.DraftStyle.values or draft_order_type not in Draft.DraftOrderType.values:
+            messages.error(request, "Invalid startup draft settings.")
+        else:
+            draft.total_rounds = total_rounds
+            draft.draft_style = draft_style
+            draft.draft_order_type = draft_order_type
+            draft.save(update_fields=['total_rounds', 'draft_style', 'draft_order_type'])
+            messages.success(request, "Startup draft settings updated.")
+            post_league_message(league, "Commissioner updated startup draft settings.")
+            return redirect('draft_room')
+
+    return render(request, 'web/startup_draft_settings.html', {
+        'league': league,
+        'draft': draft,
+        'is_commissioner': is_commissioner,
+    })
+
+
+@login_required
 def draft_settings(request):
     """View to configure draft settings (future picks for dynasty, basic settings for redraft)"""
     selected_league_id = request.session.get('selected_league_id')

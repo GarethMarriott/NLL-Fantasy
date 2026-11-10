@@ -86,6 +86,37 @@ class DynastyStartupDraftTests(TestCase):
 		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
 		self.assertTrue(Draft.objects.filter(league=league).exists())
 
+	def test_startup_draft_has_separate_settings_page(self):
+		league = League.objects.create(
+			name="Startup Settings League",
+			commissioner=self.user,
+			league_type="dynasty",
+			startup_draft_completed=False,
+		)
+		draft = Draft.objects.create(
+			league=league,
+			draft_type=Draft.DraftType.STARTUP,
+			total_rounds=14,
+		)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+
+		response = self.client.get(reverse("startup_draft_settings"))
+		self.assertContains(response, "Start Up Draft Settings")
+		self.assertNotContains(response, "Configure Future Rookie Picks")
+
+		response = self.client.post(reverse("startup_draft_settings"), {
+			"total_rounds": 16,
+			"draft_style": Draft.DraftStyle.LINEAR,
+			"draft_order_type": Draft.DraftOrderType.MANUAL,
+		})
+		self.assertRedirects(response, reverse("draft_room"), fetch_redirect_response=False)
+		draft.refresh_from_db()
+		self.assertEqual(draft.total_rounds, 16)
+		self.assertEqual(draft.draft_style, Draft.DraftStyle.LINEAR)
+		self.assertEqual(draft.draft_order_type, Draft.DraftOrderType.MANUAL)
+
 	def test_incomplete_league_cannot_activate_a_draft_preview(self):
 		league = League.objects.create(
 			name="Incomplete Draft League",
