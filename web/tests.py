@@ -167,6 +167,30 @@ class LeagueNavigationTests(TestCase):
 		self.assertRedirects(response, reverse("my_team"), fetch_redirect_response=False)
 		self.assertEqual(self.client.session["selected_league_id"], self.league.id)
 
+	def test_settings_header_shows_league_code(self):
+		response = self.client.get(reverse("league_settings", args=[self.league.id]))
+
+		self.assertContains(response, f"Code: {self.league.unique_id}")
+
+	def test_private_full_league_can_be_found_by_join_code(self):
+		other_user = get_user_model().objects.create_user(username="private-commissioner", password="test-password")
+		private_league = League.objects.create(
+			name="Private Code League",
+			commissioner=other_user,
+			is_public=False,
+			max_teams=2,
+		)
+		Team.objects.create(name="Private Team 1", league=private_league, season_year=private_league.season)
+		Team.objects.create(name="Private Team 2", league=private_league, season_year=private_league.season)
+
+		response = self.client.get(reverse("league_list"), {
+			"search": private_league.unique_id.lower(),
+			"search_type": "code",
+		})
+
+		self.assertContains(response, private_league.name)
+		self.assertContains(response, "League Full")
+
 	def test_commissioner_can_delete_league_from_operations(self):
 		team = Team.objects.get(league=self.league)
 		archive = DraftHistory.objects.create(

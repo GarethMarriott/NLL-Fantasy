@@ -4718,34 +4718,37 @@ def league_list(request):
         teams__owner__user=request.user
     ).distinct()
     
-    # All other ACTIVE leagues only (but exclude season_complete)
-    other_leagues = League.objects.filter(is_active=True).exclude(
-        status='season_complete'
-    ).exclude(
-        id__in=my_leagues.values_list('id', flat=True)
-    ).exclude(
-        id__in=my_team_leagues.values_list('id', flat=True)
-    )
-    
-    # Apply search filter and privacy rules
-    if search_query:
-        # When searching, show both public and private leagues that match
-        if search_type == 'code':
-            # Search by unique ID (case-insensitive exact match)
-            other_leagues = other_leagues.filter(unique_id__iexact=search_query)
-        else:
-            # Search by name (case-insensitive contains)
-            other_leagues = other_leagues.filter(name__icontains=search_query)
+    # A join code is an explicit invite. It must resolve the league even when
+    # it is private, full, or already visible in the user's league sections.
+    is_code_search = bool(search_query and search_type == 'code')
+    if is_code_search:
+        normalized_code = ''.join(character for character in search_query if character.isalnum())
+        other_leagues = League.objects.filter(
+            is_active=True,
+            unique_id__iexact=normalized_code,
+        )
     else:
-        # Without search, only show public leagues
-        other_leagues = other_leagues.filter(is_public=True)
+        # All other active leagues exclude completed and already-joined leagues.
+        other_leagues = League.objects.filter(is_active=True).exclude(
+            status='season_complete'
+        ).exclude(
+            id__in=my_leagues.values_list('id', flat=True)
+        ).exclude(
+            id__in=my_team_leagues.values_list('id', flat=True)
+        )
+        if search_query:
+            # Name searches may return public or private leagues by request.
+            other_leagues = other_leagues.filter(name__icontains=search_query)
+        else:
+            other_leagues = other_leagues.filter(is_public=True)
     
     # Only show leagues that have room in their current season. Renewal keeps
     # prior-season teams for history, so counting every related Team is wrong.
-    other_leagues = [
-        league for league in other_leagues
-        if league.active_team_count < league.max_teams
-    ]
+    if not is_code_search:
+        other_leagues = [
+            league for league in other_leagues
+            if league.active_team_count < league.max_teams
+        ]
     
     # Separate user's leagues into active and completed
     # Active: status='active' (don't show archived leagues here - access via League Settings > Archives)
@@ -4770,6 +4773,7 @@ def league_list(request):
         "other_leagues": other_leagues,
         "search_query": search_query,
         "search_type": search_type,
+        "is_code_search": is_code_search,
     })
 
 

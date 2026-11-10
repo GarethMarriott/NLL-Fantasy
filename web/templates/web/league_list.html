@@ -179,10 +179,14 @@
               <span>{{ league.active_team_count }}/{{ league.max_teams }} teams</span>
               <span>By: {{ league.commissioner.username }}</span>
             </div>
-            <a href="{% url 'league_detail' league.id %}" 
-               class="block text-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded">
-              Join League
-            </a>
+            {% if league.active_team_count >= league.max_teams %}
+              <span class="block text-center px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded">League Full</span>
+            {% else %}
+              <a href="{% url 'league_detail' league.id %}" 
+                 class="block text-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded">
+                {% if league.commissioner == request.user %}Manage League{% else %}Join League{% endif %}
+              </a>
+            {% endif %}
           </div>
         {% endfor %}
       </div>

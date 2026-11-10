@@ -5,7 +5,10 @@
   <div class="flex flex-col gap-3 mb-7 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <p class="text-xs font-semibold tracking-wide uppercase text-blue-700">League Control</p>
-      <h1 class="mt-1 text-2xl font-semibold">{{ league.name }}</h1>
+      <div class="mt-1 flex flex-wrap items-center gap-2">
+        <h1 class="text-2xl font-semibold">{{ league.name }}</h1>
+        <span class="font-mono text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-200 rounded px-2 py-1">Code: {{ league.unique_id }}</span>
+      </div>
       <p class="mt-1 text-sm text-gray-600">{% if is_commissioner %}Choose a settings group to review or update.{% else %}Settings are available to review. Only the commissioner can edit them.{% endif %}</p>
     </div>
     <a href="{% url 'league_detail' league.id %}" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">Back to League</a>
