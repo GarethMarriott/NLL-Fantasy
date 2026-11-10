@@ -5756,11 +5756,10 @@ def draft_settings(request):
                 years_ahead = form.cleaned_data['years_ahead']
                 num_rounds = form.cleaned_data['num_rounds']
                 
-                # Update draft total_rounds if draft exists
-                if draft:
+                # Rookie settings must not alter an in-progress startup draft.
+                if draft and league.startup_draft_completed:
                     draft.total_rounds = num_rounds
                     draft.save()
-                    logger.info(f"Updated draft rounds to {num_rounds} for {league.name}")
                 
                 # Delete existing future picks and recreate with new settings
                 from ..models import FutureRookiePick
