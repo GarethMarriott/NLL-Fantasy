@@ -407,6 +407,8 @@ class DraftRoomTests(TestCase):
 		self.assertContains(response, "Your Team Preview")
 		self.assertContains(response, "3/3 drafted")
 		self.assertContains(response, f"openPlayerDetails({offense.id})")
+		self.assertContains(response, "switchPlayerDetailsTab('transactions')")
+		self.assertContains(response, "switchPlayerDetailsTab('stats')")
 
 	def test_draft_enforces_turn_order_and_shows_personal_board(self):
 		first_user = get_user_model().objects.create_user(username="first-drafter", password="test-password")
