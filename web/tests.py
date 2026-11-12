@@ -373,6 +373,20 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
+	def test_player_modal_marks_only_current_season_rookies(self):
+		user = get_user_model().objects.create_user(username="modal-rookie", password="test-password")
+		league = League.objects.create(name="Modal Rookie League", commissioner=user)
+		former_rookie = Player.objects.create(
+			first_name="Former",
+			last_name="Rookie",
+			position=Player.Position.OFFENCE,
+			is_rookie=True,
+			rookie_season=league.season - 1,
+		)
+
+		response = self.client.get(reverse("player_detail_modal", args=[former_rookie.id]), {"league_id": league.id})
+		self.assertFalse(response.json()["player"]["is_current_rookie"])
+
 	def test_draft_room_shows_players_in_league_roster_slots(self):
 		user = get_user_model().objects.create_user(username="slot-drafter", password="test-password")
 		league = League.objects.create(

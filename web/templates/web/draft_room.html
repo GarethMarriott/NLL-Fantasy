@@ -572,7 +572,7 @@ function openPlayerDetails(playerId, season = '', activeTab = 'info') {
       document.getElementById('player-details-birthdate').textContent = data.player.birthdate || '—';
       document.getElementById('player-details-draft-year').textContent = data.player.draft_year || '—';
       document.getElementById('player-details-header').className = `${playerDetailColor(data.player.position)} flex items-center justify-between px-6 py-4`;
-      document.getElementById('player-details-rookie').classList.toggle('hidden', !data.player.is_rookie);
+      document.getElementById('player-details-rookie').classList.toggle('hidden', !data.player.is_current_rookie);
       document.getElementById('player-details-ir').classList.toggle('hidden', !data.player.is_on_ir);
       const seasonSelector = document.getElementById('player-details-season');
       seasonSelector.innerHTML = '';

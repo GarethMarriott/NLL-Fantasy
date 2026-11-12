@@ -3202,6 +3202,7 @@ def player_detail_modal(request, player_id):
             'draft_year': player.draft_year or 'Unknown',
             'birthdate': player.birthdate.strftime('%B %d, %Y') if player.birthdate else 'Unknown',
             'is_rookie': player.is_rookie,
+            'is_current_rookie': bool(player.is_rookie and player.rookie_season == league.season),
             'rookie_season': player.rookie_season or 'Unknown',
             'seasons_played': player.seasons_played,
             'is_on_ir': player.is_on_injured_reserve,
