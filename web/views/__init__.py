@@ -5520,6 +5520,7 @@ def draft_room(request):
             draft=draft,
             player__isnull=False,
         ).values_list('player_id', flat=True))
+    draft_selected_pick_count = len(drafted_player_ids)
     
     rostered_player_ids = list(
         Roster.objects.filter(
@@ -5706,6 +5707,7 @@ def draft_room(request):
         'is_user_turn': is_user_turn,
         'draft_board': draft_board,
         'rookie_draft_picks': rookie_draft_picks,
+        'draft_selected_pick_count': draft_selected_pick_count,
         'previous_season': previous_season,
         'sort_by': sort_by,
         'sort_dir': sort_dir,
@@ -5718,6 +5720,51 @@ def draft_room(request):
     }
     
     return render(request, 'web/draft_room.html', context)
+
+
+@login_required
+def draft_status(request):
+    """Return a compact active-draft version for change-aware browser polling."""
+    selected_league_id = request.session.get('selected_league_id')
+    if not selected_league_id:
+        return JsonResponse({'error': 'Please select a league first.'}, status=400)
+
+    league = get_object_or_404(League, id=selected_league_id)
+    from ..models import RookieDraft, RookieDraftPick
+
+    rookie_draft = None
+    if league.league_type == 'dynasty' and league.startup_draft_completed:
+        rookie_draft = RookieDraft.objects.filter(
+            league=league,
+            season_year=league.season,
+        ).first()
+
+    if rookie_draft:
+        draft = rookie_draft
+        pick_model = RookieDraftPick
+        draft_type = 'rookie'
+    else:
+        draft = Draft.objects.filter(league=league).first()
+        pick_model = DraftPick
+        draft_type = 'regular'
+
+    if not draft:
+        return JsonResponse({'draft': None})
+
+    return JsonResponse({
+        'draft': {
+            'id': draft.id,
+            'type': draft_type,
+            'is_active': draft.is_active,
+            'completed': draft.completed,
+            'current_round': draft.current_round,
+            'current_pick': draft.current_pick,
+            'selected_pick_count': pick_model.objects.filter(
+                draft=draft,
+                player__isnull=False,
+            ).count(),
+        },
+    })
 
 
 @login_required

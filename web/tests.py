@@ -373,6 +373,27 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
+	def test_draft_status_reflects_new_active_draft_picks(self):
+		user = get_user_model().objects.create_user(username="draft-status", password="test-password")
+		league = League.objects.create(name="Draft Status League", commissioner=user)
+		team = Team.objects.create(name="Status Team", league=league, season_year=league.season)
+		draft = Draft.objects.create(league=league, is_active=True, total_rounds=1)
+		player = Player.objects.create(first_name="Status", last_name="Player", position=Player.Position.OFFENCE)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+		self.client.force_login(user)
+
+		response = self.client.get(reverse("draft_status"))
+		self.assertEqual(response.json()["draft"]["selected_pick_count"], 0)
+
+		DraftPick.objects.create(draft=draft, round=1, pick_number=1, overall_pick=1, team=team, player=player)
+		draft.current_pick = 2
+		draft.save(update_fields=["current_pick"])
+		response = self.client.get(reverse("draft_status"))
+		self.assertEqual(response.json()["draft"]["selected_pick_count"], 1)
+		self.assertEqual(response.json()["draft"]["current_pick"], 2)
+
 	def test_player_modal_marks_only_current_season_rookies(self):
 		user = get_user_model().objects.create_user(username="modal-rookie", password="test-password")
 		league = League.objects.create(name="Modal Rookie League", commissioner=user)
@@ -400,7 +421,7 @@ class DraftRoomTests(TestCase):
 		)
 		team = Team.objects.create(name="Slot Team", league=league, season_year=league.season)
 		FantasyTeamOwner.objects.create(user=user, team=team)
-		draft = Draft.objects.create(league=league, total_rounds=5)
+		draft = Draft.objects.create(league=league, total_rounds=5, is_active=True)
 		offense = Player.objects.create(first_name="Offense", last_name="One", position=Player.Position.OFFENCE)
 		defense = Player.objects.create(first_name="Defense", last_name="One", position=Player.Position.DEFENCE)
 		transition = Player.objects.create(first_name="Transition", last_name="One", position=Player.Position.TRANSITION)
@@ -420,6 +441,8 @@ class DraftRoomTests(TestCase):
 		self.assertEqual(len(preview["bench_slots"]), 1)
 		self.assertContains(response, "Your Team Preview")
 		self.assertContains(response, "3/3 drafted")
+		self.assertEqual(response.context["draft_selected_pick_count"], 3)
+		self.assertContains(response, "refreshDraftRoomWhenChanged")
 		self.assertContains(response, f"openPlayerDetails({offense.id})")
 		self.assertContains(response, "switchPlayerDetailsTab('transactions')")
 		self.assertContains(response, "switchPlayerDetailsTab('stats')")
