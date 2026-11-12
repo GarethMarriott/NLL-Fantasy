@@ -373,6 +373,39 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
+	def test_draft_room_shows_players_in_league_roster_slots(self):
+		user = get_user_model().objects.create_user(username="slot-drafter", password="test-password")
+		league = League.objects.create(
+			name="Slot Preview League",
+			commissioner=user,
+			roster_format="traditional",
+			roster_forwards=2,
+			roster_defense=2,
+			roster_bench=1,
+			roster_size=5,
+		)
+		team = Team.objects.create(name="Slot Team", league=league, season_year=league.season)
+		FantasyTeamOwner.objects.create(user=user, team=team)
+		draft = Draft.objects.create(league=league, total_rounds=5)
+		offense = Player.objects.create(first_name="Offense", last_name="One", position=Player.Position.OFFENCE)
+		defense = Player.objects.create(first_name="Defense", last_name="One", position=Player.Position.DEFENCE)
+		transition = Player.objects.create(first_name="Transition", last_name="One", position=Player.Position.TRANSITION)
+		DraftPick.objects.create(draft=draft, round=1, pick_number=1, overall_pick=1, team=team, player=offense)
+		DraftPick.objects.create(draft=draft, round=1, pick_number=2, overall_pick=2, team=team, player=defense)
+		DraftPick.objects.create(draft=draft, round=1, pick_number=3, overall_pick=3, team=team, player=transition)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+		self.client.force_login(user)
+
+		response = self.client.get(reverse("draft_room"))
+		preview = response.context["team_preview"]
+		self.assertEqual(preview["offense_slots"][0]["player"], offense)
+		self.assertEqual(preview["defense_slots"][0]["player"], defense)
+		self.assertEqual(preview["offense_slots"][1]["player"], transition)
+		self.assertEqual(len(preview["bench_slots"]), 1)
+		self.assertContains(response, "Your Team Preview")
+
 	def test_draft_enforces_turn_order_and_shows_personal_board(self):
 		first_user = get_user_model().objects.create_user(username="first-drafter", password="test-password")
 		second_user = get_user_model().objects.create_user(username="second-drafter", password="test-password")
@@ -419,7 +452,8 @@ class DraftRoomTests(TestCase):
 		session.save()
 		response = self.client.get(reverse("draft_room"))
 
-		self.assertContains(response, "Your Draft Board (2 picks)")
+		self.assertContains(response, "Your Team Preview")
+		self.assertContains(response, "Ordered Draft League")
 		self.assertEqual(
 			list(response.context["user_picks"].values_list("id", flat=True)),
 			[first_pick.id, future_first_pick.id],

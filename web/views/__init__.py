@@ -64,6 +64,58 @@ def rookie_draft_is_pending(league, player):
     ).exists()
 
 
+def build_draft_team_preview(league, picks):
+    """Arrange drafted players into the league's visible roster slots."""
+    offense_slots = [
+        {'label': f'O{number}', 'player': None}
+        for number in range(1, (league.roster_forwards or 0) + 1)
+    ]
+    defense_slots = [
+        {'label': f'D{number}', 'player': None}
+        for number in range(1, (league.roster_defense or 0) + 1)
+    ]
+    bench_slots = [
+        {'label': f'BN{number}', 'player': None}
+        for number in range(1, (league.roster_bench or 0) + 1)
+    ] if league.roster_format == 'traditional' else []
+    overflow_picks = []
+
+    def first_open(slots):
+        return next((slot for slot in slots if slot['player'] is None), None)
+
+    def first_open_position_slot():
+        for slot_number in range(max(len(offense_slots), len(defense_slots))):
+            if slot_number < len(offense_slots) and offense_slots[slot_number]['player'] is None:
+                return offense_slots[slot_number]
+            if slot_number < len(defense_slots) and defense_slots[slot_number]['player'] is None:
+                return defense_slots[slot_number]
+        return None
+
+    for pick in picks:
+        if not pick.player:
+            continue
+
+        if pick.player.position == Player.Position.OFFENCE:
+            slot = first_open(offense_slots)
+        elif pick.player.position in (Player.Position.DEFENCE, Player.Position.GOALIE):
+            slot = first_open(defense_slots)
+        else:
+            slot = first_open_position_slot()
+
+        slot = slot or first_open(bench_slots)
+        if slot:
+            slot['player'] = pick.player
+        else:
+            overflow_picks.append(pick)
+
+    return {
+        'offense_slots': offense_slots,
+        'defense_slots': defense_slots,
+        'bench_slots': bench_slots,
+        'overflow_picks': overflow_picks,
+    }
+
+
 def post_league_message(league, message_text):
     """Post a system message to league chat"""
     ChatMessage.objects.create(
@@ -5606,7 +5658,7 @@ def draft_room(request):
                 'picks': round_picks
             })
     
-    # Show each user their complete personal board, including future picks.
+    # Show each user their draft picks in the league's roster-slot layout.
     user_picks = []
     if draft and user_team:
         draft_pick_model = RookieDraftPick if is_rookie_draft else DraftPick
@@ -5614,6 +5666,7 @@ def draft_room(request):
             draft=draft,
             team=user_team,
         ).select_related('player').order_by('overall_pick')
+    team_preview = build_draft_team_preview(league, user_picks) if user_team else None
     
     # Get future picks organized by year
     future_picks_by_year = {}
@@ -5652,6 +5705,7 @@ def draft_room(request):
         'sort_by': sort_by,
         'sort_dir': sort_dir,
         'user_picks': user_picks,
+        'team_preview': team_preview,
         'draft_locked': draft_locked,
         'future_picks_by_year': future_picks_by_year,
     }
