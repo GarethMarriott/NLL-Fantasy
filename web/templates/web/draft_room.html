@@ -440,19 +440,33 @@
   {% endif %}
 </div>
 
-<dialog id="player-details-modal" class="w-full max-w-md rounded-lg border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/60">
-  <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-    <h2 id="player-details-name" class="text-xl font-bold">Player details</h2>
+<dialog id="player-details-modal" class="w-full max-w-lg rounded-lg border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/60">
+  <div id="player-details-header" class="flex items-center justify-between bg-gray-100 px-6 py-4">
+    <div class="flex items-center gap-3">
+      <h2 id="player-details-name" class="text-2xl font-semibold">Player details</h2>
+      <span id="player-details-rookie" class="hidden rounded bg-yellow-400 px-2 py-1 text-xs font-bold text-yellow-900">ROOKIE</span>
+      <span id="player-details-ir" class="hidden rounded bg-red-500 px-2 py-1 text-xs font-bold text-white">IR</span>
+    </div>
     <button type="button" onclick="document.getElementById('player-details-modal').close()" class="text-2xl leading-none text-gray-500 hover:text-gray-800" aria-label="Close player details">&times;</button>
   </div>
-  <div class="space-y-4 px-5 py-5">
+  <div class="border-b border-gray-200 bg-gray-50">
+    <div class="flex gap-4 overflow-x-auto px-6">
+      <button type="button" data-player-tab="info" class="player-tab border-b-2 px-2 py-3 font-semibold">Player Info</button>
+      <button type="button" data-player-tab="transactions" class="player-tab border-b-2 px-2 py-3 font-semibold">Transactions</button>
+      <button type="button" data-player-tab="stats" class="player-tab border-b-2 px-2 py-3 font-semibold">Stats & Schedule</button>
+    </div>
+  </div>
+  <div class="p-6">
     <p id="player-details-status" class="text-sm text-gray-600">Loading player details...</p>
-    <dl id="player-details-content" class="hidden grid grid-cols-2 gap-4 text-sm">
-      <div><dt class="text-gray-500">Position</dt><dd id="player-details-position" class="font-semibold"></dd></div>
-      <div><dt class="text-gray-500">NLL Team</dt><dd id="player-details-team" class="font-semibold"></dd></div>
-      <div><dt class="text-gray-500">Season Points</dt><dd id="player-details-points" class="font-semibold"></dd></div>
-      <div><dt class="text-gray-500">Points Per Game</dt><dd id="player-details-ppg" class="font-semibold"></dd></div>
-    </dl>
+    <div id="player-details-content" class="hidden">
+      <section data-player-panel="info" class="space-y-6">
+        <div class="grid grid-cols-2 gap-4 border-b border-gray-300 pb-6"><div><span class="block text-sm font-semibold text-gray-600">NLL Team</span><div id="player-details-team" class="text-lg font-semibold">-</div></div><div><span class="block text-sm font-semibold text-gray-600">Position</span><div id="player-details-position" class="text-lg font-semibold">-</div></div></div>
+        <div class="grid grid-cols-2 gap-4 border-b border-gray-300 pb-6"><div><span class="block text-sm font-semibold text-gray-600">Total Points</span><div id="player-details-points" class="text-lg font-semibold text-blue-600">-</div></div><div><span class="block text-sm font-semibold text-gray-600">Points Per Game</span><div id="player-details-ppg" class="text-lg font-semibold text-blue-600">-</div></div></div>
+        <dl class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3"><div><dt class="font-semibold text-gray-600">Number</dt><dd id="player-details-number">-</dd></div><div><dt class="font-semibold text-gray-600">Shoots</dt><dd id="player-details-shoots">-</dd></div><div><dt class="font-semibold text-gray-600">Height</dt><dd id="player-details-height">-</dd></div><div><dt class="font-semibold text-gray-600">Weight</dt><dd id="player-details-weight">-</dd></div><div><dt class="font-semibold text-gray-600">Hometown</dt><dd id="player-details-hometown">-</dd></div><div><dt class="font-semibold text-gray-600">Birthdate</dt><dd id="player-details-birthdate">-</dd></div><div><dt class="font-semibold text-gray-600">Draft Year</dt><dd id="player-details-draft-year">-</dd></div></dl>
+      </section>
+      <section data-player-panel="transactions" class="hidden"><h3 class="mb-4 text-lg font-semibold">Transaction History</h3><div id="player-details-transactions" class="max-h-96 space-y-3 overflow-y-auto"></div></section>
+      <section data-player-panel="stats" class="hidden"><div class="mb-4 flex items-center justify-between gap-3"><h3 class="text-lg font-semibold">Stats & Schedule</h3><label class="flex items-center gap-2 text-sm font-medium text-gray-700">Year <select id="player-details-season" class="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"></select></label></div><div id="player-details-stats" class="max-h-96 overflow-y-auto"></div></section>
+    </div>
   </div>
 </dialog>
 
@@ -491,7 +505,44 @@
 </div>
 
 <script>
-function openPlayerDetails(playerId) {
+let activePlayerDetails = null;
+
+function playerDetailColor(position) {
+  return { Offence: 'bg-green-300', Defence: 'bg-orange-300', Transition: 'bg-purple-300', Goalie: 'bg-blue-300' }[position] || 'bg-gray-300';
+}
+
+function switchPlayerDetailsTab(tabName) {
+  document.querySelectorAll('[data-player-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.playerPanel !== tabName));
+  document.querySelectorAll('.player-tab').forEach(button => {
+    const active = button.dataset.playerTab === tabName;
+    button.classList.toggle('border-blue-600', active);
+    button.classList.toggle('text-blue-600', active);
+    button.classList.toggle('border-transparent', !active);
+    button.classList.toggle('text-gray-600', !active);
+  });
+}
+
+function renderPlayerDetailsStats(data) {
+  const isGoalie = data.player.position === 'Goalie';
+  const headers = isGoalie ? ['W', 'SV', 'GA', 'G', 'A'] : ['G', 'A', 'LB', 'CT', 'BS', 'TO'];
+  const values = game => isGoalie ? [game.wins, game.saves, game.goals_against, game.goals, game.assists] : [game.goals, game.assists, game.loose_balls, game.caused_turnovers, game.blocked_shots, game.turnovers];
+  let rows = '';
+  (data.week_stats || []).forEach(week => {
+    if (week.is_upcoming) {
+      const games = week.games || [];
+      rows += games.length ? games.map((game, index) => `<tr class="border-t"><td class="px-3 py-2">${index ? '' : week.week}</td><td class="px-3 py-2">-</td><td class="px-3 py-2" colspan="${headers.length + 1}">VS ${game.opponent}</td></tr>`).join('') : `<tr class="border-t"><td class="px-3 py-2">${week.week}</td><td class="px-3 py-2">-</td><td class="px-3 py-2 text-orange-600" colspan="${headers.length + 1}">BYE</td></tr>`;
+    } else if (week.is_bye || week.is_no_stats) {
+      rows += `<tr class="border-t"><td class="px-3 py-2">${week.week}</td><td class="px-3 py-2">-</td><td class="px-3 py-2 text-gray-500" colspan="${headers.length + 1}">${week.is_bye ? 'BYE WEEK' : 'No stats recorded'}</td></tr>`;
+    } else {
+      rows += (week.game_details || []).map((game, index) => `<tr class="border-t"><td class="px-3 py-2">${index ? '' : week.week}</td><td class="px-3 py-2 font-bold text-blue-600">${game.fantasy_points}</td><td class="px-3 py-2">VS ${game.opponent}</td>${values(game).map(value => `<td class="px-3 py-2 text-center">${value}</td>`).join('')}</tr>`).join('');
+    }
+  });
+  const totals = data.season_totals || { fantasy_points: 0, games_played: 0, points_per_game: 0 };
+  const summary = `<div class="mb-3 grid grid-cols-3 gap-2 text-center text-sm"><div class="rounded-md border border-blue-100 bg-blue-50 p-2"><div class="text-xs text-gray-500">Season Pts</div><strong class="text-blue-700">${totals.fantasy_points}</strong></div><div class="rounded-md border bg-gray-50 p-2"><div class="text-xs text-gray-500">Games</div><strong>${totals.games_played}</strong></div><div class="rounded-md border bg-gray-50 p-2"><div class="text-xs text-gray-500">Pts / Game</div><strong>${totals.points_per_game}</strong></div></div>`;
+  document.getElementById('player-details-stats').innerHTML = summary + (rows ? `<div class="overflow-x-auto rounded-md border"><table class="w-full text-left text-sm"><thead class="bg-gray-100 text-xs text-gray-600"><tr><th class="px-3 py-2">Week</th><th class="px-3 py-2">Pts</th><th class="px-3 py-2">Game</th>${headers.map(header => `<th class="px-3 py-2 text-center">${header}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="text-sm text-gray-500">No stats available</p>');
+}
+
+function openPlayerDetails(playerId, season = '', activeTab = 'info') {
   const modal = document.getElementById('player-details-modal');
   const status = document.getElementById('player-details-status');
   const content = document.getElementById('player-details-content');
@@ -501,19 +552,38 @@ function openPlayerDetails(playerId) {
   content.classList.add('hidden');
   modal.showModal();
 
-  fetch(`/players/${playerId}/modal/?league_id={{ league.id }}`)
+  fetch(`/players/${playerId}/modal/?league_id={{ league.id }}${season ? `&season=${encodeURIComponent(season)}` : ''}`)
     .then(response => {
       if (!response.ok) throw new Error('Unable to load player details.');
       return response.json();
     })
     .then(data => {
+      activePlayerDetails = { playerId, data };
       document.getElementById('player-details-name').textContent = data.player.name;
       document.getElementById('player-details-position').textContent = data.player.position || '—';
       document.getElementById('player-details-team').textContent = data.player.nll_team || '—';
       document.getElementById('player-details-points').textContent = data.season_totals.fantasy_points;
       document.getElementById('player-details-ppg').textContent = data.season_totals.points_per_game;
+      document.getElementById('player-details-number').textContent = data.player.number || '—';
+      document.getElementById('player-details-shoots').textContent = data.player.shoots || '—';
+      document.getElementById('player-details-height').textContent = data.player.height || '—';
+      document.getElementById('player-details-weight').textContent = data.player.weight ? `${data.player.weight} lbs` : '—';
+      document.getElementById('player-details-hometown').textContent = data.player.hometown || '—';
+      document.getElementById('player-details-birthdate').textContent = data.player.birthdate || '—';
+      document.getElementById('player-details-draft-year').textContent = data.player.draft_year || '—';
+      document.getElementById('player-details-header').className = `${playerDetailColor(data.player.position)} flex items-center justify-between px-6 py-4`;
+      document.getElementById('player-details-rookie').classList.toggle('hidden', !data.player.is_rookie);
+      document.getElementById('player-details-ir').classList.toggle('hidden', !data.player.is_on_ir);
+      const seasonSelector = document.getElementById('player-details-season');
+      seasonSelector.innerHTML = '';
+      data.available_seasons.forEach(year => seasonSelector.add(new Option(year, year, false, year === data.selected_season)));
+      seasonSelector.onchange = () => openPlayerDetails(playerId, seasonSelector.value, 'stats');
+      const transactionContainer = document.getElementById('player-details-transactions');
+      transactionContainer.innerHTML = data.transactions && data.transactions.length ? data.transactions.map(transaction => `<div class="border-l-4 border-blue-500 py-2 pl-3"><div class="text-sm font-semibold">${transaction.transaction_date}</div><div class="font-bold text-blue-700">${transaction.transaction_type_display}</div><div class="mt-1 text-sm text-gray-600">${transaction.details}</div></div>`).join('') : '<p class="text-sm text-gray-500">No transactions found</p>';
+      renderPlayerDetailsStats(data);
       status.classList.add('hidden');
       content.classList.remove('hidden');
+      switchPlayerDetailsTab(activeTab);
     })
     .catch(error => {
       status.textContent = error.message;
