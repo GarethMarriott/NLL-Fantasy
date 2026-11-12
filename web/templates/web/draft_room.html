@@ -245,7 +245,7 @@
                 <tr class="border-b hover:bg-gray-50">
                   {% if is_rookie_draft %}
                   <td class="p-2 font-semibold">#{{ player.entry_draft_pick }}</td>
-                  <td class="p-2">{{ player.first_name }} {{ player.last_name }}</td>
+                  <td class="p-2"><button type="button" onclick="openPlayerDetails({{ player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ player.first_name }} {{ player.last_name }}</button></td>
                   <td class="p-2">
                     <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
                       {% if player.position == 'O' %}bg-green-100 text-green-800
@@ -266,7 +266,7 @@
                     </button>
                   </td>
                   {% endif %}
-                  <td class="p-2">{{ player.first_name }} {{ player.last_name }}</td>
+                  <td class="p-2"><button type="button" onclick="openPlayerDetails({{ player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ player.first_name }} {{ player.last_name }}</button></td>
                   <td class="p-2">
                     <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
                       {% if player.position == 'O' %}bg-green-100 text-green-800
@@ -356,7 +356,7 @@
   {% if team_preview %}
   <div class="mt-6 bg-white dark:bg-gray-50 rounded-lg shadow p-4">
     <h3 class="text-lg font-semibold mb-1">Your Team Preview</h3>
-    <p class="mb-4 text-sm text-gray-600">{{ user_team.name }} · {{ user_picks|length }} drafted</p>
+    <p class="mb-4 text-sm text-gray-600">{{ user_team.name }} · {{ user_selected_pick_count }}/{{ user_total_pick_count }} drafted</p>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 {% if team_preview.bench_slots %}lg:grid-cols-3{% endif %}">
       <div>
         <h4 class="mb-2 text-sm font-semibold text-green-800">Offense</h4>
@@ -364,7 +364,7 @@
           {% for slot in team_preview.offense_slots %}
           <div class="flex min-h-12 items-center gap-3 rounded border p-2 text-sm {% if slot.player %}border-green-300 bg-green-50{% else %}border-dashed border-gray-300 bg-gray-50{% endif %}">
             <span class="w-8 font-bold text-green-700">{{ slot.label }}</span>
-            {% if slot.player %}<span class="font-semibold text-gray-900">{{ slot.player.first_name }} {{ slot.player.last_name }}</span><span class="ml-auto text-xs text-gray-500">{{ slot.player.position }}</span>{% else %}<span class="text-gray-400">Open slot</span>{% endif %}
+            {% if slot.player %}<button type="button" onclick="openPlayerDetails({{ slot.player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ slot.player.first_name }} {{ slot.player.last_name }}</button><span class="ml-auto text-xs text-gray-500">{{ slot.player.position }}</span>{% else %}<span class="text-gray-400">Open slot</span>{% endif %}
           </div>
           {% endfor %}
         </div>
@@ -375,7 +375,7 @@
           {% for slot in team_preview.defense_slots %}
           <div class="flex min-h-12 items-center gap-3 rounded border p-2 text-sm {% if slot.player %}border-orange-300 bg-orange-50{% else %}border-dashed border-gray-300 bg-gray-50{% endif %}">
             <span class="w-8 font-bold text-orange-700">{{ slot.label }}</span>
-            {% if slot.player %}<span class="font-semibold text-gray-900">{{ slot.player.first_name }} {{ slot.player.last_name }}</span><span class="ml-auto text-xs text-gray-500">{{ slot.player.position }}</span>{% else %}<span class="text-gray-400">Open slot</span>{% endif %}
+            {% if slot.player %}<button type="button" onclick="openPlayerDetails({{ slot.player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ slot.player.first_name }} {{ slot.player.last_name }}</button><span class="ml-auto text-xs text-gray-500">{{ slot.player.position }}</span>{% else %}<span class="text-gray-400">Open slot</span>{% endif %}
           </div>
           {% endfor %}
         </div>
@@ -387,7 +387,7 @@
           {% for slot in team_preview.bench_slots %}
           <div class="flex min-h-12 items-center gap-3 rounded border p-2 text-sm {% if slot.player %}border-gray-300 bg-gray-100{% else %}border-dashed border-gray-300 bg-gray-50{% endif %}">
             <span class="w-8 font-bold text-gray-600">{{ slot.label }}</span>
-            {% if slot.player %}<span class="font-semibold text-gray-900">{{ slot.player.first_name }} {{ slot.player.last_name }}</span><span class="ml-auto text-xs text-gray-500">{{ slot.player.position }}</span>{% else %}<span class="text-gray-400">Open slot</span>{% endif %}
+            {% if slot.player %}<button type="button" onclick="openPlayerDetails({{ slot.player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ slot.player.first_name }} {{ slot.player.last_name }}</button><span class="ml-auto text-xs text-gray-500">{{ slot.player.position }}</span>{% else %}<span class="text-gray-400">Open slot</span>{% endif %}
           </div>
           {% endfor %}
         </div>
@@ -440,6 +440,22 @@
   {% endif %}
 </div>
 
+<dialog id="player-details-modal" class="w-full max-w-md rounded-lg border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/60">
+  <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+    <h2 id="player-details-name" class="text-xl font-bold">Player details</h2>
+    <button type="button" onclick="document.getElementById('player-details-modal').close()" class="text-2xl leading-none text-gray-500 hover:text-gray-800" aria-label="Close player details">&times;</button>
+  </div>
+  <div class="space-y-4 px-5 py-5">
+    <p id="player-details-status" class="text-sm text-gray-600">Loading player details...</p>
+    <dl id="player-details-content" class="hidden grid grid-cols-2 gap-4 text-sm">
+      <div><dt class="text-gray-500">Position</dt><dd id="player-details-position" class="font-semibold"></dd></div>
+      <div><dt class="text-gray-500">NLL Team</dt><dd id="player-details-team" class="font-semibold"></dd></div>
+      <div><dt class="text-gray-500">Season Points</dt><dd id="player-details-points" class="font-semibold"></dd></div>
+      <div><dt class="text-gray-500">Points Per Game</dt><dd id="player-details-ppg" class="font-semibold"></dd></div>
+    </dl>
+  </div>
+</dialog>
+
 <!-- Draft Confirmation Modal -->
 <div id="draftModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
   <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -475,6 +491,35 @@
 </div>
 
 <script>
+function openPlayerDetails(playerId) {
+  const modal = document.getElementById('player-details-modal');
+  const status = document.getElementById('player-details-status');
+  const content = document.getElementById('player-details-content');
+  document.getElementById('player-details-name').textContent = 'Player details';
+  status.textContent = 'Loading player details...';
+  status.classList.remove('hidden');
+  content.classList.add('hidden');
+  modal.showModal();
+
+  fetch(`/players/${playerId}/modal/?league_id={{ league.id }}`)
+    .then(response => {
+      if (!response.ok) throw new Error('Unable to load player details.');
+      return response.json();
+    })
+    .then(data => {
+      document.getElementById('player-details-name').textContent = data.player.name;
+      document.getElementById('player-details-position').textContent = data.player.position || '—';
+      document.getElementById('player-details-team').textContent = data.player.nll_team || '—';
+      document.getElementById('player-details-points').textContent = data.season_totals.fantasy_points;
+      document.getElementById('player-details-ppg').textContent = data.season_totals.points_per_game;
+      status.classList.add('hidden');
+      content.classList.remove('hidden');
+    })
+    .catch(error => {
+      status.textContent = error.message;
+    });
+}
+
 // Auto-scroll to current pick on page load
 document.addEventListener('DOMContentLoaded', function() {
   const currentPick = document.getElementById('current-pick');

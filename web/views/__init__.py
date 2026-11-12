@@ -5660,12 +5660,16 @@ def draft_room(request):
     
     # Show each user their draft picks in the league's roster-slot layout.
     user_picks = []
+    user_selected_pick_count = 0
+    user_total_pick_count = 0
     if draft and user_team:
         draft_pick_model = RookieDraftPick if is_rookie_draft else DraftPick
         user_picks = draft_pick_model.objects.filter(
             draft=draft,
             team=user_team,
         ).select_related('player').order_by('overall_pick')
+        user_selected_pick_count = user_picks.filter(player__isnull=False).count()
+        user_total_pick_count = user_picks.count()
     team_preview = build_draft_team_preview(league, user_picks) if user_team else None
     
     # Get future picks organized by year
@@ -5705,6 +5709,8 @@ def draft_room(request):
         'sort_by': sort_by,
         'sort_dir': sort_dir,
         'user_picks': user_picks,
+        'user_selected_pick_count': user_selected_pick_count,
+        'user_total_pick_count': user_total_pick_count,
         'team_preview': team_preview,
         'draft_locked': draft_locked,
         'future_picks_by_year': future_picks_by_year,

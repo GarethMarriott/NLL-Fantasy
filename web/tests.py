@@ -405,6 +405,8 @@ class DraftRoomTests(TestCase):
 		self.assertEqual(preview["offense_slots"][1]["player"], transition)
 		self.assertEqual(len(preview["bench_slots"]), 1)
 		self.assertContains(response, "Your Team Preview")
+		self.assertContains(response, "3/3 drafted")
+		self.assertContains(response, f"openPlayerDetails({offense.id})")
 
 	def test_draft_enforces_turn_order_and_shows_personal_board(self):
 		first_user = get_user_model().objects.create_user(username="first-drafter", password="test-password")
@@ -453,6 +455,7 @@ class DraftRoomTests(TestCase):
 		response = self.client.get(reverse("draft_room"))
 
 		self.assertContains(response, "Your Team Preview")
+		self.assertContains(response, "1/2 drafted")
 		self.assertContains(response, "Ordered Draft League")
 		self.assertEqual(
 			list(response.context["user_picks"].values_list("id", flat=True)),
