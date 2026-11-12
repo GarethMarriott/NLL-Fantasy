@@ -190,11 +190,11 @@ class League(models.Model):
         help_text="Points per goalie win"
     )
     scoring_goalie_saves = models.DecimalField(
-        max_digits=5, decimal_places=2, default=1.00,
+        max_digits=5, decimal_places=2, default=0.75,
         help_text="Points per save"
     )
     scoring_goalie_goals_against = models.DecimalField(
-        max_digits=5, decimal_places=2, default=-1.25,
+        max_digits=5, decimal_places=2, default=-1.00,
         help_text="Points per goal against (typically negative)"
     )
     scoring_goalie_goals = models.DecimalField(

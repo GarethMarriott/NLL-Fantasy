@@ -1,11 +1,26 @@
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
 from .draft_history import archive_draft, archive_rookie_draft
 from .models import ChatMessage, Draft, DraftHistory, DraftPick, DraftPosition, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Roster, Team
 from .tasks import create_future_rookie_picks, create_rookie_draft
+
+
+class DefaultScoringTests(TestCase):
+	def test_new_league_uses_default_goalie_scoring(self):
+		league = League(name="Default Scoring League")
+
+		self.assertEqual(league.scoring_goalie_saves, Decimal("0.75"))
+		self.assertEqual(league.scoring_goalie_goals_against, Decimal("-1.00"))
+
+	def test_about_page_shows_default_goalie_scoring(self):
+		response = self.client.get(reverse("about"))
+
+		self.assertContains(response, ">+0.75</dd>")
+		self.assertContains(response, ">-1</dd>")
 
 
 class DynastyStartupDraftTests(TestCase):
