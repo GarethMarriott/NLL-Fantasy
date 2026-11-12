@@ -3,10 +3,12 @@ from django.core.management import call_command
 from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
+from unittest.mock import patch
 
 from .draft_history import archive_draft, archive_rookie_draft
 from .models import ChatMessage, Draft, DraftHistory, DraftPick, DraftPosition, FantasyTeamOwner, FutureRookiePick, League, Player, RookieDraft, RookieDraftPick, Roster, Team
 from .tasks import create_future_rookie_picks, create_rookie_draft
+from .tasks import send_password_reset_email
 
 
 class DefaultScoringTests(TestCase):
@@ -21,6 +23,19 @@ class DefaultScoringTests(TestCase):
 
 		self.assertContains(response, ">+0.75</dd>")
 		self.assertContains(response, ">-1</dd>")
+
+
+class PasswordResetEmailTests(TestCase):
+	def test_password_reset_task_raises_when_email_delivery_fails(self):
+		user = get_user_model().objects.create_user(
+			username="reset-user",
+			email="reset@example.com",
+			password="test-password",
+		)
+
+		with patch("django.core.mail.send_mail", side_effect=RuntimeError("mail unavailable")):
+			with self.assertRaisesRegex(RuntimeError, "mail unavailable"):
+				send_password_reset_email.run(user.id, "uid", "token")
 
 
 class DynastyStartupDraftTests(TestCase):

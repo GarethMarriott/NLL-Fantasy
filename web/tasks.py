@@ -79,7 +79,7 @@ def send_password_reset_email(user_id, uid, token, protocol='https', domain='sha
         return f"User with id {user_id} not found"
     except Exception as e:
         logger.error(f"Error sending password reset email: {str(e)}")
-        return f"Error sending password reset email: {str(e)}"
+        raise
 
 
 @shared_task
