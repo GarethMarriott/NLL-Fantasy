@@ -38,6 +38,13 @@ class PasswordResetEmailTests(TestCase):
 				send_password_reset_email.run(user.id, "uid", "token")
 
 
+class RegistrationTests(TestCase):
+	def test_registration_page_reminds_users_to_save_credentials(self):
+		response = self.client.get(reverse("register"))
+
+		self.assertContains(response, "Please save your username and password in a secure place.")
+
+
 class DynastyStartupDraftTests(TestCase):
 	def setUp(self):
 		self.user = get_user_model().objects.create_user(
