@@ -5536,6 +5536,7 @@ def draft_room(request):
     # Rookies are ordered by their official NLL Entry Draft selection number.
     sort_by = request.GET.get('sort_by', 'prev_year_points')
     sort_dir = request.GET.get('sort_dir', 'desc')
+    selected_position = request.GET.get('position', '')
     if is_rookie_draft:
         available_players = Player.objects.filter(
             is_rookie=True,
@@ -5559,7 +5560,16 @@ def draft_room(request):
 
         available_players = Player.objects.exclude(
             id__in=excluded_ids
-        ).annotate(
+        )
+        if selected_position == 'R':
+            available_players = available_players.filter(
+                is_rookie=True,
+                rookie_season=league.season,
+            )
+        elif selected_position in Player.Position.values:
+            available_players = available_players.filter(position=selected_position)
+
+        available_players = available_players.annotate(
         prev_year_points=Coalesce(
             Sum(
                 Case(
@@ -5711,6 +5721,7 @@ def draft_room(request):
         'previous_season': previous_season,
         'sort_by': sort_by,
         'sort_dir': sort_dir,
+        'selected_position': selected_position,
         'user_picks': user_picks,
         'user_selected_pick_count': user_selected_pick_count,
         'user_total_pick_count': user_total_pick_count,

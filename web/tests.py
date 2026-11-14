@@ -410,6 +410,33 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
+	def test_draft_room_filters_available_players_by_position(self):
+		user = get_user_model().objects.create_user(username="position-filter", password="test-password")
+		league = League.objects.create(name="Position Filter League", commissioner=user)
+		Team.objects.create(name="Filter Team", league=league, season_year=league.season)
+		Draft.objects.create(league=league, total_rounds=1)
+		offense = Player.objects.create(first_name="Offense", last_name="Player", position=Player.Position.OFFENCE)
+		goalie = Player.objects.create(first_name="Goalie", last_name="Player", position=Player.Position.GOALIE)
+		rookie = Player.objects.create(
+			first_name="Rookie",
+			last_name="Player",
+			position=Player.Position.TRANSITION,
+			is_rookie=True,
+			rookie_season=league.season,
+		)
+		session = self.client.session
+		session["selected_league_id"] = league.id
+		session.save()
+		self.client.force_login(user)
+
+		response = self.client.get(reverse("draft_room"), {"position": "G"})
+		self.assertEqual(list(response.context["available_players"]), [goalie])
+
+		response = self.client.get(reverse("draft_room"), {"position": "R"})
+		self.assertEqual(list(response.context["available_players"]), [rookie])
+		self.assertNotIn(offense, response.context["available_players"])
+		self.assertContains(response, "Position")
+
 	def test_draft_status_reflects_new_active_draft_picks(self):
 		user = get_user_model().objects.create_user(username="draft-status", password="test-password")
 		league = League.objects.create(name="Draft Status League", commissioner=user)
