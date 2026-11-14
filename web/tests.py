@@ -422,13 +422,27 @@ class DraftRoomTests(TestCase):
 			last_name="Transition",
 			position=Player.Position.TRANSITION,
 		)
+		rookie = Player.objects.create(
+			first_name="Current",
+			last_name="Rookie",
+			position=Player.Position.DEFENCE,
+			is_rookie=True,
+			rookie_season=league.season,
+		)
+		former_rookie = Player.objects.create(
+			first_name="Former",
+			last_name="Rookie",
+			position=Player.Position.DEFENCE,
+			is_rookie=True,
+			rookie_season=league.season - 1,
+		)
 		session = self.client.session
 		session["selected_league_id"] = league.id
 		session.save()
 		self.client.force_login(user)
 
 		response = self.client.get(reverse("draft_room"))
-		self.assertEqual(set(response.context["available_players"]), {offense, goalie, transition})
+		self.assertEqual(set(response.context["available_players"]), {offense, goalie, transition, rookie, former_rookie})
 		self.assertContains(response, 'data-position-filter="O" aria-pressed="false"')
 
 		response = self.client.get(reverse("draft_room"), {"position": "G"})
@@ -437,9 +451,18 @@ class DraftRoomTests(TestCase):
 		response = self.client.get(reverse("draft_room"), {"position": ["O", "T"], "search": "searchable"})
 		self.assertEqual(list(response.context["available_players"]), [transition])
 		self.assertNotIn(offense, response.context["available_players"])
+
+		response = self.client.get(reverse("draft_room"), {"position": "R"})
+		self.assertEqual(list(response.context["available_players"]), [rookie])
+		self.assertContains(response, 'data-position-filter="R" aria-pressed="true"')
+		self.assertContains(response, "bg-pink-100")
+		self.assertContains(response, "ROOKIE")
+
+		response = self.client.get(reverse("draft_room"), {"position": ["G", "R"]})
+		self.assertEqual(set(response.context["available_players"]), {goalie, rookie})
 		self.assertContains(response, "data-position-filter=\"O\"")
 		self.assertContains(response, "Search players")
-		self.assertContains(response, 'name="position" value="O"')
+		self.assertContains(response, 'name="position" value="R"')
 
 	def test_draft_status_reflects_new_active_draft_picks(self):
 		user = get_user_model().objects.create_user(username="draft-status", password="test-password")

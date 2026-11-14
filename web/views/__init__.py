@@ -5538,7 +5538,7 @@ def draft_room(request):
     sort_dir = request.GET.get('sort_dir', 'desc')
     selected_positions = [
         position for position in request.GET.getlist('position')
-        if position in Player.Position.values
+        if position in (*Player.Position.values, 'R')
     ]
     player_search = request.GET.get('search', '').strip()
     if is_rookie_draft:
@@ -5566,7 +5566,17 @@ def draft_room(request):
             id__in=excluded_ids
         )
         if selected_positions:
-            available_players = available_players.filter(position__in=selected_positions)
+            player_positions = [
+                position for position in selected_positions
+                if position in Player.Position.values
+            ]
+            player_filter = Q(position__in=player_positions)
+            if 'R' in selected_positions:
+                player_filter |= Q(
+                    is_rookie=True,
+                    rookie_season=league.season,
+                )
+            available_players = available_players.filter(player_filter)
         if player_search:
             available_players = available_players.filter(
                 Q(first_name__icontains=player_search)

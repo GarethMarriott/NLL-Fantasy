@@ -206,6 +206,7 @@
             <button type="button" data-position-filter="D" aria-pressed="{% if 'D' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'D' in selected_positions %}border-orange-300 bg-orange-100 text-orange-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Defence</button>
             <button type="button" data-position-filter="T" aria-pressed="{% if 'T' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'T' in selected_positions %}border-purple-300 bg-purple-100 text-purple-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Transition</button>
             <button type="button" data-position-filter="G" aria-pressed="{% if 'G' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'G' in selected_positions %}border-blue-300 bg-blue-100 text-blue-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Goalie</button>
+            <button type="button" data-position-filter="R" aria-pressed="{% if 'R' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'R' in selected_positions %}border-pink-300 bg-pink-100 text-pink-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Rookies</button>
             <label for="player-search" class="sr-only">Search available players</label>
             <input id="player-search" name="search" value="{{ player_search }}" type="search" placeholder="Search players" class="min-w-40 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm">
             <button type="submit" class="rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-700">Search</button>
@@ -263,7 +264,7 @@
                 <tr class="border-b hover:bg-gray-50">
                   {% if is_rookie_draft %}
                   <td class="p-2 font-semibold">#{{ player.entry_draft_pick }}</td>
-                  <td class="p-2"><button type="button" onclick="openPlayerDetails({{ player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ player.first_name }} {{ player.last_name }}</button></td>
+                  <td class="p-2"><button type="button" onclick="openPlayerDetails({{ player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ player.first_name }} {{ player.last_name }}</button>{% if player.is_rookie and player.rookie_season == league.season %}<span class="ml-1 inline-block rounded bg-pink-100 px-1.5 py-0.5 text-xs font-bold text-pink-800">ROOKIE</span>{% endif %}</td>
                   <td class="p-2">
                     <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
                       {% if player.position == 'O' %}bg-green-100 text-green-800
@@ -284,7 +285,7 @@
                     </button>
                   </td>
                   {% endif %}
-                  <td class="p-2"><button type="button" onclick="openPlayerDetails({{ player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ player.first_name }} {{ player.last_name }}</button></td>
+                  <td class="p-2"><button type="button" onclick="openPlayerDetails({{ player.id }})" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline">{{ player.first_name }} {{ player.last_name }}</button>{% if player.is_rookie and player.rookie_season == league.season %}<span class="ml-1 inline-block rounded bg-pink-100 px-1.5 py-0.5 text-xs font-bold text-pink-800">ROOKIE</span>{% endif %}</td>
                   <td class="p-2">
                     <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
                       {% if player.position == 'O' %}bg-green-100 text-green-800
@@ -328,7 +329,7 @@
                 <tr class="border-b {% if pick.player.position == 'O' %}bg-green-50{% elif pick.player.position == 'D' %}bg-orange-50{% elif pick.player.position == 'T' %}bg-purple-50{% elif pick.player.position == 'G' %}bg-blue-50{% elif current_team and pick.team.id == current_team.id and draft.is_active and pick.round == draft.current_round and pick.pick_number == draft.current_pick %}bg-yellow-100{% endif %}">
                   <td class="p-2 font-semibold">{{ pick.overall_pick }}</td>
                   <td class="p-2">{{ pick.team.name }}</td>
-                  <td class="p-2">{% if pick.player %}{{ pick.player.first_name }} {{ pick.player.last_name }}{% else %}<span class="text-gray-400">—</span>{% endif %}</td>
+                  <td class="p-2">{% if pick.player %}{{ pick.player.first_name }} {{ pick.player.last_name }}{% if pick.player.is_rookie and pick.player.rookie_season == league.season %}<span class="ml-1 inline-block rounded bg-pink-100 px-1.5 py-0.5 text-xs font-bold text-pink-800">ROOKIE</span>{% endif %}{% else %}<span class="text-gray-400">—</span>{% endif %}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -358,7 +359,7 @@
                   {% if current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round and draft.current_pick == pick_data.position %}id="current-pick"{% endif %}>
                   <div class="font-semibold text-gray-700">{{ pick_data.pick_label }}</div>
                     {% if pick_data.pick.player %}
-                    <div class="text-gray-600">{{ pick_data.pick.player.first_name }} {{ pick_data.pick.player.last_name }}</div>
+                    <div class="text-gray-600">{{ pick_data.pick.player.first_name }} {{ pick_data.pick.player.last_name }}{% if pick_data.pick.player.is_rookie and pick_data.pick.player.rookie_season == league.season %}<span class="ml-1 inline-block rounded bg-pink-100 px-1.5 py-0.5 text-xs font-bold text-pink-800">ROOKIE</span>{% endif %}</div>
                     {% else %}
                     <div class="text-gray-400 italic">—</div>
                     {% endif %}
