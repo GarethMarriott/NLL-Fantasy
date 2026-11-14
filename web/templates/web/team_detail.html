@@ -135,7 +135,7 @@
               <p class="text-sm font-semibold text-red-800">⚠️ INELIGIBLE PLAYER ON IR</p>
               <p class="text-xs text-red-700">
                 {% for player in ineligible_ir_players %}
-                  <span>{{ player.last_name }}, {{ player.first_name }}</span>{% if not forloop.last %}<span>, </span>{% endif %}
+                  <span>{{ player.last_name }}, {{ player.first_name }}</span>{% if player.is_rookie and player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}{% if not forloop.last %}<span>, </span>{% endif %}
                 {% endfor %}
                 {% if ineligible_ir_players|length == 1 %}has been{% else %}have been{% endif %} reinstated and no longer ha{% if ineligible_ir_players|length == 1 %}s an{% else %}ve an{% endif %} IR badge. Please remove from IR slot{% if ineligible_ir_players|length == 1 %}{% else %}s{% endif %}.
               </p>
@@ -189,13 +189,13 @@
                               {{ claim.player_to_add.position }}
                             </span>
                             <span class="font-semibold text-sm">
-                              Add: {{ claim.player_to_add.last_name }}, {{ claim.player_to_add.first_name }}
+                              Add: {{ claim.player_to_add.last_name }}, {{ claim.player_to_add.first_name }}{% if claim.player_to_add.is_rookie and claim.player_to_add.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                               {% if claim.player_to_add.number %} #{{ claim.player_to_add.number }}{% endif %}
                             </span>
                           </div>
                           {% if claim.player_to_drop %}
                             <div class="mt-1 ml-8 text-xs text-gray-600">
-                              Drop: {{ claim.player_to_drop.last_name }}, {{ claim.player_to_drop.first_name }}
+                              Drop: {{ claim.player_to_drop.last_name }}, {{ claim.player_to_drop.first_name }}{% if claim.player_to_drop.is_rookie and claim.player_to_drop.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                               {% if claim.player_to_drop.number %} #{{ claim.player_to_drop.number }}{% endif %}
                             </div>
                           {% else %}
@@ -268,7 +268,7 @@
                                         {% else %}bg-blue-100 text-blue-800 border-blue-300{% endif %}">
                                         {{ trade_player.player.position }}
                                       </span>
-                                      <span>{{ trade_player.player.last_name }}, {{ trade_player.player.first_name }}</span>
+                                      <span>{{ trade_player.player.last_name }}, {{ trade_player.player.first_name }}</span>{% if trade_player.player.is_rookie and trade_player.player.rookie_season == league.season %}<span class="inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                                     </div>
                                   {% endif %}
                                 {% endfor %}
@@ -294,7 +294,7 @@
                                         {% else %}bg-blue-100 text-blue-800 border-blue-300{% endif %}">
                                         {{ trade_player.player.position }}
                                       </span>
-                                      <span>{{ trade_player.player.last_name }}, {{ trade_player.player.first_name }}</span>
+                                      <span>{{ trade_player.player.last_name }}, {{ trade_player.player.first_name }}</span>{% if trade_player.player.is_rookie and trade_player.player.rookie_season == league.season %}<span class="inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                                     </div>
                                   {% endif %}
                                 {% endfor %}
@@ -391,7 +391,7 @@
                   <div class="flex items-center justify-between gap-1">
                     <div class="text-left flex-1">
                       <div class="font-semibold truncate flex items-center gap-1.5">
-                        <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                        <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>{% if slot.player.is_rookie and slot.player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                         {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                         {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                         {% if slot.player.position == 'O' %}
@@ -438,7 +438,7 @@
                   <div class="flex items-center justify-between gap-1">
                     <div class="text-left flex-1">
                       <div class="font-semibold truncate flex items-center gap-1.5">
-                        <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                        <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>{% if slot.player.is_rookie and slot.player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                         {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                         {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                         {% if slot.player.position == 'O' %}
@@ -485,7 +485,7 @@
                   <div class="flex items-center justify-between gap-1">
                     <div class="text-left flex-1">
                       <div class="font-semibold truncate flex items-center gap-1.5">
-                        <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                        <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>{% if slot.player.is_rookie and slot.player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                         {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                         {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                         {% if slot.player.position == 'O' %}
@@ -553,7 +553,7 @@
               <div class="flex items-center justify-between gap-1">
                 <div class="text-left flex-1">
                   <div class="font-semibold truncate flex items-center gap-1.5">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>{% if slot.player.is_rookie and slot.player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                     {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                     {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                     {% if slot.player.position == 'O' %}
@@ -610,7 +610,7 @@
               <div class="flex items-center justify-between gap-1">
                 <div class="text-left flex-1">
                   <div class="font-semibold truncate flex items-center gap-1.5">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>
+                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ slot.player.id }}, '{{ slot.player.first_name }} {{ slot.player.last_name }}')">{{ slot.player.last_name }}, {{ slot.player.first_name }}</span>{% if slot.player.is_rookie and slot.player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                     {% if slot.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                     {% if slot.is_off_roster %}<span class="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded whitespace-nowrap">OFF ROSTER</span>{% endif %}
                     {% if slot.player.position == 'O' %}
@@ -656,9 +656,8 @@
               <td class="p-1 sm:p-2 md:p-3 w-32 sm:w-auto">
                 <div class="text-left">
                   <div class="font-semibold truncate">
-                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ taxi_entry.player.id }}, '{{ taxi_entry.player.first_name }} {{ taxi_entry.player.last_name }}')">{{ taxi_entry.player.last_name }}, {{ taxi_entry.player.first_name }}</span>
+                    <span class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ taxi_entry.player.id }}, '{{ taxi_entry.player.first_name }} {{ taxi_entry.player.last_name }}')">{{ taxi_entry.player.last_name }}, {{ taxi_entry.player.first_name }}</span>{% if taxi_entry.player.is_rookie and taxi_entry.player.rookie_season == league.season %}<span class="ml-1 inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                     {% if taxi_entry.player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
-                    {% if taxi_entry.player.is_rookie %}<span class="ml-1 text-xs bg-yellow-200 text-yellow-800 px-1 rounded">ROOKIE</span>{% endif %}
                   </div>
                   {% if taxi_entry.player.nll_team %}<div class="text-gray-600 text-xs"><strong>{{ taxi_entry.player.nll_team }}</strong></div>{% endif %}
                   {% if taxi_entry.is_locked %}<div class="text-purple-600 text-xs font-semibold">🔒 LOCKED</div>{% endif %}

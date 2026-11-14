@@ -212,6 +212,7 @@
               <div class="cursor-pointer hover:text-blue-600 hover:underline" onclick="showPlayerModal({{ player.id }}, '{{ player.first_name }} {{ player.last_name }}')">
                 <div class="font-semibold flex items-center gap-1.5">
                   <span>{{ player.last_name }}, {{ player.first_name }}</span>
+                  {% if league and player.is_rookie and player.rookie_season == league.season %}<span class="inline-flex size-4 items-center justify-center rounded-full bg-pink-100 text-[10px] font-bold text-pink-800">R</span>{% endif %}
                   {% if player.is_on_injured_reserve %}<span class="inline-block px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded whitespace-nowrap">IR</span>{% endif %}
                   {% if player.position == 'O' %}
                     <span class="inline-block px-2 py-0.5 bg-green-200 text-green-900 text-xs font-semibold rounded whitespace-nowrap">O</span>
