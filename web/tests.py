@@ -410,19 +410,17 @@ class DraftHistoryTests(TestCase):
 
 
 class DraftRoomTests(TestCase):
-	def test_draft_room_filters_available_players_by_position(self):
+	def test_draft_room_filters_available_players_by_position_and_search(self):
 		user = get_user_model().objects.create_user(username="position-filter", password="test-password")
 		league = League.objects.create(name="Position Filter League", commissioner=user)
 		Team.objects.create(name="Filter Team", league=league, season_year=league.season)
 		Draft.objects.create(league=league, total_rounds=1)
 		offense = Player.objects.create(first_name="Offense", last_name="Player", position=Player.Position.OFFENCE)
 		goalie = Player.objects.create(first_name="Goalie", last_name="Player", position=Player.Position.GOALIE)
-		rookie = Player.objects.create(
-			first_name="Rookie",
-			last_name="Player",
+		transition = Player.objects.create(
+			first_name="Searchable",
+			last_name="Transition",
 			position=Player.Position.TRANSITION,
-			is_rookie=True,
-			rookie_season=league.season,
 		)
 		session = self.client.session
 		session["selected_league_id"] = league.id
@@ -432,10 +430,12 @@ class DraftRoomTests(TestCase):
 		response = self.client.get(reverse("draft_room"), {"position": "G"})
 		self.assertEqual(list(response.context["available_players"]), [goalie])
 
-		response = self.client.get(reverse("draft_room"), {"position": "R"})
-		self.assertEqual(list(response.context["available_players"]), [rookie])
+		response = self.client.get(reverse("draft_room"), {"position": ["O", "T"], "search": "searchable"})
+		self.assertEqual(list(response.context["available_players"]), [transition])
 		self.assertNotIn(offense, response.context["available_players"])
-		self.assertContains(response, "Position")
+		self.assertContains(response, "data-position-filter=\"O\"")
+		self.assertContains(response, "Search players")
+		self.assertContains(response, 'name="position" value="O"')
 
 	def test_draft_status_reflects_new_active_draft_picks(self):
 		user = get_user_model().objects.create_user(username="draft-status", password="test-password")

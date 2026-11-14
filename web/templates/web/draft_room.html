@@ -200,16 +200,18 @@
           <h3 class="text-lg font-semibold mb-3">{% if is_rookie_draft %}Available {{ draft.season_year }} Rookies{% else %}Available Players{% endif %}</h3>
 
           {% if not is_rookie_draft %}
-          <form method="get" class="mb-3 flex items-center gap-2">
-            <label for="draft-position" class="text-sm font-medium text-gray-700">Position</label>
-            <select id="draft-position" name="position" onchange="this.form.submit()" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-              <option value="">All players</option>
-              <option value="O" {% if selected_position == 'O' %}selected{% endif %}>Offence</option>
-              <option value="D" {% if selected_position == 'D' %}selected{% endif %}>Defence</option>
-              <option value="T" {% if selected_position == 'T' %}selected{% endif %}>Transition</option>
-              <option value="G" {% if selected_position == 'G' %}selected{% endif %}>Goalie</option>
-              <option value="R" {% if selected_position == 'R' %}selected{% endif %}>Rookies</option>
-            </select>
+          <form method="get" id="available-player-filters" class="mb-3 flex flex-wrap items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">Positions</span>
+            <button type="button" data-position-filter="O" aria-pressed="{% if not selected_positions or 'O' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'O' in selected_positions %}border-green-300 bg-green-100 text-green-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Offence</button>
+            <button type="button" data-position-filter="D" aria-pressed="{% if not selected_positions or 'D' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'D' in selected_positions %}border-orange-300 bg-orange-100 text-orange-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Defence</button>
+            <button type="button" data-position-filter="T" aria-pressed="{% if not selected_positions or 'T' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'T' in selected_positions %}border-purple-300 bg-purple-100 text-purple-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Transition</button>
+            <button type="button" data-position-filter="G" aria-pressed="{% if not selected_positions or 'G' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'G' in selected_positions %}border-blue-300 bg-blue-100 text-blue-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Goalie</button>
+            <label for="player-search" class="sr-only">Search available players</label>
+            <input id="player-search" name="search" value="{{ player_search }}" type="search" placeholder="Search players" class="min-w-40 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <button type="submit" class="rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-700">Search</button>
+            {% for position in selected_positions %}
+            <input type="hidden" name="position" value="{{ position }}">
+            {% endfor %}
             <input type="hidden" name="sort_by" value="{{ sort_by }}">
             <input type="hidden" name="sort_dir" value="{{ sort_dir }}">
           </form>
@@ -323,7 +325,7 @@
               <thead class="bg-gray-200 sticky top-0"><tr class="text-left"><th class="p-2">Pick</th><th class="p-2">Team</th><th class="p-2">Selection</th></tr></thead>
               <tbody>
                 {% for pick in rookie_draft_picks %}
-                <tr class="border-b {% if current_team and pick.team.id == current_team.id and draft.is_active and pick.round == draft.current_round and pick.pick_number == draft.current_pick %}bg-yellow-100{% endif %}">
+                <tr class="border-b {% if pick.player.position == 'O' %}bg-green-50{% elif pick.player.position == 'D' %}bg-orange-50{% elif pick.player.position == 'T' %}bg-purple-50{% elif pick.player.position == 'G' %}bg-blue-50{% elif current_team and pick.team.id == current_team.id and draft.is_active and pick.round == draft.current_round and pick.pick_number == draft.current_pick %}bg-yellow-100{% endif %}">
                   <td class="p-2 font-semibold">{{ pick.overall_pick }}</td>
                   <td class="p-2">{{ pick.team.name }}</td>
                   <td class="p-2">{% if pick.player %}{{ pick.player.first_name }} {{ pick.player.last_name }}{% else %}<span class="text-gray-400">—</span>{% endif %}</td>
@@ -346,9 +348,13 @@
               <div class="font-semibold text-gray-700 p-2 bg-gray-100 rounded text-center">Rd {{ round_data.round }}</div>
               {% for pick_data in round_data.picks %}
                 <div class="p-2
-                  {% if pick_data.pick.player %}bg-gray-50
+                  {% if pick_data.pick.player.position == 'O' %}bg-green-100 border border-green-300
+                  {% elif pick_data.pick.player.position == 'D' %}bg-orange-100 border border-orange-300
+                  {% elif pick_data.pick.player.position == 'T' %}bg-purple-100 border border-purple-300
+                  {% elif pick_data.pick.player.position == 'G' %}bg-blue-100 border border-blue-300
                   {% elif current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round and draft.current_pick == pick_data.position %}bg-yellow-100 border border-yellow-300
                   {% else %}bg-white border border-gray-200{% endif %} rounded"
+                  {% if pick_data.pick.player %}data-draft-pick-position="{{ pick_data.pick.player.position }}"{% endif %}
                   {% if current_team and pick_data.team.id == current_team.id and draft.is_active and draft.current_round == round_data.round and draft.current_pick == pick_data.position %}id="current-pick"{% endif %}>
                   <div class="font-semibold text-gray-700">{{ pick_data.pick_label }}</div>
                     {% if pick_data.pick.player %}
@@ -679,6 +685,35 @@ function sortTable(column) {
   
   window.location.search = urlParams.toString();
 }
+
+document.querySelectorAll('.position-filter').forEach(button => {
+  button.addEventListener('click', () => {
+    const form = document.getElementById('available-player-filters');
+    const position = button.dataset.positionFilter;
+    const positionInputs = Array.from(form.querySelectorAll('input[name="position"]'));
+    const selectedPositions = new Set(
+      positionInputs.length
+        ? positionInputs.map(input => input.value)
+        : ['O', 'D', 'T', 'G']
+    );
+
+    if (selectedPositions.has(position)) {
+      selectedPositions.delete(position);
+    } else {
+      selectedPositions.add(position);
+    }
+
+    form.querySelectorAll('input[name="position"]').forEach(input => input.remove());
+    selectedPositions.forEach(selectedPosition => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'position';
+      input.value = selectedPosition;
+      form.append(input);
+    });
+    form.submit();
+  });
+});
 </script>
 
 {% if is_commissioner and draft and not is_rookie_draft and not draft.is_active and not draft.completed %}
