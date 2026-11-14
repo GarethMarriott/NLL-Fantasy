@@ -456,7 +456,7 @@ class DraftRoomTests(TestCase):
 		self.assertEqual(list(response.context["available_players"]), [rookie])
 		self.assertContains(response, 'data-position-filter="R" aria-pressed="true"')
 		self.assertContains(response, "bg-pink-100")
-		self.assertContains(response, "ROOKIE")
+		self.assertContains(response, 'rounded-full bg-pink-100')
 
 		response = self.client.get(reverse("draft_room"), {"position": ["G", "R"]})
 		self.assertEqual(set(response.context["available_players"]), {goalie, rookie})
