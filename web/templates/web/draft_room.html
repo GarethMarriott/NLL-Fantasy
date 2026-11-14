@@ -202,10 +202,10 @@
           {% if not is_rookie_draft %}
           <form method="get" id="available-player-filters" class="mb-3 flex flex-wrap items-center gap-2">
             <span class="text-sm font-medium text-gray-700">Positions</span>
-            <button type="button" data-position-filter="O" aria-pressed="{% if not selected_positions or 'O' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'O' in selected_positions %}border-green-300 bg-green-100 text-green-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Offence</button>
-            <button type="button" data-position-filter="D" aria-pressed="{% if not selected_positions or 'D' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'D' in selected_positions %}border-orange-300 bg-orange-100 text-orange-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Defence</button>
-            <button type="button" data-position-filter="T" aria-pressed="{% if not selected_positions or 'T' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'T' in selected_positions %}border-purple-300 bg-purple-100 text-purple-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Transition</button>
-            <button type="button" data-position-filter="G" aria-pressed="{% if not selected_positions or 'G' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if not selected_positions or 'G' in selected_positions %}border-blue-300 bg-blue-100 text-blue-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Goalie</button>
+            <button type="button" data-position-filter="O" aria-pressed="{% if 'O' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'O' in selected_positions %}border-green-300 bg-green-100 text-green-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Offence</button>
+            <button type="button" data-position-filter="D" aria-pressed="{% if 'D' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'D' in selected_positions %}border-orange-300 bg-orange-100 text-orange-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Defence</button>
+            <button type="button" data-position-filter="T" aria-pressed="{% if 'T' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'T' in selected_positions %}border-purple-300 bg-purple-100 text-purple-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Transition</button>
+            <button type="button" data-position-filter="G" aria-pressed="{% if 'G' in selected_positions %}true{% else %}false{% endif %}" class="position-filter rounded-md border px-3 py-2 text-sm font-semibold {% if 'G' in selected_positions %}border-blue-300 bg-blue-100 text-blue-800{% else %}border-gray-300 bg-white text-gray-500{% endif %}">Goalie</button>
             <label for="player-search" class="sr-only">Search available players</label>
             <input id="player-search" name="search" value="{{ player_search }}" type="search" placeholder="Search players" class="min-w-40 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm">
             <button type="submit" class="rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-700">Search</button>
@@ -691,11 +691,7 @@ document.querySelectorAll('.position-filter').forEach(button => {
     const form = document.getElementById('available-player-filters');
     const position = button.dataset.positionFilter;
     const positionInputs = Array.from(form.querySelectorAll('input[name="position"]'));
-    const selectedPositions = new Set(
-      positionInputs.length
-        ? positionInputs.map(input => input.value)
-        : ['O', 'D', 'T', 'G']
-    );
+    const selectedPositions = new Set(positionInputs.map(input => input.value));
 
     if (selectedPositions.has(position)) {
       selectedPositions.delete(position);

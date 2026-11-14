@@ -427,6 +427,10 @@ class DraftRoomTests(TestCase):
 		session.save()
 		self.client.force_login(user)
 
+		response = self.client.get(reverse("draft_room"))
+		self.assertEqual(set(response.context["available_players"]), {offense, goalie, transition})
+		self.assertContains(response, 'data-position-filter="O" aria-pressed="false"')
+
 		response = self.client.get(reverse("draft_room"), {"position": "G"})
 		self.assertEqual(list(response.context["available_players"]), [goalie])
 
